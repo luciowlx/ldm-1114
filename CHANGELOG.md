@@ -23,6 +23,16 @@
 ## 变更历史
 
 ### 2025-11-03
+- [Feat/DataManagement/Filter] 高级筛选：将“大小范围 (MB)”改为“列数范围”，并移除“完整度范围”筛选项；筛选逻辑改为按列数过滤。
+  - 涉及文件：
+    - src/components/DataManagement.tsx（替换 advancedFilters.sizeRange -> columnsRange；移除 completenessRange；更新筛选与重置逻辑；更新弹窗 UI）
+    - src/i18n/LanguageContext.tsx（新增 i18n 键 `data.filter.columnsRange`：中/英分别为“列数范围/Columns Range”）
+  - 说明/验证：运行 `npm run dev` 并在 http://localhost:3000/ 打开“数据管理 -> 高级筛选”，确认：
+    - 弹窗中“大小范围 (MB)”已变为“列数范围”，且“完整度范围”输入项已移除；
+    - 点击“应用”后，列表按列数范围过滤；
+    - 切换语言，中英文标签均正常显示；控制台无报错。
+
+### 2025-11-03
 - [Feat/TaskDetail/UI] “显示训练数据”开关与训练/测试数据叠加展示：
   - 指标趋势（RMSE、MAPE）：在开启开关时叠加训练集曲线（虚线），图例区分“测试/训练”。
   - 时序预测折线图（真实值/预测值/CI 上下界）：开启时叠加训练集，训练数据使用虚线与紫色系区分。

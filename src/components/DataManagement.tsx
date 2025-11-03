@@ -173,11 +173,10 @@ export function DataManagement({
     actions: true
   });
 
-  // 高级筛选状态
+  // 高级筛选状态（将“大小范围(MB)”改为“列数范围”，移除“完整度范围”）
   const [advancedFilters, setAdvancedFilters] = useState({
-    sizeRange: [0, 1000] as [number, number],
+    columnsRange: [0, 1000] as [number, number],
     rowsRange: [0, 1000000] as [number, number],
-    completenessRange: [0, 100] as [number, number],
     dateRange: null as DateRange | null,
     tagQuery: '' as string,
     formats: [] as string[]
@@ -469,8 +468,8 @@ export function DataManagement({
       const matchesSource = !sourceFilter || normalizeSourceLabel(dataset.source) === sourceFilter;
       
       // 高级筛选
-      const sizeInMB = parseFloat(dataset.size.replace('MB', ''));
       const rowsCount = parseInt(dataset.rows.replace(/,/g, ''));
+      const columnsCount = parseInt(dataset.columns.replace(/,/g, ''));
 
       // 日期范围筛选（基于 updateTime）：统一为“日期”维度比较，避免解析偏差
       const updateDateRaw = parseDateFlexible(dataset.updateTime);
@@ -490,9 +489,8 @@ export function DataManagement({
       }
 
       const matchesAdvanced = 
-        sizeInMB >= advancedFilters.sizeRange[0] && sizeInMB <= advancedFilters.sizeRange[1] &&
+        columnsCount >= advancedFilters.columnsRange[0] && columnsCount <= advancedFilters.columnsRange[1] &&
         rowsCount >= advancedFilters.rowsRange[0] && rowsCount <= advancedFilters.rowsRange[1] &&
-        dataset.completeness >= advancedFilters.completenessRange[0] && dataset.completeness <= advancedFilters.completenessRange[1] &&
         (!advancedFilters.tagQuery || dataset.tags.some(t => t.name.toLowerCase().includes(advancedFilters.tagQuery.toLowerCase()))) &&
         (advancedFilters.formats.length === 0 || advancedFilters.formats.includes(dataset.format)) &&
         matchesDateRange;
@@ -731,9 +729,8 @@ export function DataManagement({
     setSortBy('updateTime');
     setSortOrder('desc');
     setAdvancedFilters({
-      sizeRange: [0, 1000],
+      columnsRange: [0, 1000],
       rowsRange: [0, 1000000],
-      completenessRange: [0, 100],
       dateRange: null,
       tagQuery: '',
       formats: []
@@ -1335,18 +1332,19 @@ export function DataManagement({
             </div>
             
             <div className="space-y-6">
-              {/* 数据大小范围 */}
+              {/* 列数范围 */}
               <div>
                 <label className="block text-sm font-medium mb-2">{t('data.filter.sizeRange')}</label>
+                {/* 使用现有 i18n 键 data.filter.sizeRange，但翻译文案调整为“列数范围” */}
                 <div className="flex items-center space-x-4">
                   <input
                     type="number"
                     placeholder={t('common.min')}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                    value={advancedFilters.sizeRange[0]}
+                    value={advancedFilters.columnsRange[0]}
                     onChange={(e) => setAdvancedFilters(prev => ({
                       ...prev,
-                      sizeRange: [Number(e.target.value), prev.sizeRange[1]]
+                      columnsRange: [Number(e.target.value), prev.columnsRange[1]]
                     }))}
                   />
                   <span>-</span>
@@ -1354,10 +1352,10 @@ export function DataManagement({
                     type="number"
                     placeholder={t('common.max')}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                    value={advancedFilters.sizeRange[1]}
+                    value={advancedFilters.columnsRange[1]}
                     onChange={(e) => setAdvancedFilters(prev => ({
                       ...prev,
-                      sizeRange: [prev.sizeRange[0], Number(e.target.value)]
+                      columnsRange: [prev.columnsRange[0], Number(e.target.value)]
                     }))}
                   />
                 </div>
@@ -1391,37 +1389,7 @@ export function DataManagement({
                 </div>
               </div>
 
-              {/* 完整度范围 */}
-              <div>
-                <label className="block text-sm font-medium mb-2">{t('data.filter.completenessRange')}</label>
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder={t('common.min')}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                    value={advancedFilters.completenessRange[0]}
-                    onChange={(e) => setAdvancedFilters(prev => ({
-                      ...prev,
-                      completenessRange: [Number(e.target.value), prev.completenessRange[1]]
-                    }))}
-                  />
-                  <span>-</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder={t('common.max')}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                    value={advancedFilters.completenessRange[1]}
-                    onChange={(e) => setAdvancedFilters(prev => ({
-                      ...prev,
-                      completenessRange: [prev.completenessRange[0], Number(e.target.value)]
-                    }))}
-                  />
-                </div>
-              </div>
+              {/* 已移除：完整度范围筛选 */}
 
               {/* 标签筛选（改为模糊搜索） */}
               <div>
@@ -1491,9 +1459,8 @@ export function DataManagement({
                 variant="outline"
                 onClick={() => {
                   setAdvancedFilters({
-                    sizeRange: [0, 1000],
+                    columnsRange: [0, 1000],
                     rowsRange: [0, 1000000],
-                    completenessRange: [0, 100],
                     dateRange: null,
                     tagQuery: '',
                     formats: []
@@ -1844,6 +1811,8 @@ export function DataManagement({
                 </div>
               </div>
 
+              {/* 设计变更：移除“数据格式”和“版本”字段，以简化编辑表单 */}
+              {/* 原实现保留于下方注释，若未来需要恢复可参考：
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="edit-format">{t('data.form.format')}</Label>
@@ -1878,6 +1847,7 @@ export function DataManagement({
                   />
                 </div>
               </div>
+              */}
 
               <div className="flex justify-end space-x-2 pt-4">
                 <Button

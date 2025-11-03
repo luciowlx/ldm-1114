@@ -97,6 +97,8 @@ const messages: Record<Lang, Record<string, string>> = {
     // 高级筛选与列设置（数据管理）
     "data.filter.title": "高级筛选",
     "data.filter.sizeRange": "大小范围 (MB)",
+    // 新增：列数范围（用于替换原“大小范围(MB)”的筛选项）
+    "data.filter.columnsRange": "列数范围",
     "data.filter.rowsRange": "行数范围",
     "data.filter.completenessRange": "完整度范围",
     "data.filter.dateRange": "日期范围",
@@ -511,6 +513,8 @@ const messages: Record<Lang, Record<string, string>> = {
     // Advanced filter & column settings (Data Mgmt)
     "data.filter.title": "Advanced Filter",
     "data.filter.sizeRange": "Size Range (MB)",
+    // New: columns range (used to replace former "Size Range (MB)" filter item)
+    "data.filter.columnsRange": "Columns Range",
     "data.filter.rowsRange": "Rows Range",
     "data.filter.completenessRange": "Completeness Range",
     "data.filter.dateRange": "Date Range",
