@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Clock, User, Database, Brain, AlertCircle, CheckCircle, XCircle, Pause, Play, RotateCcw, Archive, Eye, Settings, Download, Share2, Calendar, Tag, FileText, BarChart3, Activity, Zap, Loader2, Filter, Search, TrendingUp, ArrowUpDown, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
+import { ArrowLeft, Clock, User, Database, Brain, AlertCircle, CheckCircle, XCircle, Pause, Play, RotateCcw, Archive, Eye, Settings, Download, Share2, Calendar, Tag, FileText, BarChart3, Activity, Zap, Loader2, Filter, Search, TrendingUp, ArrowUpDown, ChevronLeft, ChevronRight, GripVertical, Circle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -53,7 +53,7 @@ interface Task {
   id: string;
   taskName: string;
   taskType: 'classification' | 'regression' | 'clustering' | 'anomaly_detection' | 'forecasting' | 'nlp' | 'computer_vision';
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'paused';
+  status: 'not_started' | 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'archived' | 'paused';
   priority: 'low' | 'medium' | 'high';
   datasetName: string;
   datasetVersion: string;
@@ -71,6 +71,8 @@ interface Task {
   logs?: Array<{ timestamp: string; level: 'info' | 'warning' | 'error'; message: string; }>;
   metrics?: Record<string, number>;
   artifacts?: Array<{ name: string; type: string; size: string; url: string; }>;
+  // 兼容列表页的曾排队标记，用于在未开始状态下显示“重新运行”按钮
+  hasQueuedBefore?: boolean;
   // 兼容 TaskManagement 传入的配置信息
   config?: any;
 }
@@ -79,9 +81,16 @@ interface TaskDetailFullPageProps {
   task: Task;
   onClose: () => void;
   onOpenDataDetail?: (dataset: any) => void;
+  /**
+   * 当详情页内对任务进行局部状态覆盖（前端模拟）时，向外部上报补丁。
+   * 参数：
+   *  - taskId: 任务ID
+   *  - patch: 需要覆盖的字段（例如 status/progress/hasQueuedBefore 等）
+   */
+  onTaskPatched?: (taskId: string, patch: Partial<Task>) => void;
 }
 
-const TaskDetailFullPage: React.FC<TaskDetailFullPageProps> = ({ task, onClose, onOpenDataDetail }) => {
+const TaskDetailFullPage: React.FC<TaskDetailFullPageProps> = ({ task, onClose, onOpenDataDetail, onTaskPatched }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; action: string; taskId: string; taskName: string }>({ isOpen: false, action: '', taskId: '', taskName: '' });
@@ -96,6 +105,53 @@ const TaskDetailFullPage: React.FC<TaskDetailFullPageProps> = ({ task, onClose, 
   const [artifactPreviewName, setArtifactPreviewName] = useState<string | null>(null);
   const [artifactPreviewType, setArtifactPreviewType] = useState<'yaml' | 'json' | 'text'>('yaml');
   const [artifactPreviewContent, setArtifactPreviewContent] = useState<string>('');
+  // 结果区域切换：是否叠加显示训练数据（默认关闭，仅显示测试集）
+  // 用途：控制预测结果表和相关可视化在“测试集”基础上是否叠加“训练集”数据
+  const [showTrainData, setShowTrainData] = useState<boolean>(false);
+
+  // 本地任务覆盖：用于立即反映详情页触发的状态变化（如取消排队后显示“重新运行”）
+  const [localTaskOverrides, setLocalTaskOverrides] = useState<Partial<Task>>({});
+
+  /**
+   * 重置本地覆盖，当切换到不同任务时，避免跨任务状态串扰。
+   * 参数：无
+   * 返回值：无
+   */
+  useEffect(() => {
+    setLocalTaskOverrides({});
+  }, [task.id]);
+
+  /**
+   * 合并后的任务对象：优先使用本地覆盖字段（如 status、hasQueuedBefore），用于动作渲染与状态展示。
+   * 参数：无
+   * 返回值：Task 合并对象
+   */
+  const computedTask: Task = { ...task, ...localTaskOverrides } as Task;
+
+  /**
+   * 局部更新任务覆盖状态（仅前端展示用，不影响外层列表数据）。
+   * 参数：
+   * - patch: Partial<Task> 需要覆盖的字段
+   * 返回值：无
+   */
+  /**
+   * 局部更新任务覆盖状态（仅前端展示用），并通过 onTaskPatched 上报给外层列表/父组件。
+   * 参数：
+   * - patch: Partial<Task> 需要覆盖的字段
+   * 返回值：无
+   */
+  const applyTaskOverrides = (patch: Partial<Task>) => {
+    setLocalTaskOverrides(prev => ({ ...prev, ...patch }));
+    // 向上汇报补丁，驱动任务列表保持一致（例如状态徽章、进度动画等）
+    if (onTaskPatched) {
+      try {
+        onTaskPatched(task.id, patch);
+      } catch (e) {
+        // 忽略外层回调异常，避免影响本地交互
+        console.warn('onTaskPatched callback error:', e);
+      }
+    }
+  };
 
   // 示例：model_config.yaml 预览内容（后续可替换为后端真实返回）
   const MODEL_CONFIG_YAML_SAMPLE = `# 1. 任务元信息（追溯与关联）
@@ -326,6 +382,14 @@ output:
     f1: { micro: 0.900, macro: 0.891, weighted: 0.893 },
     roc_auc: { micro: 0.940, macro: 0.945, weighted: 0.943 },
   };
+  // 训练集指标（分类）：用于在打开“显示训练数据”时进行数值对比展示
+  const trainClassificationMetrics = {
+    accuracy: 0.935,
+    precision: { micro: 0.910, macro: 0.902, weighted: 0.906 },
+    recall: { micro: 0.905, macro: 0.893, weighted: 0.895 },
+    f1: { micro: 0.908, macro: 0.897, weighted: 0.899 },
+    roc_auc: { micro: 0.952, macro: 0.957, weighted: 0.955 },
+  };
 
   // 多分类ROC曲线数据（示例三类 + macro/micro）
   const classificationRocData = [
@@ -425,6 +489,36 @@ output:
     return res;
   }, [forecastingParams]);
 
+  /**
+   * 训练集示例数据（与测试集结构一致）。
+   * 说明：为原型演示目的，训练集通过与测试集相同的生成逻辑并在噪声幅度上做轻微差异制造，从而可视化对比。
+   * 依赖：forecastingParams（起始时间与步长保持一致，便于对齐X轴）。
+   */
+  const forecastTrainSeries: ForecastPoint[] = React.useMemo(() => {
+    const len = 80;
+    const startMs = (() => {
+      const st = forecastingParams?.startTime;
+      const d = st ? new Date(st) : new Date(Date.now() - len * 3600 * 1000);
+      return isNaN(d.getTime()) ? Date.now() - len * 3600 * 1000 : d.getTime();
+    })();
+    const stepHours = Number(forecastingParams?.stepLength ?? 1);
+    let base = 98; // 与测试集略有偏移，模拟训练集分布
+    const res: ForecastPoint[] = Array.from({ length: len }, (_, i) => {
+      base += (Math.random() - 0.5) * 2.6 + Math.sin(i / 11) * 0.7;
+      const actual = Number(base.toFixed(2));
+      const predictedRaw = actual * (1 + (Math.random() - 0.5) * 0.06);
+      const predicted = Number(predictedRaw.toFixed(2));
+      const err = Math.abs(predicted - actual);
+      const ci = err * 1.4;
+      const ciLower = Number((predicted - ci).toFixed(2));
+      const ciUpper = Number((predicted + ci).toFixed(2));
+      const t = startMs + i * stepHours * 3600 * 1000;
+      const time = new Date(t).toLocaleString('zh-CN', { hour12: false });
+      return { t: i, time, actual, predicted, ciLower, ciUpper };
+    });
+    return res;
+  }, [forecastingParams]);
+
   // 计算基础指标
   const forecastingMetrics = React.useMemo(() => {
     const n = forecastSeries.length;
@@ -440,23 +534,34 @@ output:
   }, [forecastSeries]);
 
   // 残差与散点数据
+  // 测试集：残差与散点
   const forecastingResiduals = React.useMemo(() => forecastSeries.map((p) => ({ pred: p.predicted, residual: Number((p.predicted - p.actual).toFixed(2)) })), [forecastSeries]);
   const forecastingPredVsActual = React.useMemo(() => forecastSeries.map((p) => ({ actual: p.actual, pred: p.predicted })), [forecastSeries]);
+  // 训练集：残差与散点
+  const forecastingTrainResiduals = React.useMemo(() => forecastTrainSeries.map((p) => ({ pred: p.predicted, residual: Number((p.predicted - p.actual).toFixed(2)) })), [forecastTrainSeries]);
+  const forecastingTrainPredVsActual = React.useMemo(() => forecastTrainSeries.map((p) => ({ actual: p.actual, pred: p.predicted })), [forecastTrainSeries]);
 
   // 误差分布直方图（绝对误差）
+  /**
+   * 误差分布直方图（合并训练/测试）。
+   * 默认仅返回测试集；当 showTrainData=true 时，返回每个区间的 testCount/trainCount，便于在同一图表中分栏展示。
+   */
   const forecastingErrorHistogram = React.useMemo(() => {
-    const absErrors = forecastSeries.map((p) => Math.abs(p.predicted - p.actual));
     const bins = [0, 2, 4, 6, 8, 10, 15, 20];
-    const counts: { bin: string; count: number }[] = [];
+    const testErrors = forecastSeries.map((p) => Math.abs(p.predicted - p.actual));
+    const trainErrors = forecastTrainSeries.map((p) => Math.abs(p.predicted - p.actual));
+    const records: { bin: string; count?: number; testCount?: number; trainCount?: number }[] = [];
     for (let i = 0; i < bins.length - 1; i++) {
       const low = bins[i], high = bins[i + 1];
-      const cnt = absErrors.filter((e) => e >= low && e < high).length;
-      counts.push({ bin: `${low}-${high}`, count: cnt });
+      const testCnt = testErrors.filter((e) => e >= low && e < high).length;
+      const trainCnt = showTrainData ? trainErrors.filter((e) => e >= low && e < high).length : 0;
+      records.push(showTrainData ? { bin: `${low}-${high}`, testCount: testCnt, trainCount: trainCnt } : { bin: `${low}-${high}`, count: testCnt });
     }
-    const over = absErrors.filter((e) => e >= bins[bins.length - 1]).length;
-    counts.push({ bin: `${bins[bins.length - 1]}+`, count: over });
-    return counts;
-  }, [forecastSeries]);
+    const overTest = testErrors.filter((e) => e >= bins[bins.length - 1]).length;
+    const overTrain = showTrainData ? trainErrors.filter((e) => e >= bins[bins.length - 1]).length : 0;
+    records.push(showTrainData ? { bin: `${bins[bins.length - 1]}+`, testCount: overTest, trainCount: overTrain } : { bin: `${bins[bins.length - 1]}+`, count: overTest });
+    return records;
+  }, [forecastSeries, forecastTrainSeries, showTrainData]);
 
   // 指标趋势（示例：RMSE / MAPE 随时间变化）：使用滑动窗口计算
   const metricTrend = React.useMemo(() => {
@@ -471,6 +576,50 @@ output:
     });
     return arr;
   }, [forecastSeries, forecastingParams]);
+
+  /**
+   * 训练集指标趋势与合并趋势：与测试集同窗口计算，便于在同一图中对比。
+   */
+  const trainMetricTrend = React.useMemo(() => {
+    const win = Math.max(3, Math.min(12, Number(forecastingParams?.stepLength ?? 6)));
+    const arr = forecastTrainSeries.map((_, idx) => {
+      const start = Math.max(0, idx - win + 1);
+      const slice = forecastTrainSeries.slice(start, idx + 1);
+      const n = slice.length;
+      const rmse = Math.sqrt(slice.reduce((s, p) => s + (p.predicted - p.actual) ** 2, 0) / (n || 1));
+      const mape = slice.reduce((s, p) => s + Math.abs((p.predicted - p.actual) / (p.actual || 1)), 0) / (n || 1);
+      return { time: forecastTrainSeries[idx].time, RMSE_train: Number(rmse.toFixed(2)), MAPE_train: Number((mape * 100).toFixed(2)) };
+    });
+    return arr;
+  }, [forecastTrainSeries, forecastingParams]);
+
+  // 将测试与训练趋势按索引对齐，便于单图渲染两个系列
+  const combinedMetricTrend = React.useMemo(() => {
+    if (!showTrainData) return metricTrend;
+    const len = Math.min(metricTrend.length, trainMetricTrend.length);
+    return Array.from({ length: len }, (_, i) => ({
+      time: metricTrend[i].time,
+      RMSE: metricTrend[i].RMSE,
+      MAPE: metricTrend[i].MAPE,
+      RMSE_train: trainMetricTrend[i].RMSE_train,
+      MAPE_train: trainMetricTrend[i].MAPE_train,
+    }));
+  }, [metricTrend, trainMetricTrend, showTrainData]);
+
+  // 时序曲线：将训练集与测试集合并为同一数据源，便于单图渲染两套系列
+  const combinedForecastLineData = React.useMemo(() => {
+    if (!showTrainData) return forecastSeries;
+    const len = Math.min(forecastSeries.length, forecastTrainSeries.length);
+    return Array.from({ length: len }, (_, i) => ({
+      time: forecastSeries[i].time,
+      actual: forecastSeries[i].actual,
+      predicted: forecastSeries[i].predicted,
+      ciUpper: forecastSeries[i].ciUpper,
+      ciLower: forecastSeries[i].ciLower,
+      train_actual: forecastTrainSeries[i].actual,
+      train_predicted: forecastTrainSeries[i].predicted,
+    }));
+  }, [forecastSeries, forecastTrainSeries, showTrainData]);
 
   
 
@@ -724,26 +873,53 @@ output:
       testFeatureFieldNames.forEach((name, i) => {
         featureObj[name] = Number((syntheticVals[i % syntheticVals.length]).toFixed(2));
       });
-      return { time: p.time, actual: p.actual, predicted: p.predicted, ...featureObj } as Record<string, any>;
+      return { time: p.time, actual: p.actual, predicted: p.predicted, dataset: '测试', ...featureObj } as Record<string, any>;
     });
   }, [forecastSeries, testFeatureFieldNames]);
+
+  /**
+   * 训练集行（预测结果表用）：结构与测试集相同，新增 dataset 标识为“训练”。
+   */
+  const forecastingTrainSetRows = React.useMemo(() => {
+    return forecastTrainSeries.map((p, idx) => {
+      const syntheticVals = [
+        p.actual * (1 + (Math.random() - 0.5) * 0.02),
+        p.actual * 0.8 + Math.sin(idx / 8) * 2 + (Math.random() - 0.5) * 1.5,
+        p.actual * 1.2 + Math.cos(idx / 6) * 1.5 + (Math.random() - 0.5) * 1.5,
+        p.actual + (Math.random() - 0.5) * 3,
+        p.actual * 0.9 + (Math.random() - 0.5) * 2.5,
+      ];
+      const featureObj: Record<string, number> = {};
+      testFeatureFieldNames.forEach((name, i) => {
+        featureObj[name] = Number((syntheticVals[i % syntheticVals.length]).toFixed(2));
+      });
+      return { time: p.time, actual: p.actual, predicted: p.predicted, dataset: '训练', ...featureObj } as Record<string, any>;
+    });
+  }, [forecastTrainSeries, testFeatureFieldNames]);
 
   // 预测结果表分页：默认每页10行
   const [resultPage, setResultPage] = useState<number>(1);
   const pageSize = 10;
-  const totalRows = forecastingTestSetRows.length;
+  // 合并列表：开关开启时追加训练集数据；否则仅测试集
+  const combinedForecastRows = React.useMemo(() => (
+    showTrainData ? [...forecastingTestSetRows, ...forecastingTrainSetRows] : forecastingTestSetRows
+  ), [showTrainData, forecastingTestSetRows, forecastingTrainSetRows]);
+  const totalRows = combinedForecastRows.length;
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
   useEffect(() => {
     // 数据变化时重置到首页
     setResultPage(1);
   }, [totalRows]);
   const startIndex = (resultPage - 1) * pageSize;
-  const currentRows = forecastingTestSetRows.slice(startIndex, startIndex + pageSize);
+  const currentRows = combinedForecastRows.slice(startIndex, startIndex + pageSize);
   // 导出：预测结果表 CSV（utf-8-sig）
+  /**
+   * 导出预测结果CSV：当显示训练数据时，导出合并后的数据，并增加 dataset 列。
+   */
   const handleDownloadForecastCSV = React.useCallback(() => {
     try {
-      // 列顺序与表格一致：时间、测试集真实字段、真实值、预测结果
-      const columns: string[] = ['time', ...testFeatureFieldNames, 'actual', 'predicted'];
+      // 列顺序与表格一致：时间、数据集、测试集真实字段、真实值、预测结果
+      const columns: string[] = ['time', 'dataset', ...testFeatureFieldNames, 'actual', 'predicted'];
       const header = columns.join(',');
 
       // 构造 CSV 行，进行基础的转义处理
@@ -757,7 +933,7 @@ output:
         return s;
       };
 
-      const lines = forecastingTestSetRows.map((row) => {
+      const lines = combinedForecastRows.map((row) => {
         return columns.map((col) => esc(row[col])).join(',');
       });
 
@@ -784,7 +960,7 @@ output:
       console.error('导出 CSV 失败:', err);
       toast.error('导出 CSV 失败');
     }
-  }, [forecastingTestSetRows, testFeatureFieldNames, task.taskName, task.id]);
+  }, [combinedForecastRows, testFeatureFieldNames, task.taskName, task.id]);
   const pageNumbers: Array<number | 'ellipsis'> = React.useMemo(() => {
     const arr: Array<number | 'ellipsis'> = [];
     if (pageCount <= 7) {
@@ -997,16 +1173,23 @@ output:
     setColumnOrderMode('original');
   };
 
+  /**
+   * 返回详情页状态的显示配置（颜色、图标与中文标签）。
+   * 参数：status - 任务状态枚举。
+   * 返回值：包含 label、color、icon 的配置对象。
+   */
   const getStatusConfig = (status: Task['status']) => {
     const configs = {
-      pending: { label: '等待中', color: 'bg-gray-100 text-gray-800', icon: Clock },
+      not_started: { label: '未开始', color: 'bg-gray-100 text-gray-800', icon: Circle },
+      pending: { label: '排队中', color: 'bg-gray-100 text-gray-800', icon: Clock },
       running: { label: '运行中', color: 'bg-blue-100 text-blue-800', icon: Play },
       completed: { label: '已完成', color: 'bg-green-100 text-green-800', icon: CheckCircle },
       failed: { label: '失败', color: 'bg-red-100 text-red-800', icon: XCircle },
       cancelled: { label: '已取消', color: 'bg-gray-100 text-gray-800', icon: XCircle },
+      archived: { label: '已归档', color: 'bg-gray-100 text-gray-600', icon: Archive },
       paused: { label: '已暂停', color: 'bg-yellow-100 text-yellow-800', icon: Pause },
-    };
-    return configs[status];
+    } as const;
+    return (configs as any)[status];
   };
 
   const getPriorityConfig = (priority: Task['priority']) => {
@@ -1187,17 +1370,40 @@ output:
     }
   };
 
+  /**
+   * 详情页执行任务操作（前端模拟，仅提示与导出）。
+   * 参数：
+   *  - action: 操作键（start/stop/retry/rerun/cancel_queue/archive/delete/export/...）。
+   *  - taskId: 目标任务ID。
+   * 返回值：无（toast 反馈与弹窗关闭）。
+   */
   const executeTaskAction = async (action: string, taskId: string) => {
     setLoadingAction(`${taskId}:${action}`);
     try {
       await performNetworkAction(action, taskId);
       if (action === 'start') {
+        // 本地立即反映为运行中
+        applyTaskOverrides({ status: 'running', progress: typeof task.progress === 'number' ? task.progress : 5 });
         toast.success('任务已开始');
       } else if (action === 'stop') {
+        // 本地立即反映为已取消
+        applyTaskOverrides({ status: 'cancelled' });
         toast.success('任务已停止');
       } else if (action === 'retry') {
+        // 本地立即反映为排队中
+        applyTaskOverrides({ status: 'pending', progress: undefined });
         toast.success('任务已进入排队');
+      } else if (action === 'rerun') {
+        // 本地立即反映为排队中
+        applyTaskOverrides({ status: 'pending', progress: undefined });
+        toast.success('任务已进入排队');
+      } else if (action === 'cancel_queue') {
+        // 取消排队后：标记 hasQueuedBefore=true，使“未开始”状态显示“重新运行”
+        applyTaskOverrides({ status: 'not_started', progress: undefined, hasQueuedBefore: true });
+        toast.success('已取消排队，任务回到未开始状态');
       } else if (action === 'archive') {
+        // 本地立即反映为已归档
+        applyTaskOverrides({ status: 'archived' });
         toast.success('任务已归档');
       } else if (action === 'delete') {
         toast.success('任务已删除');
@@ -1223,8 +1429,13 @@ output:
     setConfirmDialog({ isOpen: false, action: '', taskId: '', taskName: '' });
   };
 
+  /**
+   * 详情页操作触发：需要确认的操作先弹确认框，其它直接执行。
+   * 参数：action - 操作键；taskId - 任务ID。
+   * 返回值：无。
+   */
   const handleTaskAction = (action: string, taskId: string) => {
-    if (['start', 'stop', 'archive', 'retry', 'delete'].includes(action.trim())) {
+    if (['start', 'stop', 'archive', 'retry', 'rerun', 'cancel_queue', 'delete'].includes(action.trim())) {
       setConfirmDialog({ isOpen: true, action: action.trim(), taskId, taskName: task.taskName });
     } else {
       executeTaskAction(action.trim(), taskId);
@@ -1268,8 +1479,8 @@ output:
                   <div>
                     <p className="text-gray-600">状态</p>
                     <div className="flex items-center gap-2 mt-1">
-                      {React.createElement(getStatusConfig(task.status).icon, { className: "h-4 w-4" })}
-                      <Badge className={getStatusConfig(task.status).color}>{getStatusConfig(task.status).label}</Badge>
+                      {React.createElement(getStatusConfig(computedTask.status).icon, { className: "h-4 w-4" })}
+                      <Badge className={getStatusConfig(computedTask.status).color}>{getStatusConfig(computedTask.status).label}</Badge>
                     </div>
                   </div>
                   <div>
@@ -1402,16 +1613,19 @@ output:
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {[
-                  { key: 'Accuracy', val: classificationMetrics.accuracy },
-                  { key: 'Precision', val: classificationMetrics.precision[avgMethod] },
-                  { key: 'Recall', val: classificationMetrics.recall[avgMethod] },
-                  { key: 'F1-score', val: classificationMetrics.f1[avgMethod] },
-                  { key: 'ROC-AUC', val: classificationMetrics.roc_auc[avgMethod] },
+                  { key: 'Accuracy', test: classificationMetrics.accuracy, train: trainClassificationMetrics.accuracy },
+                  { key: 'Precision', test: classificationMetrics.precision[avgMethod], train: trainClassificationMetrics.precision[avgMethod] },
+                  { key: 'Recall', test: classificationMetrics.recall[avgMethod], train: trainClassificationMetrics.recall[avgMethod] },
+                  { key: 'F1-score', test: classificationMetrics.f1[avgMethod], train: trainClassificationMetrics.f1[avgMethod] },
+                  { key: 'ROC-AUC', test: classificationMetrics.roc_auc[avgMethod], train: trainClassificationMetrics.roc_auc[avgMethod] },
                 ].map((item) => (
                   <Card key={item.key} className="border-gray-200">
                     <CardContent className="pt-6">
                       <p className="text-sm text-gray-600">{item.key}</p>
-                      <p className="text-2xl font-bold">{(item.val * 100).toFixed(1)}%</p>
+                      <p className="text-xl font-bold text-gray-900">{(item.test * 100).toFixed(1)}% <span className="text-sm font-medium text-gray-500">(测试)</span></p>
+                      {showTrainData && (
+                        <p className="text-base font-semibold text-purple-700 mt-1">{(item.train * 100).toFixed(1)}% <span className="text-xs font-medium text-purple-600">(训练)</span></p>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -1644,10 +1858,16 @@ output:
                   <CardTitle>预测结果表</CardTitle>
                   <CardDescription>最后一列为预测结果，前面的列为测试集的实际字段（默认每页 10 行，可分页查看更多）</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleDownloadForecastCSV} className="shrink-0">
-                  <Download className="mr-2 h-4 w-4" />
-                  导出 CSV
-                </Button>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-700">显示训练数据</span>
+                    <Switch checked={showTrainData} onCheckedChange={(checked) => setShowTrainData(Boolean(checked))} />
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleDownloadForecastCSV} className="shrink-0">
+                    <Download className="mr-2 h-4 w-4" />
+                    导出 CSV
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -1656,6 +1876,7 @@ output:
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky top-0 bg-white z-10 whitespace-nowrap">时间</TableHead>
+                      <TableHead className="sticky top-0 bg-white z-10 whitespace-nowrap">数据集</TableHead>
                       {testFeatureFieldNames.map((name) => (
                         <TableHead key={name} className="sticky top-0 bg-white z-10 whitespace-nowrap">{name}</TableHead>
                       ))}
@@ -1678,6 +1899,11 @@ output:
                     {currentRows.map((row, idx) => (
                       <TableRow key={idx}>
                         <TableCell className="text-gray-700 whitespace-nowrap">{row.time}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <Badge variant={row.dataset === '训练' ? 'secondary' : 'default'} className={row.dataset === '训练' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}>
+                            {row.dataset ?? '测试'}
+                          </Badge>
+                        </TableCell>
                         {testFeatureFieldNames.map((name) => (
                           <TableCell key={name} className="text-right">{Number(row[name]).toFixed(2)}</TableCell>
                         ))}
@@ -1748,16 +1974,24 @@ output:
               <CardDescription>RMSE 与 MAPE 随时间变化（示意）</CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer className="h-64" config={{
+              <ChartContainer className="h-64" config={showTrainData ? {
+                RMSE: { label: 'RMSE(测试)', color: 'hsl(210 90% 55%)' },
+                MAPE: { label: 'MAPE(测试) (%)', color: 'hsl(120 70% 45%)' },
+                RMSE_train: { label: 'RMSE(训练)', color: 'hsl(210 60% 65%)' },
+                MAPE_train: { label: 'MAPE(训练) (%)', color: 'hsl(120 50% 60%)' },
+              } : {
                 RMSE: { label: 'RMSE', color: 'hsl(210 90% 55%)' },
                 MAPE: { label: 'MAPE (%)', color: 'hsl(120 70% 45%)' },
               }}>
-                <LineChart data={metricTrend} margin={{ left: 12, right: 12 }}>
+                <LineChart data={combinedMetricTrend} margin={{ left: 12, right: 12 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="time" tickLine={false} />
                   <YAxis />
                   <Line type="monotone" dataKey="RMSE" stroke="var(--color-RMSE)" dot={false} strokeWidth={2} />
                   <Line type="monotone" dataKey="MAPE" stroke="var(--color-MAPE)" dot={false} strokeWidth={2} />
+                  {/* 训练集：使用虚线区分 */}
+                  <Line type="monotone" dataKey="RMSE_train" stroke="var(--color-RMSE_train)" dot={false} strokeDasharray="5 3" />
+                  <Line type="monotone" dataKey="MAPE_train" stroke="var(--color-MAPE_train)" dot={false} strokeDasharray="5 3" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
                 </LineChart>
@@ -1772,13 +2006,20 @@ output:
               <CardDescription>展示真实值、预测值与区间上下界</CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer className="h-64" config={{
+              <ChartContainer className="h-64" config={showTrainData ? {
+                actual: { label: '真实值(测试)', color: 'hsl(210 90% 55%)' },
+                predicted: { label: '预测值(测试)', color: 'hsl(120 70% 45%)' },
+                ciUpper: { label: 'CI上界', color: 'hsl(20 80% 55%)' },
+                ciLower: { label: 'CI下界', color: 'hsl(8 80% 55%)' },
+                train_actual: { label: '真实值(训练)', color: 'hsl(210 60% 65%)' },
+                train_predicted: { label: '预测值(训练)', color: 'hsl(120 50% 60%)' },
+              } : {
                 actual: { label: '真实值', color: 'hsl(210 90% 55%)' },
                 predicted: { label: '预测值', color: 'hsl(120 70% 45%)' },
                 ciUpper: { label: 'CI上界', color: 'hsl(20 80% 55%)' },
                 ciLower: { label: 'CI下界', color: 'hsl(8 80% 55%)' },
               }}>
-                <LineChart data={forecastSeries} margin={{ left: 12, right: 12 }}>
+                <LineChart data={combinedForecastLineData} margin={{ left: 12, right: 12 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="time" tickLine={false} />
                   <YAxis />
@@ -1786,6 +2027,9 @@ output:
                   <Line type="monotone" dataKey="predicted" stroke="var(--color-predicted)" dot={false} strokeWidth={2} />
                   <Line type="monotone" dataKey="ciUpper" stroke="var(--color-ciUpper)" dot={false} strokeDasharray="4 4" />
                   <Line type="monotone" dataKey="ciLower" stroke="var(--color-ciLower)" dot={false} strokeDasharray="4 4" />
+                  {/* 训练集：使用虚线区分 */}
+                  <Line type="monotone" dataKey="train_actual" stroke="var(--color-train_actual)" dot={false} strokeDasharray="5 3" />
+                  <Line type="monotone" dataKey="train_predicted" stroke="var(--color-train_predicted)" dot={false} strokeDasharray="5 3" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
                 </LineChart>
@@ -1800,13 +2044,17 @@ output:
               <CardDescription>用于直观比较预测与实际情况</CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer className="h-64" config={{ scatter: { label: 'Points', color: 'hsl(210 90% 55%)' } }}>
+              <ChartContainer className="h-64" config={{ scatter: { label: '测试集', color: 'hsl(210 90% 55%)' } }}>
                 <ScatterChart margin={{ left: 12, right: 12 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" dataKey="actual" name="Actual" />
                   <YAxis type="number" dataKey="pred" name="Predicted" />
                   <ZAxis type="number" range={[60, 60]} />
                   <Scatter data={forecastingPredVsActual} fill="var(--color-scatter)" />
+                  {/* 训练集散点：颜色更浅并使用不同图例标签 */}
+                  {showTrainData && (
+                    <Scatter data={forecastingTrainPredVsActual} fill="hsl(210 60% 70%)" />
+                  )}
                   <ReferenceLine segment={[{ x: 0, y: 0 }, { x: 200, y: 200 }]} stroke="#8884d8" strokeDasharray="4 4" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                 </ScatterChart>
@@ -1821,12 +2069,15 @@ output:
               <CardDescription>横坐标为预测值，纵坐标为残差</CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer className="h-64" config={{ residual: { label: 'Residual', color: 'hsl(8 80% 55%)' } }}>
+              <ChartContainer className="h-64" config={{ residual: { label: '测试集', color: 'hsl(8 80% 55%)' } }}>
                 <ScatterChart margin={{ left: 12, right: 12 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" dataKey="pred" name="Predicted" />
                   <YAxis type="number" dataKey="residual" name="Residual" />
                   <Scatter data={forecastingResiduals} fill="var(--color-residual)" />
+                  {showTrainData && (
+                    <Scatter data={forecastingTrainResiduals} fill="hsl(8 60% 70%)" />
+                  )}
                   <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                 </ScatterChart>
@@ -1841,12 +2092,23 @@ output:
               <CardDescription>展示预测误差的分布情况</CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer className="h-64" config={{ hist: { label: 'Error Count', color: 'hsl(210 90% 55%)' } }}>
+              <ChartContainer className="h-64" config={showTrainData ? {
+                testCount: { label: '测试集', color: 'hsl(210 90% 55%)' },
+                trainCount: { label: '训练集', color: 'hsl(270 70% 55%)' },
+              } : { count: { label: 'Error Count', color: 'hsl(210 90% 55%)' } }}>
                 <BarChart data={forecastingErrorHistogram} margin={{ left: 12, right: 12 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="bin" tickLine={false} />
                   <YAxis />
-                  <Bar dataKey="count" fill="var(--color-hist)" />
+                  {/* 当显示训练数据时，分栏对比展示 */}
+                  {showTrainData ? (
+                    <>
+                      <Bar dataKey="testCount" fill="var(--color-testCount)" />
+                      <Bar dataKey="trainCount" fill="var(--color-trainCount)" />
+                    </>
+                  ) : (
+                    <Bar dataKey="count" fill="var(--color-count)" />
+                  )}
                   <ChartTooltip content={<ChartTooltipContent />} />
                 </BarChart>
               </ChartContainer>
@@ -2295,7 +2557,7 @@ output:
         
         <div className="flex items-center gap-2">
           {/* 使用共享映射动态呈现操作按钮（过滤掉“详情”） */}
-          {getAvailableActions(task).filter((a: TaskAction) => a.key !== 'view' && a.key !== 'edit').map((action: TaskAction) => {
+            {getAvailableActions(computedTask).filter((a: TaskAction) => a.key !== 'view' && a.key !== 'edit').map((action: TaskAction) => {
             const isLoading = loadingAction === `${task.id}:${action.key}`;
             const classMap: Record<string, string> = {
               start: 'text-green-600 border-green-200 hover:bg-green-50',
@@ -2767,6 +3029,8 @@ output:
                     {confirmDialog.action === 'start' && '是否开始任务？'}
                     {confirmDialog.action === 'stop' && '是否停止任务？'}
                     {confirmDialog.action === 'retry' && '是否重试该任务？'}
+                    {confirmDialog.action === 'rerun' && '是否重新运行该任务？该任务将按当前配置重新排队。'}
+                    {confirmDialog.action === 'cancel_queue' && '是否取消该任务的排队？取消后回到“未开始”状态。'}
                     {confirmDialog.action === 'archive' && '是否归档该任务？归档后不可编辑，仅可查看。'}
                     {confirmDialog.action === 'delete' && '是否删除该任务？删除后不可恢复。'}
                   </div>
@@ -2776,7 +3040,7 @@ output:
                     <Button
                       onClick={() => executeTaskAction(confirmDialog.action, confirmDialog.taskId)}
                       disabled={loadingAction === `${confirmDialog.taskId}:${confirmDialog.action}`}
-                      className={`${confirmDialog.action === 'start' ? 'bg-green-600 hover:bg-green-700' : confirmDialog.action === 'stop' || confirmDialog.action === 'delete' ? 'bg-red-600 hover:bg-red-700' : confirmDialog.action === 'retry' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-600 hover:bg-gray-700'}`}
+                      className={`${confirmDialog.action === 'start' ? 'bg-green-600 hover:bg-green-700' : confirmDialog.action === 'stop' || confirmDialog.action === 'delete' || confirmDialog.action === 'cancel_queue' ? 'bg-red-600 hover:bg-red-700' : confirmDialog.action === 'retry' || confirmDialog.action === 'rerun' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-600 hover:bg-gray-700'}`}
                     >
                       {loadingAction === `${confirmDialog.taskId}:${confirmDialog.action}` ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -2784,6 +3048,8 @@ output:
                       {confirmDialog.action === 'start' ? '开始任务' :
                        confirmDialog.action === 'stop' ? '停止任务' :
                        confirmDialog.action === 'retry' ? '重试任务' :
+                       confirmDialog.action === 'rerun' ? '重新运行' :
+                       confirmDialog.action === 'cancel_queue' ? '取消排队' :
                        confirmDialog.action === 'archive' ? '归档任务' :
                        confirmDialog.action === 'delete' ? '删除任务' : '确认'}
                     </Button>
