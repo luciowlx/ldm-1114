@@ -232,9 +232,7 @@ export default function App() {
                          project.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
       statusFilter === "all" ||
-      project.status === statusFilter ||
-      // 兼容旧数据：若项目状态为“暂停”，在筛选选择“已延期”时也匹配
-      (statusFilter === "已延期" && project.status === "暂停");
+      project.status === statusFilter;
     const matchesOwner = ownerFilter === "all" || project.owner === ownerFilter;
     // 日期范围筛选：按项目创建时间 createdTime（若无则按 date）过滤
     const projectCreated = new Date(project.createdTime || project.date);
@@ -270,6 +268,32 @@ export default function App() {
     const diff = aDate.getTime() - bDate.getTime();
     return projectSortOrder === "asc" ? diff : -diff;
   });
+
+  /**
+   * 功能：触发一次项目列表的查询刷新（不改变筛选器状态）。
+   * 场景：用户点击“查询”按钮，希望基于当前顶部筛选器（搜索、负责人、日期范围）的值显式刷新列表。
+   * 说明：筛选本身已是响应式，这里通过浅拷贝 projectDateRange 以更新引用驱动重新渲染，避免误改状态。
+   */
+  const handleApplyProjectQuery = () => {
+    setProjectDateRange(prev => ({ ...prev }));
+  };
+
+  /**
+   * 功能：重置项目管理页顶部筛选器为默认值。
+   * 重置范围：搜索关键词、负责人、日期范围；同时复位列表状态筛选（若当前使用）。
+   */
+  const handleResetProjectFilters = () => {
+    setSearchQuery("");
+    setOwnerFilter("all");
+    setProjectDateRange({ start: "", end: "" });
+    // 若使用列表状态筛选，统一复位为“全部状态”
+    try {
+      // @ts-ignore: 若状态筛选存在，复位到默认值
+      setStatusFilter && setStatusFilter("all");
+    } catch (_) {
+      // 安全兜底：忽略不存在的 setter
+    }
+  };
 
   const handleCreateProject = () => {
     // 验证必填字段
@@ -569,39 +593,25 @@ export default function App() {
               <p className="text-gray-600">管理您的机器学习项目，跟踪进度并与团队协作</p>
             </div>
 
-            {/* 搜索和过滤区域 */}
-            <div className="mb-6 space-y-4">
-              {/* 搜索框 */}
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <Input
-                  placeholder="搜索项目"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 h-12"
-                />
-              </div>
-
-              {/* 过滤器和视图切换 */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {/* Status Filter */}
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="状态" />
-                      <ChevronDown className="w-4 h-4" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全部状态</SelectItem>
-                      <SelectItem value="进行中">进行中</SelectItem>
-                      <SelectItem value="已完成">已完成</SelectItem>
-                      <SelectItem value="已延期">已延期</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {/* 搜索、筛选与视图切换（左侧工具 + 右侧视图切换），移动端可自动换行 */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* 左侧：搜索、负责人、日期、查询/重置 */}
+                <div className="flex items-center gap-3 flex-wrap md:flex-nowrap flex-1">
+                  {/* 搜索框 */}
+                  <div className="relative w-[240px] md:w-[280px] shrink-0">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Input
+                      placeholder="搜索项目"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-12 h-10 md:h-12"
+                    />
+                  </div>
 
                   {/* Owner Filter */}
                   <Select value={ownerFilter} onValueChange={setOwnerFilter}>
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="w-32 md:w-36 shrink-0">
                       <SelectValue placeholder="负责人" />
                       <ChevronDown className="w-4 h-4" />
                     </SelectTrigger>
@@ -613,10 +623,10 @@ export default function App() {
                     </SelectContent>
                   </Select>
 
-                  {/* Date Filter: 替换为日期范围选择 */}
+                  {/* Date Filter: 日期范围选择 */}
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-[320px] justify-between">
+                      <Button variant="outline" className="w-[240px] md:w-[260px] justify-between shrink-0">
                         <span className="truncate text-left">
                           {projectDateRange.start && projectDateRange.end
                             ? `${projectDateRange.start} - ${projectDateRange.end}`
@@ -672,24 +682,39 @@ export default function App() {
                     </PopoverContent>
                   </Popover>
 
+                  {/* 查询 / 重置按钮：位于日期选择器之后；高度与日期对齐 */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="default"
+                      onClick={handleApplyProjectQuery}
+                      className="h-10 md:h-12 px-4"
+                    >
+                      查询
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleResetProjectFilters}
+                      className="h-10 md:h-12 px-4"
+                    >
+                      重置
+                    </Button>
+                  </div>
                 </div>
 
-                {/* 视图切换按钮 */}
-                <div className="flex items-center gap-2">
+                {/* 右侧：视图切换按钮（靠右展示） */}
+                <div className="flex items-center gap-2 ml-auto shrink-0">
                   <Button
-                    variant={viewMode === "grid" ? "default" : "ghost"}
-                    size="sm"
+                    variant={viewMode === "grid" ? "default" : "outline"}
                     onClick={() => setViewMode("grid")}
-                    className="w-20"
+                    className="px-3 h-10 md:h-12"
                   >
                     <Grid3X3 className="w-4 h-4 mr-1" />
                     网格
                   </Button>
                   <Button
-                    variant={viewMode === "list" ? "default" : "ghost"}
-                    size="sm"
+                    variant={viewMode === "list" ? "default" : "outline"}
                     onClick={() => setViewMode("list")}
-                    className="w-20"
+                    className="px-3 h-10 md:h-12"
                   >
                     <List className="w-4 h-4 mr-1" />
                     列表
@@ -750,7 +775,7 @@ export default function App() {
                       <PopoverContent className="w-44 p-2" align="start">
                         <div className="space-y-2">
                           <div className="text-xs text-gray-500">状态筛选</div>
-                          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
+                          <Select value={statusFilter} onValueChange={(v: string) => setStatusFilter(v)}>
                             <SelectTrigger className="h-8">
                               <SelectValue placeholder="选择状态" />
                             </SelectTrigger>
@@ -758,7 +783,6 @@ export default function App() {
                               <SelectItem value="all">全部状态</SelectItem>
                               <SelectItem value="进行中">进行中</SelectItem>
                               <SelectItem value="已完成">已完成</SelectItem>
-                              <SelectItem value="暂停">暂停</SelectItem>
                               <SelectItem value="归档">归档</SelectItem>
                               <SelectItem value="已延期">已延期</SelectItem>
                             </SelectContent>

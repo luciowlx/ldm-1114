@@ -346,7 +346,6 @@ interface FormData {
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'createdAt', order: 'desc' });
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedTaskForDetails, setSelectedTaskForDetails] = useState<Task | null>(null);
   // 编辑模式状态
   const [isEditMode, setIsEditMode] = useState(false);
@@ -1568,6 +1567,16 @@ interface FormData {
     });
   };
 
+  /**
+   * handleApplyQuery
+   * 功能：显式触发“查询”动作。
+   * 说明：列表过滤已基于 filters 响应式生效；此函数用于用户点击“查询”按钮时进行一次轻量刷新（浅拷贝触发渲染），不更改任何筛选状态。
+   * 返回：void
+   */
+  const handleApplyQuery = (): void => {
+    setFilters(prev => ({ ...prev }));
+  };
+
   // 显示确认对话框
   const handleTaskAction = (action: string, taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
@@ -2164,16 +2173,142 @@ interface FormData {
   return (
     <div className="p-6 space-y-6">
       {/* 操作栏 */}
-      <div className="flex justify-end items-center">
+      <div className="flex justify-between items-center gap-4 flex-wrap md:flex-nowrap">
+        {/* 左侧：顶栏快速筛选（搜索 / 数据集名称 / 日期范围） */}
+        <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
+          {/* 搜索 */}
+          <Input
+            placeholder="搜索任务名称、ID等"
+            value={filters.searchQuery}
+            onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
+            className="w-[240px] md:w-[280px]"
+          />
+
+          {/* 数据集名称（多选） */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[240px] md:w-[260px] justify-start">
+                {filters.datasetNames.length === 0
+                  ? '筛选数据集'
+                  : `${filters.datasetNames.slice(0, 2).join(', ')}${filters.datasetNames.length > 2 ? ` +${filters.datasetNames.length - 2}` : ''}`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0">
+              <Command>
+                <CommandInput
+                  placeholder="搜索数据集..."
+                  value={datasetFilterQuery}
+                  onValueChange={setDatasetFilterQuery}
+                />
+                <CommandList>
+                  <CommandEmpty>未找到数据集</CommandEmpty>
+                  <CommandGroup>
+                    {datasetOptions
+                      .filter((name) => !datasetFilterQuery || name.toLowerCase().includes(datasetFilterQuery.toLowerCase()))
+                      .map((name) => (
+                        <CommandItem
+                          key={name}
+                          onSelect={() => {
+                            const cur = filters.datasetNames || [];
+                            const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
+                            handleFilterChange('datasetNames', next);
+                          }}
+                        >
+                          <Checkbox
+                            checked={filters.datasetNames.includes(name)}
+                            onCheckedChange={() => {
+                              const cur = filters.datasetNames || [];
+                              const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
+                              handleFilterChange('datasetNames', next);
+                            }}
+                            className="mr-2"
+                          />
+                          <span>{name}</span>
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          {/* 日期范围 */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[260px] md:w-[320px] justify-between">
+                <span className="truncate text-left">
+                  {filters.dateRange.start && filters.dateRange.end
+                    ? `${filters.dateRange.start} - ${filters.dateRange.end}`
+                    : '开始日期 - 结束日期'}
+                </span>
+                <Calendar className="h-4 w-4 text-gray-500" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[640px] p-4">
+              <div className="space-y-3">
+                {/* 顶部输入回显区域 */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    placeholder="开始日期"
+                    value={filters.dateRange.start || ''}
+                    className="w-48"
+                  />
+                  <span className="text-gray-500">-</span>
+                  <Input
+                    readOnly
+                    placeholder="结束日期"
+                    value={filters.dateRange.end || ''}
+                    className="w-48"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleFilterChange('dateRange', { start: '', end: '' })}
+                  >
+                    {t('common.clear')}
+                  </Button>
+                </div>
+
+                {/* 双月日历选择 */}
+                <DateRangeCalendar
+                  mode="range"
+                  numberOfMonths={2}
+                  initialFocus
+                  defaultMonth={filters.dateRange.start ? new Date(filters.dateRange.start) : new Date()}
+                  selected={{
+                    from: filters.dateRange.start ? new Date(filters.dateRange.start) : undefined,
+                    to: filters.dateRange.end ? new Date(filters.dateRange.end) : undefined,
+                  }}
+                  onSelect={(range: any) => {
+                    const start = range?.from ? new Date(range.from) : undefined;
+                    const end = range?.to ? new Date(range.to) : undefined;
+                    const fmt = (d: Date | undefined) => (d ? d.toISOString().slice(0, 10) : '');
+                    handleFilterChange('dateRange', { start: fmt(start), end: fmt(end) });
+                  }}
+                />
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* 右侧：查询 / 重置 / 视图切换 / 创建任务 */}
         <div className="flex items-center space-x-3">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleApplyQuery}
+            className="flex items-center space-x-2"
+          >
+            <span>查询</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowFilters(!showFilters)}
+            onClick={resetFilters}
             className="flex items-center space-x-2"
           >
-            <Filter className="h-4 w-4" />
-            <span>筛选</span>
+            <span>重置</span>
           </Button>
           
           <div className="flex items-center border rounded-lg">
@@ -4194,261 +4329,7 @@ interface FormData {
         </DialogContent>
       </Dialog>
 
-      {/* 筛选面板 */}
-      {showFilters && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">筛选条件</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <Label>搜索</Label>
-                <Input
-                  placeholder="搜索任务名称、ID等"
-                  value={filters.searchQuery}
-                  onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <Label>任务类型</Label>
-                <Select value={filters.taskType} onValueChange={(value: string) => handleFilterChange('taskType', value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部类型</SelectItem>
-                    {Array.from(ALLOWED_TASK_TYPES).map((tt) => (
-                      <SelectItem key={tt} value={tt}>{getTaskTypeLabel(tt as TaskType)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>状态</Label>
-                <Select value={filters.status} onValueChange={(value: string) => handleFilterChange('status', value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部状态</SelectItem>
-                    <SelectItem value="not_started">未开始</SelectItem>
-                    <SelectItem value="pending">排队中</SelectItem>
-                    <SelectItem value="running">运行中</SelectItem>
-                    <SelectItem value="completed">已完成</SelectItem>
-                    <SelectItem value="failed">失败</SelectItem>
-                    <SelectItem value="cancelled">已取消</SelectItem>
-                    <SelectItem value="archived">已归档</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>所属项目</Label>
-                <Select value={filters.projectId ?? 'all'} onValueChange={(value: string) => handleFilterChange('projectId', value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部项目</SelectItem>
-                    {mockProjects.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>优先级</Label>
-                <Select value={filters.priority} onValueChange={(value: string) => handleFilterChange('priority', value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全部优先级</SelectItem>
-                    <SelectItem value="low">低</SelectItem>
-                    <SelectItem value="medium">中</SelectItem>
-                    <SelectItem value="high">高</SelectItem>
-                    {/* 按需求移除“紧急”选项 */}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>数据集名称</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[260px] justify-start">
-                      {filters.datasetNames.length === 0
-                        ? '筛选数据集'
-                        : `${filters.datasetNames.slice(0, 2).join(', ')}${filters.datasetNames.length > 2 ? ` +${filters.datasetNames.length - 2}` : ''}`}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput
-                        placeholder="搜索数据集..."
-                        value={datasetFilterQuery}
-                        onValueChange={setDatasetFilterQuery}
-                      />
-                      <CommandList>
-                        <CommandEmpty>未找到数据集</CommandEmpty>
-                        <CommandGroup>
-                          {datasetOptions
-                            .filter((name) => !datasetFilterQuery || name.toLowerCase().includes(datasetFilterQuery.toLowerCase()))
-                            .map((name) => (
-                              <CommandItem
-                                key={name}
-                                onSelect={() => {
-                                  const cur = filters.datasetNames || [];
-                                  const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
-                                  handleFilterChange('datasetNames', next);
-                                }}
-                              >
-                                <Checkbox
-                                  checked={filters.datasetNames.includes(name)}
-                                  onCheckedChange={() => {
-                                    const cur = filters.datasetNames || [];
-                                    const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
-                                    handleFilterChange('datasetNames', next);
-                                  }}
-                                  className="mr-2"
-                                />
-                                <span>{name}</span>
-                              </CommandItem>
-                            ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div>
-                <Label>模型名称</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[260px] justify-start">
-                      {filters.modelNames.length === 0
-                        ? '筛选模型'
-                        : `${filters.modelNames.slice(0, 2).join(', ')}${filters.modelNames.length > 2 ? ` +${filters.modelNames.length - 2}` : ''}`}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput
-                        placeholder="搜索模型..."
-                        value={modelFilterQuery}
-                        onValueChange={setModelFilterQuery}
-                      />
-                      <CommandList>
-                        <CommandEmpty>未找到模型</CommandEmpty>
-                        <CommandGroup>
-                          {modelOptions
-                            .filter((name) => !modelFilterQuery || name.toLowerCase().includes(modelFilterQuery.toLowerCase()))
-                            .map((name) => (
-                              <CommandItem
-                                key={name}
-                                onSelect={() => {
-                                  const cur = filters.modelNames || [];
-                                  const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
-                                  handleFilterChange('modelNames', next);
-                                }}
-                              >
-                                <Checkbox
-                                  checked={filters.modelNames.includes(name)}
-                                  onCheckedChange={() => {
-                                    const cur = filters.modelNames || [];
-                                    const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
-                                    handleFilterChange('modelNames', next);
-                                  }}
-                                  className="mr-2"
-                                />
-                                <span>{name}</span>
-                              </CommandItem>
-                            ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div>
-                <Label>日期范围</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[320px] justify-between">
-                      <span className="truncate text-left">
-                        {filters.dateRange.start && filters.dateRange.end
-                          ? `${filters.dateRange.start} - ${filters.dateRange.end}`
-                          : '开始日期 - 结束日期'}
-                      </span>
-                      <Calendar className="h-4 w-4 text-gray-500" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[640px] p-4">
-                    <div className="space-y-3">
-                      {/* 顶部输入回显区域 */}
-                      <div className="flex items-center gap-2">
-                        <Input
-                          readOnly
-                          placeholder="开始日期"
-                          value={filters.dateRange.start || ''}
-                          className="w-48"
-                        />
-                        <span className="text-gray-500">-</span>
-                        <Input
-                          readOnly
-                          placeholder="结束日期"
-                          value={filters.dateRange.end || ''}
-                          className="w-48"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleFilterChange('dateRange', { start: '', end: '' })}
-                        >
-                          {t('common.clear')}
-                        </Button>
-                      </div>
-
-                      {/* 双月日历选择 */}
-                      <DateRangeCalendar
-                        mode="range"
-                        numberOfMonths={2}
-                        initialFocus
-                        defaultMonth={filters.dateRange.start ? new Date(filters.dateRange.start) : new Date()}
-                        selected={{
-                          from: filters.dateRange.start ? new Date(filters.dateRange.start) : undefined,
-                          to: filters.dateRange.end ? new Date(filters.dateRange.end) : undefined,
-                        }}
-                        onSelect={(range: any) => {
-                          const start = range?.from ? new Date(range.from) : undefined;
-                          const end = range?.to ? new Date(range.to) : undefined;
-                          const fmt = (d: Date | undefined) => (d ? d.toISOString().slice(0, 10) : '');
-                          handleFilterChange('dateRange', { start: fmt(start), end: fmt(end) });
-                        }}
-                      />
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3 mt-4">
-              <Button variant="outline" onClick={resetFilters}>
-                重置筛选
-              </Button>
-              <Button onClick={() => setShowFilters(false)}>
-                应用筛选
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* 筛选面板已移除：列头筛选提供所有必要的过滤入口 */}
 
       {/* 批量操作栏 */}
       {selectedTaskIds.length > 0 && (
@@ -4610,30 +4491,228 @@ interface FormData {
                       </div>
                     </TableHead>
                     <TableHead>任务ID</TableHead>
-                    <TableHead>任务类型</TableHead>
-                    <TableHead>所属项目</TableHead>
+                    {/* 列头筛选：任务类型 */}
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        <span>任务类型</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`p-1 h-6 w-6 ${filters.taskType !== 'all' ? 'text-blue-600' : 'text-gray-400'}`}
+                              aria-label="任务类型筛选"
+                            >
+                              <Filter className="h-3 w-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-44">
+                            <div className="space-y-2">
+                              <Label className="text-xs">任务类型</Label>
+                              <Select value={filters.taskType} onValueChange={(value: string) => handleFilterChange('taskType', value)}>
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="全部类型" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">全部类型</SelectItem>
+                                  {Array.from(ALLOWED_TASK_TYPES).map((tt) => (
+                                    <SelectItem key={tt} value={tt}>{getTaskTypeLabel(tt as TaskType)}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <div className="flex justify-end">
+                                <Button variant="outline" size="sm" className="h-8" onClick={() => handleFilterChange('taskType', 'all')}>清空</Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </TableHead>
+
+                    {/* 列头筛选：所属项目 */}
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        <span>所属项目</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`p-1 h-6 w-6 ${(filters.projectId && filters.projectId !== 'all') ? 'text-blue-600' : 'text-gray-400'}`}
+                              aria-label="所属项目筛选"
+                            >
+                              <Filter className="h-3 w-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-44">
+                            <div className="space-y-2">
+                              <Label className="text-xs">所属项目</Label>
+                              <Select value={filters.projectId ?? 'all'} onValueChange={(value: string) => handleFilterChange('projectId', value)}>
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="全部项目" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">全部项目</SelectItem>
+                                  {mockProjects.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <div className="flex justify-end">
+                                <Button variant="outline" size="sm" className="h-8" onClick={() => handleFilterChange('projectId', 'all')}>清空</Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </TableHead>
                     <TableHead>数据集</TableHead>
-                    <TableHead>模型</TableHead>
+                    {/* 列头筛选：模型（多选，复用原筛选面板的 Command 列表）*/}
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        <span>模型</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`p-1 h-6 w-6 ${filters.modelNames && filters.modelNames.length > 0 ? 'text-blue-600' : 'text-gray-400'}`}
+                              aria-label="模型筛选"
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => e.stopPropagation()}
+                            >
+                              <Filter className="h-3 w-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-[300px] p-0" onOpenAutoFocus={(e: Event) => e.preventDefault()}>
+                            <Command>
+                              <CommandInput
+                                placeholder="搜索模型..."
+                                value={modelFilterQuery}
+                                onValueChange={setModelFilterQuery}
+                              />
+                              <CommandList>
+                                <CommandEmpty>未找到模型</CommandEmpty>
+                                <CommandGroup>
+                                  {modelOptions
+                                    .filter((name) => !modelFilterQuery || name.toLowerCase().includes(modelFilterQuery.toLowerCase()))
+                                    .map((name) => (
+                                      <CommandItem
+                                        key={name}
+                                        onSelect={() => {
+                                          const cur = filters.modelNames || [];
+                                          const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
+                                          handleFilterChange('modelNames', next);
+                                        }}
+                                      >
+                                        <Checkbox
+                                          checked={filters.modelNames.includes(name)}
+                                          onCheckedChange={() => {
+                                            const cur = filters.modelNames || [];
+                                            const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
+                                            handleFilterChange('modelNames', next);
+                                          }}
+                                          className="mr-2"
+                                        />
+                                        <span>{name}</span>
+                                      </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </TableHead>
+                    {/* 列头筛选：优先级（保留点击排序）*/}
                     <TableHead 
                       className="cursor-pointer hover:bg-gray-50"
                       onClick={() => handleSort('priority')}
                     >
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1">
                         <span>优先级</span>
                         {sortConfig.field === 'priority' && (
                           sortConfig.order === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
                         )}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`p-1 h-6 w-6 ${filters.priority !== 'all' ? 'text-blue-600' : 'text-gray-400'}`}
+                              aria-label="优先级筛选"
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => e.stopPropagation()}
+                            >
+                              <Filter className="h-3 w-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-40" onOpenAutoFocus={(e: Event) => e.preventDefault()}>
+                            <div className="space-y-2">
+                              <Label className="text-xs">优先级</Label>
+                              <Select value={filters.priority} onValueChange={(value: string) => handleFilterChange('priority', value)}>
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="全部优先级" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">全部优先级</SelectItem>
+                                  <SelectItem value="low">低</SelectItem>
+                                  <SelectItem value="medium">中</SelectItem>
+                                  <SelectItem value="high">高</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <div className="flex justify-end">
+                                <Button variant="outline" size="sm" className="h-8" onClick={() => handleFilterChange('priority', 'all')}>清空</Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </TableHead>
+                    {/* 列头筛选：状态（保留点击排序）*/}
                     <TableHead 
                       className="cursor-pointer hover:bg-gray-50"
                       onClick={() => handleSort('status')}
                     >
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1">
                         <span>状态</span>
                         {sortConfig.field === 'status' && (
                           sortConfig.order === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
                         )}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`p-1 h-6 w-6 ${filters.status !== 'all' ? 'text-blue-600' : 'text-gray-400'}`}
+                              aria-label="状态筛选"
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => e.stopPropagation()}
+                            >
+                              <Filter className="h-3 w-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-44" onOpenAutoFocus={(e: Event) => e.preventDefault()}>
+                            <div className="space-y-2">
+                              <Label className="text-xs">状态</Label>
+                              <Select value={filters.status} onValueChange={(value: string) => handleFilterChange('status', value)}>
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="全部状态" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">全部状态</SelectItem>
+                                  <SelectItem value="not_started">未开始</SelectItem>
+                                  <SelectItem value="pending">排队中</SelectItem>
+                                  <SelectItem value="running">运行中</SelectItem>
+                                  <SelectItem value="completed">已完成</SelectItem>
+                                  <SelectItem value="failed">失败</SelectItem>
+                                  <SelectItem value="cancelled">已取消</SelectItem>
+                                  <SelectItem value="archived">已归档</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <div className="flex justify-end">
+                                <Button variant="outline" size="sm" className="h-8" onClick={() => handleFilterChange('status', 'all')}>清空</Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </TableHead>
                     <TableHead 
