@@ -735,19 +735,8 @@ export default function App() {
             {/* 项目内容区域 */}
             {viewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* 创建新项目卡片 */}
-                <div 
-                  className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
-                  onClick={() => setIsCreateProjectOpen(true)}
-                >
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">创建新项目</h3>
-                  <p className="text-sm text-gray-500 mb-4">开始一个新的项目并配置项目设置</p>
-                </div>
+                {/* 已移除：网格视图中的“创建新项目”卡片，统一由顶栏按钮触发创建 */}
+                {/* 保留项目卡片列表 */}
                 
                 {/* 项目卡片 */}
                 {sortedProjects.map((project) => (

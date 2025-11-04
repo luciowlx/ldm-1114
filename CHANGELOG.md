@@ -23,6 +23,14 @@
 ## 变更历史
 
 ### 2025-11-04
+- [Remove/ProjectManagement/Entry] 移除网格视图中的“创建新项目”卡片；统一入口为顶栏右侧“创建项目”按钮。
+  - 涉及文件：
+    - src/App.tsx（删除网格“创建新项目”卡片 JSX；保留顶栏按钮触发抽屉）
+  - 说明/验证：
+    - 打开 http://localhost:3001/ → “项目管理”；切换到“网格视图”，不再显示“创建新项目”卡片；
+    - 顶栏右侧“创建项目”按钮仍可打开创建抽屉；控制台与终端无报错。
+
+### 2025-11-04
 - [Tweak/ProjectManagement/UI] 在项目管理列表的日期选择器与视图切换按钮之间新增“查询”和“重置”按钮，便于显式触发筛选与快速清空。
   - 涉及文件：
     - src/App.tsx（新增 handleApplyProjectQuery/handleResetProjectFilters；在日期 Popover 与视图切换之间插入按钮组）
