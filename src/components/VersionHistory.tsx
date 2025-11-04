@@ -6,7 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { ArrowUpDown, Search, Eye, GitCompare, RotateCcw, ArrowLeft, GitBranch, GitMerge, ZoomIn, ZoomOut } from 'lucide-react';
+import { ArrowUpDown, Search, Eye, GitCompare, RotateCcw, ArrowLeft, GitBranch, GitMerge, ZoomIn, ZoomOut, Filter } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Label } from './ui/label';
 import { toast } from 'sonner';
 import VersionDetail from './VersionDetail';
 import VersionCompare from './VersionCompare';
@@ -39,6 +42,11 @@ const VersionHistory: React.FC<VersionHistoryProps> = ({ datasetId, datasetName,
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
+  // 表头 Popover 开关与临时选择（用于“重置/确认”交互）
+  const [isStatusColFilterOpen, setIsStatusColFilterOpen] = useState(false);
+  const [isSourceColFilterOpen, setIsSourceColFilterOpen] = useState(false);
+  const [tempStatusFilter, setTempStatusFilter] = useState<string>('all');
+  const [tempSourceFilter, setTempSourceFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('createTime');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
@@ -350,15 +358,11 @@ const filteredVersions = versions
     <div className="space-y-6">
       {/* 页面头部 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center">
           <Button variant="ghost" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             返回
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">版本历史</h1>
-            <p className="text-gray-600">{datasetName}</p>
-          </div>
         </div>
         <Button onClick={handleCompare} disabled={selectedVersions.length !== 2}>
           <GitCompare className="h-4 w-4 mr-2" />
@@ -446,7 +450,7 @@ const filteredVersions = versions
         </CardContent>
       </Card>
 
-      {/* 筛选工具栏 */}
+      {/* 筛选工具栏（仅保留搜索输入）*/}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4">
@@ -461,28 +465,6 @@ const filteredVersions = versions
                 />
               </div>
             </div>
-            {/* 状态与来源筛选保持不变 */}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="状态" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部状态</SelectItem>
-                <SelectItem value="成功">成功</SelectItem>
-                <SelectItem value="失败">失败</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="来源" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部来源</SelectItem>
-                <SelectItem value="上传">上传</SelectItem>
-                <SelectItem value="订阅">订阅</SelectItem>
-                <SelectItem value="清洗">清洗</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
@@ -515,7 +497,45 @@ const filteredVersions = versions
                 >
                   版本号 <ArrowUpDown className="inline h-4 w-4" />
                 </TableHead>
-                <TableHead>来源方式</TableHead>
+                <TableHead>
+                  <div className="flex items-center gap-1">
+                    <span>来源方式</span>
+                    <Popover open={isSourceColFilterOpen} onOpenChange={(open: boolean) => { setIsSourceColFilterOpen(open); if (open) setTempSourceFilter(sourceFilter); }}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                          <Filter className="h-3.5 w-3.5" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56" align="start">
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium">筛选来源</div>
+                          <RadioGroup value={tempSourceFilter} onValueChange={(v: string) => setTempSourceFilter(v)}>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem id="src_all" value="all" />
+                              <Label htmlFor="src_all">全部来源</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem id="src_upload" value="上传" />
+                              <Label htmlFor="src_upload">上传</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem id="src_sub" value="订阅" />
+                              <Label htmlFor="src_sub">订阅</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem id="src_clean" value="清洗" />
+                              <Label htmlFor="src_clean">清洗</Label>
+                            </div>
+                          </RadioGroup>
+                          <div className="flex justify-between gap-2 pt-2">
+                            <Button variant="outline" size="sm" onClick={() => setTempSourceFilter('all')}>重置</Button>
+                            <Button size="sm" onClick={() => { setSourceFilter(tempSourceFilter); setIsSourceColFilterOpen(false); }}>确认</Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </TableHead>
                 <TableHead 
                   className="cursor-pointer"
                   onClick={() => handleSort('createTime')}
@@ -529,7 +549,41 @@ const filteredVersions = versions
                 >
                   数据大小 <ArrowUpDown className="inline h-4 w-4" />
                 </TableHead>
-                <TableHead>状态</TableHead>
+                <TableHead>
+                  <div className="flex items-center gap-1">
+                    <span>状态</span>
+                    <Popover open={isStatusColFilterOpen} onOpenChange={(open: boolean) => { setIsStatusColFilterOpen(open); if (open) setTempStatusFilter(statusFilter); }}>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                          <Filter className="h-3.5 w-3.5" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56" align="end">
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium">筛选状态</div>
+                          <RadioGroup value={tempStatusFilter} onValueChange={(v: string) => setTempStatusFilter(v)}>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem id="st_all" value="all" />
+                              <Label htmlFor="st_all">全部状态</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem id="st_success" value="成功" />
+                              <Label htmlFor="st_success">成功</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem id="st_failed" value="失败" />
+                              <Label htmlFor="st_failed">失败</Label>
+                            </div>
+                          </RadioGroup>
+                          <div className="flex justify-between gap-2 pt-2">
+                            <Button variant="outline" size="sm" onClick={() => setTempStatusFilter('all')}>重置</Button>
+                            <Button size="sm" onClick={() => { setStatusFilter(tempStatusFilter); setIsStatusColFilterOpen(false); }}>确认</Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </TableHead>
                 <TableHead>规则摘要</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
@@ -563,21 +617,18 @@ const filteredVersions = versions
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onSwitchVersion(version)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      {/* 恢复回滚图标按钮 */}
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleRollback(version)}
                         disabled={version.status === '失败'}
+                        aria-label={`回退到${version.versionNumber}`}
+                        title="回退到该版本"
                       >
                         <RotateCcw className="h-4 w-4" />
                       </Button>
+                      {/* 移除图标按钮，仅保留文字按钮 */}
                       <Button
                         variant="outline"
                         size="sm"

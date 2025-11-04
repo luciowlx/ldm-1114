@@ -23,6 +23,48 @@
 ## 变更历史
 
 ### 2025-11-04
+- [Remove/DataDetail&VersionHistory/UI] 去掉红框内的内容：移除“数据概览”页的标题与说明文案；移除“版本历史”页顶部标题与数据集名称；删除版本列表“操作”列中的两个图标按钮（仅保留“切换查看”文字按钮）。
+  - 涉及文件：
+    - src/components/DataDetailFullPage.tsx（删除 `renderDataOverview` 顶部标题区）
+    - src/components/VersionHistory.tsx（删除页头标题与数据集名；移除操作列 Eye/RotateCcw 两个图标按钮）
+  - 说明/验证：
+    - 启动 `npm run dev`；预览“数据详情 → 数据概览/版本历史”。
+    - 页面不再显示被红框标注的标题/说明文案；版本列表操作列只保留“切换查看”按钮；交互与筛选逻辑不受影响；控制台与终端无报错。
+
+### 2025-11-04
+- [Fix/VersionHistory/UI] 按用户要求恢复“回滚”按钮（RotateCcw 图标），保留“查看”图标移除。
+  - 涉及文件：
+    - src/components/VersionHistory.tsx（在操作列重新加入 RotateCcw ghost 按钮，点击触发 handleRollback；失败状态下禁用）
+  - 说明/验证：
+    - 预览 http://localhost:3000/ → 数据详情 → 版本历史；操作列显示回滚图标按钮，点击弹出回退确认并执行模拟回退；控制台与终端无报错。
+
+### 2025-11-04
+- [Tweak/DataDetail/VersionHistory] 数据详情-版本历史列表：将顶部“全部状态”“全部来源”筛选迁移到版本列表表头 Popover（来源方式、状态两列），统一筛选入口与交互。
+  - 涉及文件：
+    - src/components/VersionHistory.tsx（移除顶部两个 Select；为“来源方式”“状态”两列新增 Popover + RadioGroup 单选：全部/具体选项；新增 `isStatusColFilterOpen/isSourceColFilterOpen` 与临时选择 `tempStatusFilter/tempSourceFilter`，支持重置和确认）
+  - 说明/验证：
+    - 启动：`npm run dev`；预览 http://localhost:3000/ → 数据详情页 → “版本历史”。
+    - 在表头点击 Filter 图标弹出筛选 Popover，选择后列表过滤正确；点击“重置”回到“全部”，点击“确认”应用并关闭；控制台与终端无报错。
+
+### 2025-11-04
+- [Tweak/DataManagement/Preprocessing] 预处理任务列表“状态筛选”入口迁移：顶部“全部状态”下拉移至“状态”列头 Popover（与项目管理页列头筛选风格一致）。
+  - 涉及文件：
+    - src/components/DataManagement.tsx（移除顶部状态下拉；新增 `isPreprocessStatusColFilterOpen`；在表头“状态”处加入 Popover + RadioGroup 单选：全部/运行中/排队中/已完成/失败；保留原有 `taskFilters.status` 逻辑）
+  - 说明/验证：
+    - 启动：`npm run dev`；预览 http://localhost:3000/ → “数据管理” → “预处理任务管理”。
+    - 顶部不再显示“全部状态”下拉；“状态”列头显示过滤图标，点击弹出筛选 Popover，选择任一状态后列表即时过滤；点击“重置”回到“全部”。
+    - 与搜索框和日期范围保持联动；桌面/移动端交互正常，控制台与终端无报错。
+
+### 2025-11-04
+- [Feat/ProjectManagement/MetricsCards] 项目管理页面新增四个统计指标卡片（总项目、进行中、已完成、已延期），与顶部筛选（搜索/负责人/日期范围）联动，状态列筛选不影响统计。
+  - 涉及文件：
+    - src/App.tsx（新增统计计算 `filteredProjectsForMetrics` 与 `projectStats`；引入 `Card`/`CardContent` 并在页头与工具栏之间插入卡片栅格；补充 `AlertTriangle` 图标）
+  - 说明/验证：
+    - 启动开发服务器：`npm run dev`；预览地址 http://localhost:3000/ → “项目管理”。
+    - 默认无筛选时，当前 mock 数据统计为：总项目 4、进行中 3、已完成 1、已延期 0；在搜索/负责人/日期范围变化后，卡片数值随之更新；切换状态列筛选（列表表头 Popover）不会影响卡片数值。
+    - 桌面端与移动端栅格响应式正常，控制台与终端无报错。
+
+### 2025-11-04
 - [Tweak/Projects&Data/ViewMode] 项目管理与数据管理页面默认视图改为“列表”，并将视图切换按钮顺序调整为“列表在前、网格在后”。
   - 涉及文件：
     - src/App.tsx（`viewMode` 默认值由 `grid` → `list`；顶栏切换按钮顺序调整为“列表、网格”）

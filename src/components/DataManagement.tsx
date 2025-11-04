@@ -191,6 +191,8 @@ export function DataManagement({
   
   const [isTagsColFilterOpen, setIsTagsColFilterOpen] = useState(false);
   const [isFormatColFilterOpen, setIsFormatColFilterOpen] = useState(false);
+  // 预处理任务：状态列头筛选 Popover 开关（将原顶部“全部状态”下拉迁移到列头）
+  const [isPreprocessStatusColFilterOpen, setIsPreprocessStatusColFilterOpen] = useState(false);
 
   const [dataSourceFormData, setDataSourceFormData] = useState({
     name: "",
@@ -1862,20 +1864,8 @@ export function DataManagement({
             </Button>
           </div>
 
-          {/* 筛选栏 */}
+          {/* 筛选栏（移除状态下拉，状态筛选迁移至表头 Popover） */}
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={taskFilters.status} onValueChange={(v: 'all' | 'success' | 'running' | 'pending' | 'failed') => setTaskFilters(prev => ({...prev, status: v }))}>
-              <SelectTrigger className="w-36">
-  <SelectValue placeholder={t('task.filters.status')} />
-              </SelectTrigger>
-              <SelectContent>
-  <SelectItem value="all">{t('task.filters.status.all')}</SelectItem>
-  <SelectItem value="running">{t('task.filters.status.running')}</SelectItem>
-  <SelectItem value="pending">{t('task.filters.status.pending')}</SelectItem>
-  <SelectItem value="success">{t('task.filters.status.completed')}</SelectItem>
-  <SelectItem value="failed">{t('task.filters.status.failed')}</SelectItem>
-              </SelectContent>
-            </Select>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="flex items-center gap-2">
@@ -1897,7 +1887,7 @@ export function DataManagement({
             </Popover>
             <div className="flex-1 min-w-[200px]">
               <Input
-  placeholder={t('task.filters.search.placeholder')}
+                placeholder={t('task.filters.search.placeholder')}
                 value={taskFilters.datasetQuery}
                 onChange={(e) => setTaskFilters(prev => ({...prev, datasetQuery: e.target.value}))}
               />
@@ -1912,7 +1902,73 @@ export function DataManagement({
   <TableHead>{t('data.preprocessing.table.taskId')}</TableHead>
   <TableHead>{t('data.preprocessing.table.dataset')}</TableHead>
   <TableHead>{t('data.preprocessing.table.type')}</TableHead>
-                  <TableHead>{t('data.preprocessing.table.status')}</TableHead>
+                  <TableHead>
+                    <div className="flex items-center gap-1">
+                      <span>{t('data.preprocessing.table.status')}</span>
+                      <Popover open={isPreprocessStatusColFilterOpen} onOpenChange={setIsPreprocessStatusColFilterOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="p-0 h-auto">
+                            <Filter className="h-3.5 w-3.5 text-gray-500" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-52 p-3">
+                          {/* 单选：全部/运行中/排队中/已完成/失败 */}
+                          <RadioGroup
+                            value={taskFilters.status}
+                            onValueChange={(v: 'all' | 'success' | 'running' | 'pending' | 'failed') =>
+                              setTaskFilters(prev => ({ ...prev, status: v }))
+                            }
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm">
+                                <RadioGroupItem value="all" id="pp-status-all" />
+                                <Label htmlFor="pp-status-all" className="cursor-pointer">
+                                  {t('task.filters.status.all')}
+                                </Label>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm">
+                                <RadioGroupItem value="running" id="pp-status-running" />
+                                <Label htmlFor="pp-status-running" className="cursor-pointer">
+                                  {t('task.filters.status.running')}
+                                </Label>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm">
+                                <RadioGroupItem value="pending" id="pp-status-pending" />
+                                <Label htmlFor="pp-status-pending" className="cursor-pointer">
+                                  {t('task.filters.status.pending')}
+                                </Label>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm">
+                                <RadioGroupItem value="success" id="pp-status-success" />
+                                <Label htmlFor="pp-status-success" className="cursor-pointer">
+                                  {t('task.filters.status.completed')}
+                                </Label>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm">
+                                <RadioGroupItem value="failed" id="pp-status-failed" />
+                                <Label htmlFor="pp-status-failed" className="cursor-pointer">
+                                  {t('task.filters.status.failed')}
+                                </Label>
+                              </div>
+                            </div>
+                          </RadioGroup>
+                          <div className="flex justify-end gap-2 mt-3">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setTaskFilters(prev => ({...prev, status: 'all'}))}
+                              className="text-gray-500"
+                            >
+                              {t('common.reset')}
+                            </Button>
+                            <Button variant="default" size="sm" onClick={() => setIsPreprocessStatusColFilterOpen(false)}>
+                              {t('common.confirm')}
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </TableHead>
   <TableHead>{t('data.preprocessing.table.operation')}</TableHead>
   <TableHead>{t('data.preprocessing.table.startTime')}</TableHead>
   <TableHead>{t('data.preprocessing.table.endTime')}</TableHead>

@@ -396,14 +396,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
   // 数据交互分析功能已移除以简化界面
   const renderDataOverview = () => (
     <div className="space-y-6">
-      {/* 数据概览标题（移除右侧操作按钮） */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">数据概览</h2>
-          <p className="text-gray-600 mt-1">查看和分析您的数据集详细信息</p>
-        </div>
-        {/* 右侧按钮已按需求移除 */}
-      </div>
+      {/* 数据概览标题区已按需求移除 */}
 
       {/* 基本信息与统计信息（紧凑布局） */}
       <Card>

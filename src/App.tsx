@@ -25,8 +25,10 @@ import { Textarea } from "./components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { RadioGroup, RadioGroupItem } from "./components/ui/radio-group";
 import { Button } from "./components/ui/button";
-import { Badge } from "./components/ui/badge";
- import { X, Search, Grid3X3, List, ChevronDown, Calendar, Users, Database, TrendingUp, Clock, CheckCircle, Settings, UserPlus, Mail, Trash2, Eye, Archive, Copy, ToggleLeft, ToggleRight, Filter, ArrowUpDown, Plus } from "lucide-react";
+ import { Badge } from "./components/ui/badge";
+ // 统计卡片复用
+ import { Card, CardContent } from "./components/ui/card";
+ import { X, Search, Grid3X3, List, ChevronDown, Calendar, Users, Database, TrendingUp, Clock, CheckCircle, Settings, UserPlus, Mail, Trash2, Eye, Archive, Copy, ToggleLeft, ToggleRight, Filter, ArrowUpDown, Plus, AlertTriangle } from "lucide-react";
 import { Toaster } from "./components/ui/sonner";
 import { Checkbox } from "./components/ui/checkbox";
 import FloatingAssistantEntry from "./components/FloatingAssistantEntry";
@@ -269,6 +271,45 @@ export default function App() {
     const diff = aDate.getTime() - bDate.getTime();
     return projectSortOrder === "asc" ? diff : -diff;
   });
+
+  /**
+   * 项目管理统计口径计算
+   * 说明：统计卡片应与顶部筛选器（搜索/负责人/日期范围）保持一致，但不受“状态列筛选”影响。
+   * 因此这里基于 projects 按搜索/负责人/日期三项过滤后进行聚合统计。
+   */
+  const filteredProjectsForMetrics = projects.filter(project => {
+    const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesOwner = ownerFilter === "all" || project.owner === ownerFilter;
+    const projectCreated = new Date(project.createdTime || project.date);
+    const start = projectDateRange.start ? new Date(projectDateRange.start) : null;
+    const end = projectDateRange.end ? new Date(projectDateRange.end) : null;
+    const matchesDate = (!start || projectCreated >= start) && (!end || projectCreated <= end);
+    return matchesSearch && matchesOwner && matchesDate;
+  });
+
+  const projectStats = [
+    {
+      label: "总项目",
+      value: filteredProjectsForMetrics.length,
+      icon: List
+    },
+    {
+      label: "进行中",
+      value: filteredProjectsForMetrics.filter(p => p.status === "进行中").length,
+      icon: Clock
+    },
+    {
+      label: "已完成",
+      value: filteredProjectsForMetrics.filter(p => p.status === "已完成").length,
+      icon: CheckCircle
+    },
+    {
+      label: "已延期",
+      value: filteredProjectsForMetrics.filter(p => p.status === "已延期").length,
+      icon: AlertTriangle
+    }
+  ];
 
   /**
    * 功能：触发一次项目列表的查询刷新（不改变筛选器状态）。
@@ -592,6 +633,25 @@ export default function App() {
             <div className="mb-6">
               <h1 className="text-2xl font-semibold text-gray-900 mb-2">项目管理</h1>
               <p className="text-gray-600">管理您的机器学习项目，跟踪进度并与团队协作</p>
+            </div>
+
+            {/* 统计指标卡片（遵循顶部筛选：搜索/负责人/日期范围；不受状态列筛选影响） */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              {projectStats.map((stat, index) => (
+                <Card key={index} className="w-[200px]">
+                  <CardContent className="flex items-center p-6">
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <stat.icon className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                        <p className="text-2xl font-bold">{stat.value}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
 
             {/* 搜索、筛选与视图切换（左侧工具 + 右侧视图切换），移动端可自动换行 */}
