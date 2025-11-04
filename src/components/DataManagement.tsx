@@ -112,7 +112,8 @@ export function DataManagement({
   onOpenDataDetailFullPage
 }: DataManagementProps = {}) {
   const { lang, t } = useLanguage();
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  // 视图模式：默认优先列表
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isLocalUploadDialogOpen, setIsLocalUploadDialogOpen] = useState(false);
   const [isAddDataSourceModalOpen, setIsAddDataSourceModalOpen] = useState(false);
   const [isDataSubscriptionOpen, setIsDataSubscriptionOpen] = useState(false);
@@ -959,19 +960,20 @@ export function DataManagement({
             <Columns className="h-4 w-4" />
           </Button>
           <div className="flex border rounded-lg">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
+            {/* 视图切换顺序调整：列表在前、网格在后 */}
             <Button
               variant={viewMode === 'list' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('list')}
             >
               <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid3X3 className="h-4 w-4" />
             </Button>
           </div>
         </div>

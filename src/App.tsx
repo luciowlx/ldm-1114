@@ -57,7 +57,8 @@ export default function App() {
   // 列表排序状态：支持按创建时间/更新时间排序
   const [projectSortField, setProjectSortField] = useState<"createdTime" | "updatedTime" | null>(null);
   const [projectSortOrder, setProjectSortOrder] = useState<"asc" | "desc">("asc");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  // 视图模式：默认优先列表
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [isProjectDetailOpen, setIsProjectDetailOpen] = useState(false);
   const [isProjectManageOpen, setIsProjectManageOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<any>(null);
@@ -703,14 +704,7 @@ export default function App() {
 
                 {/* 右侧：视图切换按钮（靠右展示） + 创建项目 */}
                 <div className="flex items-center gap-2 ml-auto shrink-0">
-                  <Button
-                    variant={viewMode === "grid" ? "default" : "outline"}
-                    onClick={() => setViewMode("grid")}
-                    className="px-3 h-10 md:h-12"
-                  >
-                    <Grid3X3 className="w-4 h-4 mr-1" />
-                    网格
-                  </Button>
+                  {/* 视图切换：列表在前、网格在后 */}
                   <Button
                     variant={viewMode === "list" ? "default" : "outline"}
                     onClick={() => setViewMode("list")}
@@ -718,6 +712,14 @@ export default function App() {
                   >
                     <List className="w-4 h-4 mr-1" />
                     列表
+                  </Button>
+                  <Button
+                    variant={viewMode === "grid" ? "default" : "outline"}
+                    onClick={() => setViewMode("grid")}
+                    className="px-3 h-10 md:h-12"
+                  >
+                    <Grid3X3 className="w-4 h-4 mr-1" />
+                    网格
                   </Button>
                   {/* 新增：创建项目按钮（顶栏右侧） */}
                   <Button
