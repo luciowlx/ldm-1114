@@ -3,7 +3,7 @@ import { GripVertical, ArrowUpDown } from 'lucide-react';
 
 export type Column<T extends Record<string, any>> = {
   key: keyof T | string;
-  label: string;
+  label: React.ReactNode; // 支持在表头内放置自定义UI（如筛选Popovers）
   width?: number;
   minWidth?: number;
   sortable?: boolean;

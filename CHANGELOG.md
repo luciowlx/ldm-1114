@@ -22,6 +22,13 @@
 
 ## 变更历史
 
+### 2025-11-04
+- [Feat/DataManagement/UI] 顶部“高级筛选”按钮改为“查询”，并移除高级筛选弹窗；筛选逻辑保持响应式（标签检索与日期范围即时生效），按钮仅作为显式触发。
+  - 涉及文件：
+    - src/components/DataManagement.tsx（删除 isAdvancedFilterOpen 与弹窗 JSX；新增 handleApplyQuery；按钮文案改为 `t('data.filter.query')`）
+    - src/i18n/LanguageContext.tsx（新增 `data.filter.query` 的中英键值：查询/Query）
+  - 说明/验证：启动 `npm run dev` 并在 http://localhost:3000/ 进入“数据管理”页；顶部显示“查询”按钮，点击不弹窗；标签检索和日期范围选择仍可即时过滤；控制台无报错。
+
 ### 2025-11-03
 - [Feat/DataManagement/Filter] 高级筛选：将“大小范围 (MB)”改为“列数范围”，并移除“完整度范围”筛选项；筛选逻辑改为按列数过滤。
   - 涉及文件：

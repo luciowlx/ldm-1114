@@ -105,6 +105,8 @@ export default function App() {
 
   // 任务详情全页面状态
   const [selectedTaskForFullPage, setSelectedTaskForFullPage] = useState<any>(null);
+  // 来自任务详情页的外部任务补丁（用于同步到列表）
+  const [externalTaskPatch, setExternalTaskPatch] = useState<{ id: string; patch: Partial<any> } | null>(null);
 
   // AI助手已统一到 FullPageView（type='ai-assistant'），不再单独维护 isAIAssistantOpen
 
@@ -457,6 +459,25 @@ export default function App() {
   const handleOpenTaskDetailFullPage = (task: any) => {
     setSelectedTaskForFullPage(task);
     setFullPageViewType('task-detail');
+  };
+
+  /**
+   * 接收 TaskDetailFullPage 的任务补丁，并进行双向同步：
+   * 1) 合并到本地 selectedTaskForFullPage，确保详情页即时回显；
+   * 2) 通过 externalTaskPatch 将补丁下发至 TaskManagement，同步更新任务列表。
+   *
+   * 参数：
+   * - taskId: string - 需要合并补丁的任务 ID。
+   * - patch: Partial<any> - 任务的局部更新内容（如 status、progress、hasQueuedBefore 等）。
+   * 返回值：void
+   */
+  const handleTaskPatched = (taskId: string, patch: Partial<any>) => {
+    setSelectedTaskForFullPage((prev: any) => {
+      if (!prev) return prev;
+      if (prev.id !== taskId) return prev;
+      return { ...prev, ...patch };
+    });
+    setExternalTaskPatch({ id: taskId, patch });
   };
 
   const handleOpenSoloMode = () => {
@@ -1301,6 +1322,7 @@ export default function App() {
               isCreateTaskDialogOpen={isCreateTaskDialogOpen}
               onCreateTaskDialogChange={(open: boolean) => setIsCreateTaskDialogOpen(open)}
               onOpenTaskDetailFullPage={handleOpenTaskDetailFullPage}
+              externalTaskPatch={externalTaskPatch}
             />
           </div>
         );
@@ -1439,6 +1461,7 @@ export default function App() {
           task={selectedTaskForFullPage}
           onClose={handleCloseFullPageView}
           onOpenDataDetail={handleOpenDataDetailFullPage}
+          onTaskPatched={handleTaskPatched}
         />
       )}
       {fullPageViewType && fullPageViewType !== 'data-detail' && fullPageViewType !== 'task-detail' && (

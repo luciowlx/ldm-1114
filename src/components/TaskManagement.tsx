@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Search, 
   Filter, 
@@ -33,8 +33,8 @@ import {
   Maximize2,
   Minimize2,
   X,
-  Upload,
   BarChart3,
+  Circle,
 } from 'lucide-react';
 import { Pencil } from 'lucide-react';
 import { toast } from 'sonner';
@@ -46,7 +46,6 @@ import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
-import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import {
   Dialog,
   DialogContent,
@@ -102,7 +101,7 @@ const getProjectName = (id: string) => mockProjects.find(p => p.id === id)?.name
 // 任务类型常量与类型统一（从 utils 统一导入）
 // 已改为从 ../utils/taskTypes 导入 TASK_TYPES、ALLOWED_TASK_TYPES、TaskType
 
-type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'archived';
+type TaskStatus = 'not_started' | 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'archived';
 type TaskPriority = 'low' | 'medium' | 'high';
 type ViewMode = 'table' | 'grid';
 type SortField = 'createdAt' | 'completedAt' | 'status' | 'priority' | 'taskName';
@@ -142,6 +141,8 @@ interface Task {
   results?: any;
   estimatedTime?: number;
   actualTime?: number;
+  // 新增：曾经排队过的标记，用于在未开始状态下显示“重新运行”而非“开始”
+  hasQueuedBefore?: boolean;
 }
 
 // 筛选条件接口
@@ -257,6 +258,8 @@ interface TaskManagementProps {
   onOpenTaskDetailFullPage?: (task: Task) => void;
   // 新增：控制创建成功后是否自动打开详情页，默认保持在列表
   autoOpenDetailAfterCreate?: boolean;
+  // 新增：接收来自外部（例如任务详情全屏页）的任务局部补丁，用于同步列表状态
+  externalTaskPatch?: { id: string; patch: Partial<Task> } | null;
 }
 
 // 更新FormData接口，添加数据集相关字段
@@ -272,17 +275,20 @@ interface FormData {
   modelName: string;
   models: string[]; // 支持多模型选择
   modelSelectionMode: 'single' | 'multiple'; // 新增：模型选择模式
-  targetFields: string[]; // 预测目标字段（支持多选）
+  targetFields: string[]; // 特征字段（支持多选）
   availableFields: string[]; // 数据集中可用的字段列表
   priority: TaskPriority;
   description: string;
-  config: string;
-  // 参数配置模式：页面配置 或 JSON 手动导入
-  hyperparameterMode: 'page' | 'json';
+  // 参数配置统一采用页面配置对象模式（移除 JSON 模式）
   // 页面配置：按任务类型分别保存
   forecastingConfig: {
     // 新增：时间序列任务的时间列（来自公共字段）
     timeColumn: string; // 时间列（必选）
+    /**
+     * 预测目标列（必选）。
+     * 来自公共字段，用于指定要预测的目标变量列，通常为数值型时间序列。
+     */
+    targetColumn: string;
     contextLength: number; // 上下文长度
     forecastLength: number; // 预测长度
     stepLength: number; // 预测步长
@@ -300,8 +306,6 @@ interface FormData {
     testRatio: number; // 测试集比例(%)
     shuffle: boolean; // 是否洗牌
   };
-  // JSON格式手动配置
-  manualConfig: string;
   // 新增：输出配置（按任务类型）
   outputConfig: OutputConfig;
   // 运行资源类型
@@ -319,6 +323,7 @@ interface FormData {
     onCreateTaskDialogChange,
     onOpenTaskDetailFullPage,
     autoOpenDetailAfterCreate = false,
+    externalTaskPatch = null,
   }) => {
     const { t } = useLanguage();
     // 创建任务弹窗分步导航（4步）
@@ -403,10 +408,9 @@ interface FormData {
   availableFields: [],
     priority: 'medium',
     description: '',
-    config: '',
-    hyperparameterMode: 'page',
     forecastingConfig: {
       timeColumn: '',
+      targetColumn: '',
       contextLength: 24,
       forecastLength: 12,
       stepLength: 1,
@@ -424,7 +428,6 @@ interface FormData {
       testRatio: 20,
       shuffle: false
     },
-    manualConfig: '',
     // 新增：输出配置默认值（默认全选）
     outputConfig: {
       forecasting: {
@@ -489,172 +492,7 @@ interface FormData {
   });
 
   // JSON 配置导入错误提示
-  const [jsonImportError, setJsonImportError] = useState<string>('');
-  const importJsonInputRef = useRef<HTMLInputElement | null>(null);
-
-  // 生成标准 JSON 配置模板（根据当前任务类型预填常用字段，保留可编辑性）
-  const buildJsonTemplate = () => {
-    const baseHyper: Record<string, any> = {
-      learning_rate: 0.1,
-      max_depth: 6,
-      n_estimators: 100,
-      subsample: 0.8,
-      colsample_bytree: 0.8,
-    };
-    if (formData.taskType === TASK_TYPES.forecasting) {
-      return {
-        mode: 'json',
-        taskType: TASK_TYPES.forecasting,
-        forecasting: {
-          timeColumn: formData.forecastingConfig.timeColumn || 'timestamp',
-          contextLength: formData.forecastingConfig.contextLength || 24,
-          forecastLength: formData.forecastingConfig.forecastLength || 12,
-          stepLength: formData.forecastingConfig.stepLength || 1,
-          startTime: formData.forecastingConfig.startTime || '',
-          mainVariableFiles: formData.forecastingConfig.mainVariableFiles || [],
-          covariateFiles: formData.forecastingConfig.covariateFiles || [],
-        },
-        output: { ...formData.outputConfig.forecasting },
-        hyperparameters: baseHyper,
-      };
-    }
-    if (formData.taskType === TASK_TYPES.classification) {
-      return {
-        mode: 'json',
-        taskType: TASK_TYPES.classification,
-        classification: {
-          trainRatio: formData.classificationConfig.trainRatio,
-          testRatio: formData.classificationConfig.testRatio,
-          shuffle: formData.classificationConfig.shuffle,
-        },
-        output: { ...formData.outputConfig.classification },
-        hyperparameters: baseHyper,
-      };
-    }
-    // regression
-    return {
-      mode: 'json',
-      taskType: TASK_TYPES.regression,
-      regression: {
-        trainRatio: formData.regressionConfig.trainRatio,
-        testRatio: formData.regressionConfig.testRatio,
-        shuffle: formData.regressionConfig.shuffle,
-      },
-      output: { ...formData.outputConfig.regression },
-      hyperparameters: baseHyper,
-    };
-  };
-
-  // 导出 JSON 模板文件
-  const handleExportJsonTemplate = () => {
-    try {
-      const tpl = buildJsonTemplate();
-      const dataStr = JSON.stringify(tpl, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      const dateStr = new Date().toISOString().split('T')[0];
-      link.href = url;
-      link.download = `任务参数模板_${formData.taskType}_${dateStr}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('导出模板失败:', err);
-    }
-  };
-
-  // 处理导入 JSON 配置文件
-  const handleImportJsonFile = async (file: File) => {
-    setJsonImportError('');
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        setJsonImportError('导入失败：JSON 须为对象类型');
-        return;
-      }
-      const pretty = JSON.stringify(parsed, null, 2);
-      handleInputChange('manualConfig', pretty);
-      handleInputChange('hyperparameterMode', 'json');
-      // 可选：根据导入文件的输出配置，预填 UI 的 outputConfig（按当前任务类型）
-      try {
-        const taskType = (parsed.taskType as TaskType) || formData.taskType;
-        const output = parsed.output;
-        if (output && typeof output === 'object' && !Array.isArray(output)) {
-          if (taskType === TASK_TYPES.forecasting) {
-            handleInputChange('outputConfig', {
-              ...formData.outputConfig,
-              forecasting: {
-                metrics: {
-                  mse: Boolean(output.metrics?.mse),
-                  rmse: Boolean(output.metrics?.rmse),
-                  mae: Boolean(output.metrics?.mae),
-                  mape: Boolean(output.metrics?.mape),
-                  r2: Boolean(output.metrics?.r2),
-                  relDeviationPercents: Array.isArray(output.metrics?.relDeviationPercents) ? output.metrics.relDeviationPercents : formData.outputConfig.forecasting.metrics.relDeviationPercents,
-                  absDeviationValues: Array.isArray(output.metrics?.absDeviationValues) ? output.metrics.absDeviationValues : formData.outputConfig.forecasting.metrics.absDeviationValues,
-                  customMetrics: Array.isArray(output.metrics?.customMetrics) ? output.metrics.customMetrics : formData.outputConfig.forecasting.metrics.customMetrics,
-                },
-                visualizations: {
-                  lineChart: Boolean(output.visualizations?.lineChart),
-                  residualPlot: Boolean(output.visualizations?.residualPlot),
-                  predVsTrueScatter: Boolean(output.visualizations?.predVsTrueScatter),
-                  errorHistogram: Boolean(output.visualizations?.errorHistogram),
-                },
-              },
-            });
-          } else if (taskType === TASK_TYPES.classification) {
-            const def = formData.outputConfig.classification.metrics;
-            handleInputChange('outputConfig', {
-              ...formData.outputConfig,
-              classification: {
-                metrics: {
-                  precision: { enabled: Boolean(output.metrics?.precision?.enabled), average: (((output.metrics?.precision?.average === 'none') ? 'acc' : output.metrics?.precision?.average) as AverageMethod) || def.precision.average },
-                  recall: { enabled: Boolean(output.metrics?.recall?.enabled), average: (((output.metrics?.recall?.average === 'none') ? 'acc' : output.metrics?.recall?.average) as AverageMethod) || def.recall.average },
-                  f1: { enabled: Boolean(output.metrics?.f1?.enabled), average: (((output.metrics?.f1?.average === 'none') ? 'acc' : output.metrics?.f1?.average) as AverageMethod) || def.f1.average },
-                  accuracy: { enabled: Boolean(output.metrics?.accuracy?.enabled), average: (((output.metrics?.accuracy?.average === 'none') ? 'acc' : output.metrics?.accuracy?.average) as AverageMethod) || def.accuracy.average },
-                  rocAuc: { enabled: Boolean(output.metrics?.rocAuc?.enabled), average: (((output.metrics?.rocAuc?.average === 'none') ? 'acc' : output.metrics?.rocAuc?.average) as AverageMethod) || def.rocAuc.average },
-                  customMetricCode: typeof output.metrics?.customMetricCode === 'string' ? output.metrics.customMetricCode : (def as any).customMetricCode ?? ''
-                },
-                visualizations: {
-                  rocCurve: Boolean(output.visualizations?.rocCurve),
-                  prCurve: Boolean(output.visualizations?.prCurve),
-                  confusionMatrix: Boolean(output.visualizations?.confusionMatrix),
-                },
-              },
-            });
-          } else if (taskType === TASK_TYPES.regression) {
-            handleInputChange('outputConfig', {
-              ...formData.outputConfig,
-              regression: {
-                metrics: {
-                  mse: Boolean(output.metrics?.mse),
-                  rmse: Boolean(output.metrics?.rmse),
-                  mae: Boolean(output.metrics?.mae),
-                  mape: Boolean(output.metrics?.mape),
-                  r2: Boolean(output.metrics?.r2),
-                  relDeviationPercents: Array.isArray(output.metrics?.relDeviationPercents) ? output.metrics.relDeviationPercents : formData.outputConfig.regression.metrics.relDeviationPercents,
-                  absDeviationValues: Array.isArray(output.metrics?.absDeviationValues) ? output.metrics.absDeviationValues : formData.outputConfig.regression.metrics.absDeviationValues,
-                  customMetrics: Array.isArray(output.metrics?.customMetrics) ? output.metrics.customMetrics : formData.outputConfig.regression.metrics.customMetrics,
-                },
-                visualizations: {
-                  lineChart: Boolean(output.visualizations?.lineChart),
-                  residualPlot: Boolean(output.visualizations?.residualPlot),
-                  predVsTrueScatter: Boolean(output.visualizations?.predVsTrueScatter),
-                  errorHistogram: Boolean(output.visualizations?.errorHistogram),
-                },
-              },
-            });
-          }
-        }
-      } catch (e) {
-        console.warn('导入输出配置预填失败，已忽略:', e);
-      }
-    } catch (err) {
-      console.error('导入 JSON 解析错误:', err);
-      setJsonImportError('导入失败：JSON 解析错误，请检查文件内容');
-    }
-  };
+  // 已移除：JSON 配置模式相关状态与方法（统一采用页面配置对象模式）
 
   // 添加表单验证状态
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -846,6 +684,37 @@ interface FormData {
       }
     }
   }, [formData.availableFields, formData.taskType]);
+
+  /**
+   * 当公共字段或时间列变化时，校正/预填预测目标列。
+   * 规则：
+   * - 若当前 targetColumn 不在公共字段中，则清空。
+   * - 若为空，则自动选择第一个非时间列的字段作为候选（仅作为便捷预填，可在UI中更改）。
+   */
+  useEffect(() => {
+    if (formData.taskType !== TASK_TYPES.forecasting) return;
+    const fields = formData.availableFields || [];
+    const currentTarget = formData.forecastingConfig?.targetColumn || '';
+    const currentTime = formData.forecastingConfig?.timeColumn || '';
+    // 若当前目标列不在公共字段中，清空
+    if (currentTarget && !fields.includes(currentTarget)) {
+      setFormData(prev => ({
+        ...prev,
+        forecastingConfig: { ...prev.forecastingConfig, targetColumn: '' }
+      }));
+      return;
+    }
+    // 若为空则尝试预填：第一个非时间列的字段
+    if (!currentTarget && fields.length > 0) {
+      const candidate = fields.find(f => f !== currentTime);
+      if (candidate) {
+        setFormData(prev => ({
+          ...prev,
+          forecastingConfig: { ...prev.forecastingConfig, targetColumn: candidate }
+        }));
+      }
+    }
+  }, [formData.availableFields, formData.forecastingConfig.timeColumn, formData.taskType]);
 
   // 聚合可选文件名：来自已选数据集(selectedDatasets)与当前选择(selectedDataset)
   const aggregatedFileOptions = useMemo(() => {
@@ -1072,10 +941,26 @@ interface FormData {
     setIsCreateTaskOpen(isCreateTaskDialogOpen);
   }, [isCreateTaskDialogOpen]);
 
+  /**
+   * 同步外部任务补丁到列表（来自 TaskDetailFullPage 的 onTaskPatched）。
+   * 参数：externalTaskPatch - { id, patch }
+   * 返回值：无
+   */
+  useEffect(() => {
+    if (!externalTaskPatch || !externalTaskPatch.id) return;
+    const { id, patch } = externalTaskPatch;
+    setTasks(prev => prev.map(t => (t.id === id ? { ...t, ...patch } : t)));
+  }, [externalTaskPatch]);
 
-  // 状态颜色和图标映射
+
+  /**
+   * 返回任务状态的显示配置（徽标颜色、图标与中文标签）。
+   * 参数：status - 任务状态枚举值。
+   * 返回值：包含 color（Tailwind 类）、icon（图标组件）、label（中文标签）的配置对象。
+   */
   const getStatusConfig = (status: TaskStatus) => {
     const configs = {
+      not_started: { color: 'bg-gray-100 text-gray-800', icon: Circle, label: '未开始' },
       pending: { color: 'bg-gray-100 text-gray-800', icon: Clock, label: '排队中' },
       running: { color: 'bg-blue-100 text-blue-800', icon: Activity, label: '运行中' },
       completed: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: '已完成' },
@@ -1086,7 +971,11 @@ interface FormData {
     return configs[status];
   };
 
-  // 优先级颜色映射
+  /**
+   * 返回任务优先级的显示配置（徽标颜色与中文标签）。
+   * 参数：priority - 任务优先级枚举值。
+   * 返回值：包含 color（Tailwind 类）、label（中文标签）的配置对象。
+   */
   const getPriorityConfig = (priority: TaskPriority) => {
     const configs = {
       low: { color: 'bg-gray-100 text-gray-800', label: '低' },
@@ -1263,9 +1152,9 @@ interface FormData {
       }
     }
 
-    // 目标字段验证（可选）
+    // 特征字段验证（可选）
     if (formData.targetFields.length > 10) {
-      errors.targetFields = '最多只能选择10个目标字段';
+      errors.targetFields = '最多只能选择10个特征字段';
     }
 
     // 模型选择验证（默认多选）
@@ -1275,63 +1164,53 @@ interface FormData {
       errors.models = '最多只能选择5个模型进行并行训练';
     }
 
-    // 超参数/任务配置验证
-    if (formData.hyperparameterMode === 'page') {
-      // 根据任务类型校验对应的页面配置
-      if (formData.taskType === TASK_TYPES.forecasting) {
-        const fc = formData.forecastingConfig;
-        // 时间列必选且必须来自公共字段
-        if (!fc || !String(fc.timeColumn || '').trim()) {
-          errors.forecastingTimeColumn = '请选择时间列（来自公共字段）';
-        } else if (!formData.availableFields.includes(fc.timeColumn)) {
-          errors.forecastingTimeColumn = '时间列必须来自已选数据集的公共字段';
-        }
-        if (!fc || fc.contextLength < 1 || fc.contextLength > 10000) {
-          errors.forecastingContextLength = '上下文长度应在1-10000之间';
-        }
-        if (!fc || fc.forecastLength < 1 || fc.forecastLength > 10000) {
-          errors.forecastingForecastLength = '预测长度应在1-10000之间';
-        }
-        if (!fc || fc.stepLength < 1 || fc.stepLength > 10000) {
-          errors.forecastingStepLength = '步长应在1-10000之间';
-        }
-        // 预测开始时间改为非必填：如果为空不报错
-        // 若后续需要格式校验，可在此判断非空后再校验格式
-      } else if (formData.taskType === TASK_TYPES.classification) {
-        const cc = formData.classificationConfig;
-        if (!cc) {
-          errors.classificationSplit = '请完善分类任务的训练/测试集配置';
-        } else {
-          const sum = cc.trainRatio + cc.testRatio;
-          if (cc.trainRatio <= 0 || cc.testRatio <= 0 || sum !== 100) {
-            errors.classificationSplit = '训练/测试比例必须为正且相加等于100%';
-          }
-        }
-      } else if (formData.taskType === TASK_TYPES.regression) {
-        const rc = formData.regressionConfig;
-        if (!rc) {
-          errors.regressionSplit = '请完善回归任务的训练/测试集配置';
-        } else {
-          const sum = rc.trainRatio + rc.testRatio;
-          if (rc.trainRatio <= 0 || rc.testRatio <= 0 || sum !== 100) {
-            errors.regressionSplit = '训练/测试比例必须为正且相加等于100%';
-          }
+    // 超参数/任务配置验证（统一为页面配置对象模式）
+    // 根据任务类型校验对应的页面配置
+    if (formData.taskType === TASK_TYPES.forecasting) {
+      const fc = formData.forecastingConfig;
+      // 时间列必选且必须来自公共字段
+      if (!fc || !String(fc.timeColumn || '').trim()) {
+        errors.forecastingTimeColumn = '请选择时间列（来自公共字段）';
+      } else if (!formData.availableFields.includes(fc.timeColumn)) {
+        errors.forecastingTimeColumn = '时间列必须来自已选数据集的公共字段';
+      }
+      // 预测目标列必选且必须来自公共字段，且不能与时间列相同
+      if (!fc || !String(fc.targetColumn || '').trim()) {
+        errors.forecastingTargetColumn = '请选择预测目标列（来自公共字段）';
+      } else if (!formData.availableFields.includes(fc.targetColumn)) {
+        errors.forecastingTargetColumn = '预测目标列必须来自已选数据集的公共字段';
+      } else if (fc.targetColumn === fc.timeColumn) {
+        errors.forecastingTargetColumn = '预测目标列不能与时间列相同';
+      }
+      if (!fc || fc.contextLength < 1 || fc.contextLength > 10000) {
+        errors.forecastingContextLength = '上下文长度应在1-10000之间';
+      }
+      if (!fc || fc.forecastLength < 1 || fc.forecastLength > 10000) {
+        errors.forecastingForecastLength = '预测长度应在1-10000之间';
+      }
+      if (!fc || fc.stepLength < 1 || fc.stepLength > 10000) {
+        errors.forecastingStepLength = '步长应在1-10000之间';
+      }
+      // 预测开始时间改为非必填：如果为空不报错
+      // 若后续需要格式校验，可在此判断非空后再校验格式
+    } else if (formData.taskType === TASK_TYPES.classification) {
+      const cc = formData.classificationConfig;
+      if (!cc) {
+        errors.classificationSplit = '请完善分类任务的训练/测试集配置';
+      } else {
+        const sum = cc.trainRatio + cc.testRatio;
+        if (cc.trainRatio <= 0 || cc.testRatio <= 0 || sum !== 100) {
+          errors.classificationSplit = '训练/测试比例必须为正且相加等于100%';
         }
       }
-    } else {
-      // JSON配置验证
-      if (!formData.manualConfig.trim()) {
-        errors.manualConfig = '请输入参数配置';
+    } else if (formData.taskType === TASK_TYPES.regression) {
+      const rc = formData.regressionConfig;
+      if (!rc) {
+        errors.regressionSplit = '请完善回归任务的训练/测试集配置';
       } else {
-        try {
-          const config = JSON.parse(formData.manualConfig);
-          if (typeof config !== 'object' || config === null || Array.isArray(config)) {
-            errors.manualConfig = '参数配置必须是有效的JSON对象';
-          } else if (Object.keys(config).length === 0) {
-            errors.manualConfig = '参数配置不能为空对象';
-          }
-        } catch (e) {
-          errors.manualConfig = 'JSON格式不正确，请检查语法';
+        const sum = rc.trainRatio + rc.testRatio;
+        if (rc.trainRatio <= 0 || rc.testRatio <= 0 || sum !== 100) {
+          errors.regressionSplit = '训练/测试比例必须为正且相加等于100%';
         }
       }
     }
@@ -1365,8 +1244,13 @@ interface FormData {
     return Object.keys(errors).length === 0;
   };
 
-  // 处理表单提交
-  const handleCreateTask = async () => {
+  /**
+   * 创建任务（提交表单）
+   * 功能：校验当前表单数据，构建 Task 对象并追加到任务列表，统一以页面配置对象模式生成 config。
+   * 参数：无（使用组件内部的 formData、tasks 等状态）。
+   * 返回：Promise<void> — 异步执行，创建成功后更新列表与高亮状态。
+   */
+  const handleCreateTask = async (): Promise<void> => {
     if (!validateForm()) {
       return;
     }
@@ -1426,48 +1310,25 @@ interface FormData {
         createdBy: '当前用户',
         description: formData.description,
         estimatedTime: formData.resourceConfig?.maxRunTime || undefined,
-        config: formData.hyperparameterMode === 'json' 
-          ? (() => {
-              // 在 JSON 模式下，将输出配置并入用户提供的 JSON 配置（若缺失则补充），以便后端能统一读取
-              try {
-                const parsed = JSON.parse(formData.manualConfig);
-                if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-                  const taskType = formData.taskType;
-                  const outputByType = (() => {
-                      if (taskType === TASK_TYPES.forecasting) return formData.outputConfig.forecasting;
-                      if (taskType === TASK_TYPES.classification) return formData.outputConfig.classification;
-                      return formData.outputConfig.regression;
-                    })();
-                  const merged = {
-                    ...parsed,
-                    output: parsed.output ?? outputByType,
-                    taskType: parsed.taskType ?? taskType,
-                    mode: parsed.mode ?? 'json',
-                  };
-                  return JSON.stringify(merged);
-                }
-              } catch (_) {}
-              // 如果解析失败或不是对象类型，则原样返回
-              return formData.manualConfig;
-            })()
-          : (() => {
-              const base: any = { mode: 'page', taskType: formData.taskType };
-              if (formData.taskType === TASK_TYPES.forecasting) {
-                // 兼容后端旧字段：mainVariableFile 取 mainVariableFiles[0]
-                base.forecasting = {
-                  ...formData.forecastingConfig,
-                  mainVariableFile: formData.forecastingConfig?.mainVariableFiles?.[0] || undefined,
-                };
-                base.output = { ...formData.outputConfig.forecasting };
-              } else if (formData.taskType === TASK_TYPES.classification) {
-                base.classification = { ...formData.classificationConfig };
-                base.output = { ...formData.outputConfig.classification };
-              } else if (formData.taskType === TASK_TYPES.regression) {
-                base.regression = { ...formData.regressionConfig };
-                base.output = { ...formData.outputConfig.regression };
-              }
-              return base;
-            })(),
+        hasQueuedBefore: false,
+        config: (() => {
+          const base: any = { mode: 'page', taskType: formData.taskType };
+          if (formData.taskType === TASK_TYPES.forecasting) {
+            // 兼容后端旧字段：mainVariableFile 取 mainVariableFiles[0]
+            base.forecasting = {
+              ...formData.forecastingConfig,
+              mainVariableFile: formData.forecastingConfig?.mainVariableFiles?.[0] || undefined,
+            };
+            base.output = { ...formData.outputConfig.forecasting };
+          } else if (formData.taskType === TASK_TYPES.classification) {
+            base.classification = { ...formData.classificationConfig };
+            base.output = { ...formData.outputConfig.classification };
+          } else if (formData.taskType === TASK_TYPES.regression) {
+            base.regression = { ...formData.regressionConfig };
+            base.output = { ...formData.outputConfig.regression };
+          }
+          return base;
+        })(),
       };
 
       setTasks(prev => [newTask, ...prev]);
@@ -1501,8 +1362,13 @@ interface FormData {
     }
   };
 
-  // 编辑任务保存
-  const handleSaveEditTask = async () => {
+  /**
+   * 保存任务编辑
+   * 功能：校验表单后，将编辑中的任务以页面配置对象模式更新其 config 和相关字段。
+   * 参数：无（依赖 editingTask 与 formData 等组件状态）。
+   * 返回：Promise<void> — 异步执行，保存成功后关闭弹窗并高亮该任务。
+   */
+  const handleSaveEditTask = async (): Promise<void> => {
     if (!editingTask) return;
     if (!validateForm()) {
       return;
@@ -1539,43 +1405,25 @@ interface FormData {
                 : t.modelName),
           priority: formData.priority,
           description: formData.description,
-          // 保持状态、进度不变，仅更新配置
-          config: formData.hyperparameterMode === 'json'
-            ? (() => {
-                try {
-                  const parsed = JSON.parse(formData.manualConfig);
-                  if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-                    const taskType = formData.taskType;
-                    const outputByType = (() => {
-                      if (taskType === TASK_TYPES.forecasting) return formData.outputConfig.forecasting;
-                      if (taskType === TASK_TYPES.classification) return formData.outputConfig.classification;
-                      return formData.outputConfig.regression;
-                    })();
-                    const merged = {
-                      ...parsed,
-                      output: parsed.output ?? outputByType,
-                      taskType: parsed.taskType ?? taskType,
-                      mode: parsed.mode ?? 'json',
-                    };
-                    return JSON.stringify(merged);
-                  }
-                } catch (_) {}
-                return formData.manualConfig;
-              })()
-            : (() => {
-                const base: any = { mode: 'page', taskType: formData.taskType };
-                if (formData.taskType === TASK_TYPES.forecasting) {
-                  base.forecasting = { ...formData.forecastingConfig };
-                  base.output = { ...formData.outputConfig.forecasting };
-                } else if (formData.taskType === TASK_TYPES.classification) {
-                  base.classification = { ...formData.classificationConfig };
-                  base.output = { ...formData.outputConfig.classification };
-                } else if (formData.taskType === TASK_TYPES.regression) {
-                  base.regression = { ...formData.regressionConfig };
-                  base.output = { ...formData.outputConfig.regression };
-                }
-                return base;
-              })(),
+          // 保持状态、进度不变，仅更新配置（统一为页面配置对象模式）
+          config: (() => {
+            const base: any = { mode: 'page', taskType: formData.taskType };
+            if (formData.taskType === TASK_TYPES.forecasting) {
+              base.forecasting = {
+                ...formData.forecastingConfig,
+                // 兼容后端旧字段：mainVariableFile 取 mainVariableFiles[0]
+                mainVariableFile: formData.forecastingConfig?.mainVariableFiles?.[0] || undefined,
+              };
+              base.output = { ...formData.outputConfig.forecasting };
+            } else if (formData.taskType === TASK_TYPES.classification) {
+              base.classification = { ...formData.classificationConfig };
+              base.output = { ...formData.outputConfig.classification };
+            } else if (formData.taskType === TASK_TYPES.regression) {
+              base.regression = { ...formData.regressionConfig };
+              base.output = { ...formData.outputConfig.regression };
+            }
+            return base;
+          })(),
         };
       }));
 
@@ -1790,11 +1638,10 @@ interface FormData {
           availableFields,
           priority: task.priority,
           description: task.description || '',
-          config: typeof task.config === 'string' ? task.config : '',
-          hyperparameterMode: typeof task.config === 'string' ? 'json' : 'page',
           forecastingConfig: (typeof parsedCfg === 'object' && parsedCfg?.forecasting)
             ? {
                 timeColumn: parsedCfg.forecasting.timeColumn ?? '',
+                targetColumn: parsedCfg.forecasting.targetColumn ?? '',
                 contextLength: parsedCfg.forecasting.contextLength ?? 24,
                 forecastLength: parsedCfg.forecasting.forecastLength ?? 12,
                 stepLength: parsedCfg.forecasting.stepLength ?? 1,
@@ -1807,6 +1654,7 @@ interface FormData {
               }
             : {
                 timeColumn: '',
+                targetColumn: '',
                 contextLength: 24,
                 forecastLength: 12,
                 stepLength: 1,
@@ -1836,7 +1684,6 @@ interface FormData {
                 testRatio: 20,
                 shuffle: false
               },
-          manualConfig: typeof task.config === 'string' ? task.config : '',
           outputConfig: (() => {
             const current = prev.outputConfig;
             if (parsedOutput && typeof parsedOutput === 'object' && !Array.isArray(parsedOutput)) {
@@ -1931,7 +1778,7 @@ interface FormData {
     }
     
     // 对于需要确认的操作，显示确认对话框
-    if (['start', 'stop', 'archive', 'retry', 'delete'].includes(action.trim())) {
+    if (['start', 'stop', 'archive', 'retry', 'rerun', 'cancel_queue', 'delete'].includes(action.trim())) {
       setConfirmDialog({
         isOpen: true,
         action: action.trim(),
@@ -1983,6 +1830,13 @@ interface FormData {
     }
   };
 
+  /**
+   * 执行任务操作（前端模拟）。
+   * 参数：
+   *  - action: 操作键（start/stop/retry/rerun/cancel_queue/archive/delete/...）。
+   *  - taskId: 目标任务ID。
+   * 返回值：无（通过状态更新与 toast 反馈交互结果）。
+   */
   const executeTaskAction = async (action: string, taskId: string) => {
     setLoadingAction(`${taskId}:${action}`);
     try {
@@ -2003,6 +1857,15 @@ interface FormData {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'pending', progress: undefined } : t));
         setStatusAnimTaskId(taskId);
         toast.success('任务已进入排队');
+      } else if (action === 'rerun') {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'pending', progress: undefined } : t));
+        setStatusAnimTaskId(taskId);
+        toast.success('任务已进入排队');
+      } else if (action === 'cancel_queue') {
+        // 取消排队后：标记 hasQueuedBefore 为 true，使未开始状态显示“重新运行”按钮
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'not_started', progress: undefined, hasQueuedBefore: true } : t));
+        setStatusAnimTaskId(taskId);
+        toast.success('已取消排队，任务回到未开始状态');
       } else if (action === 'archive') {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'archived' } : t));
         setStatusAnimTaskId(taskId);
@@ -2022,6 +1885,7 @@ interface FormData {
             progress: undefined,
             createdAt: new Date().toISOString(),
             completedAt: undefined,
+            hasQueuedBefore: false,
           };
           setTasks(prev => [newTask, ...prev]);
           setHighlightTaskId(newId);
@@ -2353,10 +2217,10 @@ interface FormData {
                 availableFields: [],
                 priority: 'medium',
                 description: '',
-                config: '',
-                hyperparameterMode: 'page',
+              
               forecastingConfig: {
                 timeColumn: '',
+                targetColumn: '',
                 contextLength: 24,
                 forecastLength: 12,
                 stepLength: 1,
@@ -2426,17 +2290,16 @@ interface FormData {
                       predVsTrueScatter: true,
                       errorHistogram: true
                     }
-                  }
-                },
-                manualConfig: '',
-                resourceType: 'cpu',
-                resourceConfig: {
-                  cores: 4,
-                  memory: 32,
-                  maxRunTime: 120,
-                  acceleratorCards: 1
                 }
-              });
+              },
+              resourceType: 'cpu',
+              resourceConfig: {
+                cores: 4,
+                memory: 32,
+                maxRunTime: 120,
+                acceleratorCards: 1
+              }
+            });
               setFormErrors({});
               setIsEditMode(false);
               setEditingTask(null);
@@ -2748,11 +2611,19 @@ interface FormData {
                             handleInputChange('selectedDataset', selectedDataset || null);
                             handleInputChange('datasetVersion', ''); // 重置版本选择
                             handleInputChange('availableFields', availableFields); // 设置可用字段
-                            handleInputChange('targetFields', []); // 重置目标字段选择
+                            handleInputChange('targetFields', []); // 重置特征字段选择
+                            // 重置预测配置中的时间列、目标列与文件选择，避免跨数据集残留
+                            handleInputChange('forecastingConfig', {
+                              ...formData.forecastingConfig,
+                              timeColumn: '',
+                              targetColumn: '',
+                              mainVariableFiles: [],
+                              covariateFiles: []
+                            });
                           }}
                         >
                           <SelectTrigger className={formErrors.datasetName ? 'border-red-500' : ''}>
-                            <SelectValue placeholder="选择已预处理的数据集" />
+                            <SelectValue placeholder="选择数据集" />
                           </SelectTrigger>
                           <SelectContent>
                             {availableDatasets
@@ -2778,80 +2649,6 @@ interface FormData {
                           <p className="text-sm text-red-500 mt-1">{formErrors.datasetName}</p>
                         )}
                       </div>
-
-                      {/* 数据集详情预览 */}
-                      {formData.selectedDataset && (
-                        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium text-gray-900">数据集详情</h4>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowDatasetPreview(!showDatasetPreview)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              {showDatasetPreview ? '隐藏预览' : '预览数据'}
-                            </Button>
-                          </div>
-                          
-                          {/* 优先显示所选版本的统计信息，未选择版本时显示数据集默认统计 */}
-                          <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-500">记录数：</span>
-                              <span className="font-medium">{(
-                                (formData.selectedDataset.versions.find(v => v.version === formData.datasetVersion)?.sampleCount ?? formData.selectedDataset.sampleCount)
-                              ).toLocaleString()}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">字段数：</span>
-                              <span className="font-medium">{
-                                formData.selectedDataset.versions.find(v => v.version === formData.datasetVersion)?.fieldCount ?? formData.selectedDataset.fieldCount
-                              }</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">大小：</span>
-                              <span className="font-medium">{
-                                formData.selectedDataset.versions.find(v => v.version === formData.datasetVersion)?.size ?? formData.selectedDataset.size
-                              }</span>
-                            </div>
-                          </div>
-                          {formData.datasetVersion && (
-                            <div className="text-xs text-gray-500">当前版本：{formData.datasetVersion}（{formData.selectedDataset.versions.find(v => v.version === formData.datasetVersion)?.createdAt}）</div>
-                          )}
-                          
-                          <p className="text-sm text-gray-600">{formData.selectedDataset.description}</p>
-                          
-                          {/* 数据预览表格 */}
-                          {showDatasetPreview && formData.selectedDataset.previewData && (
-                            <div className="mt-4">
-                              <h5 className="text-sm font-medium text-gray-700 mb-2">数据预览（前5行）</h5>
-                              <div className="border rounded-md overflow-hidden">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      {Object.keys(formData.selectedDataset.previewData[0] || {}).map(key => (
-                                        <TableHead key={key} className="text-xs">{key}</TableHead>
-                                      ))}
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {formData.selectedDataset.previewData.slice(0, 5).map((row, index) => (
-                                      <TableRow key={index}>
-                                        {Object.values(row).map((value, cellIndex) => (
-                                          <TableCell key={cellIndex} className="text-xs">
-                                            {String(value)}
-                                          </TableCell>
-                                        ))}
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
 
                       {/* 版本选择 */}
                       <div>
@@ -2897,6 +2694,78 @@ interface FormData {
                           <p className="text-xs text-gray-500 mt-1">可添加多个数据集进行联合训练。</p>
                         </div>
                       </div>
+
+                      {/* 数据集详情预览（需已选择版本） */}
+                      {formData.selectedDataset && formData.datasetVersion && (
+                        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium text-gray-900">数据集详情</h4>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowDatasetPreview(!showDatasetPreview)}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              {showDatasetPreview ? '隐藏预览' : '预览数据'}
+                            </Button>
+                          </div>
+                          
+                          {/* 显示所选版本的统计信息 */}
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">记录数：</span>
+                              <span className="font-medium">{(
+                                formData.selectedDataset.versions.find(v => v.version === formData.datasetVersion)?.sampleCount ?? 0
+                              ).toLocaleString()}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">字段数：</span>
+                              <span className="font-medium">{
+                                formData.selectedDataset.versions.find(v => v.version === formData.datasetVersion)?.fieldCount ?? 0
+                              }</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">大小：</span>
+                              <span className="font-medium">{
+                                formData.selectedDataset.versions.find(v => v.version === formData.datasetVersion)?.size ?? '-'
+                              }</span>
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-500">当前版本：{formData.datasetVersion}（{formData.selectedDataset.versions.find(v => v.version === formData.datasetVersion)?.createdAt}）</div>
+                          
+                          <p className="text-sm text-gray-600">{formData.selectedDataset.description}</p>
+                          
+                          {/* 数据预览表格 */}
+                          {showDatasetPreview && formData.selectedDataset.previewData && (
+                            <div className="mt-4">
+                              <h5 className="text-sm font-medium text-gray-700 mb-2">数据预览（前5行）</h5>
+                              <div className="border rounded-md overflow-hidden">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      {Object.keys(formData.selectedDataset.previewData[0] || {}).map(key => (
+                                        <TableHead key={key} className="text-xs">{key}</TableHead>
+                                      ))}
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {formData.selectedDataset.previewData.slice(0, 5).map((row, index) => (
+                                      <TableRow key={index}>
+                                        {Object.values(row).map((value, cellIndex) => (
+                                          <TableCell key={cellIndex} className="text-xs">
+                                            {String(value)}
+                                          </TableCell>
+                                        ))}
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* 已选择的数据集列表（多选） */}
@@ -2956,11 +2825,11 @@ interface FormData {
                       </div>
                     )}
 
-                    {/* 目标字段配置 */}
+                    {/* 特征字段配置 */}
                     <div>
                       <Label className="flex items-center space-x-1">
                         <Target className="h-4 w-4" />
-                        <span>预测目标字段</span>
+                        <span>特征字段</span>
                         <span className="text-gray-500 text-sm">(可选)</span>
                       </Label>
                       
@@ -3073,7 +2942,7 @@ interface FormData {
                       )}
                       
                       <p className="text-sm text-gray-500 mt-2">
-                        选择数据集中用于预测的目标字段，支持多选。如不选择，将使用所有数值型字段进行预测。
+                        选择数据集中用于预测的特征字段，支持多选。如不选择，将使用所有数值型字段进行预测。
                       </p>
                       {formErrors.targetFields && (
                         <p className="text-sm text-red-500 mt-1">{formErrors.targetFields}</p>
@@ -3193,31 +3062,84 @@ interface FormData {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div>
-                      <Label className="text-sm font-medium">配置模式</Label>
-                      <RadioGroup
-                        value={formData.hyperparameterMode}
-                        onValueChange={(value: 'page' | 'json') => handleInputChange('hyperparameterMode', value)}
-                        className="flex space-x-6 mt-2"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="page" id="page-mode" />
-                          <Label htmlFor="page-mode" className="text-sm">页面配置</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="json" id="json-mode" />
-                          <Label htmlFor="json-mode" className="text-sm">JSON配置</Label>
-                        </div>
-                      </RadioGroup>
-                      <p className="text-sm text-gray-500 mt-2">
-                        {formData.hyperparameterMode === 'page' 
-                          ? '通过页面表单配置常见任务参数，简单直观' 
-                          : '直接粘贴/编辑JSON配置，适合精细调优或批量迁移'
-                        }
-                      </p>
-                    </div>
-                    {formData.hyperparameterMode === 'page' ? (
-                      <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <div className="flex items-center space-x-2 text-blue-700">
                           <Settings className="h-4 w-4" />
                           <span className="font-medium">输入配置</span>
@@ -3258,6 +3180,40 @@ interface FormData {
                                   <p className="text-xs text-red-500 mt-1">{formErrors.forecastingTimeColumn}</p>
                                 )}
                                 <p className="text-xs text-gray-500 mt-1">提示：时间列来源于第2步所选数据集的公共字段，确保数据一致性。</p>
+                              </div>
+                              <div>
+                                <Label htmlFor="targetColumn" className="flex items-center space-x-1">
+                                  <span>预测目标列</span>
+                                  <span className="text-red-500">*</span>
+                                </Label>
+                                {formData.availableFields.length > 0 ? (
+                                  <Select
+                                    value={formData.forecastingConfig.targetColumn || ''}
+                                    onValueChange={(value: string) =>
+                                      handleInputChange('forecastingConfig', {
+                                        ...formData.forecastingConfig,
+                                        targetColumn: value,
+                                      })
+                                    }
+                                  >
+                                    <SelectTrigger className={formErrors.forecastingTargetColumn ? 'border-red-500' : ''}>
+                                      <SelectValue placeholder="选择要预测的目标列" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {formData.availableFields
+                                        .filter((field) => field !== formData.forecastingConfig.timeColumn)
+                                        .map((field) => (
+                                          <SelectItem key={field} value={field}>{field}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Input id="targetColumn" disabled placeholder="请先在第2步选择数据集以获取公共字段" />
+                                )}
+                                {formErrors.forecastingTargetColumn && (
+                                  <p className="text-xs text-red-500 mt-1">{formErrors.forecastingTargetColumn}</p>
+                                )}
+                                {/* 提示文案根据用户反馈移除 */}
                               </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
@@ -4156,102 +4112,11 @@ interface FormData {
 
                         <div className="bg-blue-100 p-3 rounded border border-blue-200">
                           <p className="text-sm text-blue-800">
-                            <strong>输入配置说明:</strong> 针对不同任务类型提供常用参数项。若需要更复杂的配置，请切换到 JSON 模式。
+                            <strong>输入配置说明:</strong> 针对不同任务类型提供常用参数项。若需更复杂的配置，请在后续版本中使用高级选项或模板。
                           </p>
                         </div>
                       </div>
-                    ) : (
-                      <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex items-center space-x-2 text-gray-700">
-                          <Settings className="h-4 w-4" />
-                          <span className="font-medium">JSON配置</span>
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="manualConfig" className="flex items-center space-x-1">
-                        <span>参数配置 (JSON格式)</span>
-                            <span className="text-red-500">*</span>
-                          </Label>
-                          <Textarea
-                            id="manualConfig"
-                            value={formData.manualConfig}
-                            onChange={(e) => handleInputChange('manualConfig', e.target.value)}
-                            placeholder={`{
-  "learning_rate": 0.1,
-  "max_depth": 6,
-  "n_estimators": 100,
-  "subsample": 0.8,
-  "colsample_bytree": 0.8
-}`}
-                            rows={8}
-                            className="font-mono text-sm mt-1"
-                          />
-                          <div className="flex items-start mt-2 justify-between">
-                            <div className="flex-1 pr-4">
-                              <p className="text-sm text-gray-600">
-                                请输入有效的 JSON 参数配置。可直接粘贴或上传 JSON 文件，或使用系统模板快速开始。
-                              </p>
-                              {jsonImportError && (
-                                <p className="text-xs text-red-500 mt-1">{jsonImportError}</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button 
-                                type="button" 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => {
-                                  const tplObj = buildJsonTemplate();
-                                  handleInputChange('manualConfig', JSON.stringify(tplObj, null, 2));
-                                }}
-                                className="flex items-center space-x-1"
-                              >
-                                <Settings className="h-4 w-4" />
-                                <span>使用模板</span>
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={handleExportJsonTemplate}
-                                className="flex items-center space-x-1"
-                              >
-                                <Download className="h-4 w-4" />
-                                <span>导出模板</span>
-                              </Button>
-                              <input
-                                ref={importJsonInputRef}
-                                type="file"
-                                accept="application/json,.json"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) handleImportJsonFile(file);
-                                  // 清空同名文件再次选择的阻塞
-                                  e.currentTarget.value = '';
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => importJsonInputRef.current?.click()}
-                                className="flex items-center space-x-1"
-                              >
-                                <Upload className="h-4 w-4" />
-                                <span>导入配置</span>
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
-                          <p className="text-sm text-yellow-800">
-                        <strong>提示:</strong> 不同模型支持的参数可能不同。请参考模型文档确保参数名称和取值范围正确。
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                    
                   </CardContent>
                 </Card>
                 )}
@@ -4369,6 +4234,7 @@ interface FormData {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="not_started">未开始</SelectItem>
                     <SelectItem value="pending">排队中</SelectItem>
                     <SelectItem value="running">运行中</SelectItem>
                     <SelectItem value="completed">已完成</SelectItem>
@@ -4932,7 +4798,11 @@ interface FormData {
                                   const ActionIcon = a.icon;
                                   const key = `${task.id}:${a.key}`;
                                   const isLoading = loadingAction === key;
-                                  const variant = (a.key === 'stop' || a.key === 'delete') ? 'destructive' : (a.key === 'start' || a.key === 'retry') ? 'default' : 'outline';
+                                  const variant = (a.key === 'stop' || a.key === 'delete' || a.key === 'cancel_queue')
+                                    ? 'destructive'
+                                    : (a.key === 'start' || a.key === 'retry' || a.key === 'rerun')
+                                    ? 'default'
+                                    : 'outline';
                                   return (
                                     <Button
                                       key={a.key}
@@ -5221,6 +5091,18 @@ interface FormData {
                   确认重试任务
                 </>
               )}
+              {confirmDialog.action === 'rerun' && (
+                <>
+                  <RotateCcw className="h-5 w-5 text-blue-600" />
+                  确认重新运行任务
+                </>
+              )}
+              {confirmDialog.action === 'cancel_queue' && (
+                <>
+                  <Clock className="h-5 w-5 text-red-600" />
+                  确认取消排队
+                </>
+              )}
               {confirmDialog.action === 'archive' && (
                 <>
                   <Archive className="h-5 w-5 text-gray-600" />
@@ -5252,6 +5134,12 @@ interface FormData {
               {confirmDialog.action === 'retry' && (
                 <p>确认要重试此任务吗？重试将按当前配置重新执行失败或已取消的任务。</p>
               )}
+              {confirmDialog.action === 'rerun' && (
+                <p>确认要重新运行此任务吗？该任务将按当前配置重新排队等待执行。</p>
+              )}
+              {confirmDialog.action === 'cancel_queue' && (
+                <p>确认要取消该任务的排队吗？取消后任务状态将回到“未开始”，不会占用队列资源。</p>
+              )}
               {confirmDialog.action === 'archive' && (
                 <p>确认要归档此任务吗？归档后任务将移至历史记录，不会影响任务结果。</p>
               )}
@@ -5279,12 +5167,18 @@ interface FormData {
                   ? '!bg-red-600 hover:!bg-red-700 !text-white'
                 : confirmDialog.action === 'retry'
                   ? '!bg-blue-600 hover:!bg-blue-700 !text-white'
+                : confirmDialog.action === 'rerun'
+                  ? '!bg-blue-600 hover:!bg-blue-700 !text-white'
+                : confirmDialog.action === 'cancel_queue'
+                  ? '!bg-red-600 hover:!bg-red-700 !text-white'
                 : '!bg-gray-700 hover:!bg-gray-800 !text-white'
               }
             >
               {confirmDialog.action === 'start' ? '开始任务' : 
                confirmDialog.action === 'stop' ? '停止任务' : 
                confirmDialog.action === 'retry' ? '重试任务' : 
+               confirmDialog.action === 'rerun' ? '重新运行' : 
+               confirmDialog.action === 'cancel_queue' ? '取消排队' : 
                confirmDialog.action === 'archive' ? '归档任务' : 
                confirmDialog.action === 'delete' ? '删除任务' : '确认'}
             </Button>

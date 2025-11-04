@@ -74,7 +74,6 @@ interface ColumnSettings {
   size: boolean;
   rows: boolean;
   columns: boolean;
-  completeness: boolean;
   source: boolean;
   version: boolean;
   updateTime: boolean;
@@ -103,6 +102,8 @@ interface Dataset {
   fieldCount?: number;
   sampleCount?: number;
 }
+// 统一来源类型，覆盖上传/订阅/API/数据库/未知，避免后续筛选 includes 比较的联合类型不兼容
+type SourceType = 'upload' | 'subscription' | 'api' | 'database' | 'unknown';
 
 export function DataManagement({ 
   onNavigateToPreprocessing,
@@ -131,11 +132,10 @@ export function DataManagement({
   
   // 搜索和筛选状态
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [sourceFilter, setSourceFilter] = useState('');
+  // 状态筛选已移除（仅保留展示，不参与过滤）
   // 列表排序：移除顶部“名称/大小/行数”选择，但保留列表/表头点击排序能力，默认按更新时间倒序
-  type SortField = 'name' | 'size' | 'rows' | 'updateTime';
-  const SORTABLE_COLUMNS = ['name', 'size', 'rows', 'updateTime'] as const;
+  type SortField = 'name' | 'size' | 'rows' | 'columns' | 'updateTime';
+  const SORTABLE_COLUMNS = ['name', 'size', 'rows', 'columns', 'updateTime'] as const;
   const isSortField = (col: string): col is SortField => (SORTABLE_COLUMNS as readonly string[]).includes(col);
   const isSortOrder = (o: string): o is 'asc' | 'desc' => o === 'asc' || o === 'desc';
   const [sortBy, setSortBy] = useState<SortField>('updateTime');
@@ -165,7 +165,6 @@ export function DataManagement({
     size: true,
     rows: true,
     columns: true,
-    completeness: true,
     source: true,
     version: true,
     updateTime: true,
@@ -182,7 +181,15 @@ export function DataManagement({
     formats: [] as string[]
   });
 
-  const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
+  // 已移除高级筛选弹窗开关；保留 advancedFilters 作为顶部控件的即时筛选状态
+  
+  // 列筛选（表头 Popover 多选）：状态/标签/格式
+  // 状态列头筛选已移除
+  const [columnFilterTags, setColumnFilterTags] = useState<string[]>([]);
+  const [columnFilterFormat, setColumnFilterFormat] = useState<string[]>([]);
+  
+  const [isTagsColFilterOpen, setIsTagsColFilterOpen] = useState(false);
+  const [isFormatColFilterOpen, setIsFormatColFilterOpen] = useState(false);
 
   const [dataSourceFormData, setDataSourceFormData] = useState({
     name: "",
@@ -455,17 +462,7 @@ export function DataManagement({
     .filter(dataset => {
       const matchesSearch = dataset.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            dataset.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = !statusFilter || dataset.status === statusFilter;
-      // 统一来源匹配，兼容中英文与不同展示标签
-      const normalizeSourceLabel = (s: string): 'upload' | 'subscription' | 'api' | 'database' | 'unknown' => {
-        const lower = (s || '').toLowerCase();
-        if (lower.includes('上传') || lower.includes('upload')) return 'upload';
-        if (lower.includes('订阅') || lower.includes('subscription')) return 'subscription';
-        if (lower.includes('api')) return 'api';
-        if (lower.includes('数据库') || lower.includes('database')) return 'database';
-        return 'unknown';
-      };
-      const matchesSource = !sourceFilter || normalizeSourceLabel(dataset.source) === sourceFilter;
+      // 已移除状态筛选逻辑：不再根据状态过滤，仅展示
       
       // 高级筛选
       const rowsCount = parseInt(dataset.rows.replace(/,/g, ''));
@@ -488,14 +485,18 @@ export function DataManagement({
         }
       }
 
+      const matchesFormatColumn = columnFilterFormat.length === 0 || columnFilterFormat.map(s => s.toLowerCase()).includes((dataset.format || '').toLowerCase());
+      // 列头标签筛选：与高级筛选的 tagQuery 可组合
+      const matchesTagsColumn = columnFilterTags.length === 0 || dataset.tags.some(t => columnFilterTags.includes(t.name));
       const matchesAdvanced = 
         columnsCount >= advancedFilters.columnsRange[0] && columnsCount <= advancedFilters.columnsRange[1] &&
         rowsCount >= advancedFilters.rowsRange[0] && rowsCount <= advancedFilters.rowsRange[1] &&
         (!advancedFilters.tagQuery || dataset.tags.some(t => t.name.toLowerCase().includes(advancedFilters.tagQuery.toLowerCase()))) &&
-        (advancedFilters.formats.length === 0 || advancedFilters.formats.includes(dataset.format)) &&
+        (advancedFilters.formats.length === 0 || advancedFilters.formats.map(s => s.toLowerCase()).includes((dataset.format || '').toLowerCase())) &&
+        matchesFormatColumn &&
         matchesDateRange;
 
-      return matchesSearch && matchesStatus && matchesSource && matchesAdvanced;
+      return matchesSearch && matchesAdvanced && matchesTagsColumn;
     })
     .sort((a, b) => {
       let aValue: any;
@@ -512,6 +513,10 @@ export function DataManagement({
         case 'rows':
           aValue = parseInt(a.rows.replace(/,/g, ''));
           bValue = parseInt(b.rows.replace(/,/g, ''));
+          break;
+        case 'columns':
+          aValue = parseInt(a.columns.replace(/,/g, ''));
+          bValue = parseInt(b.columns.replace(/,/g, ''));
           break;
         default:
           aValue = parseDateFlexible(a.updateTime) ?? new Date(0);
@@ -724,8 +729,6 @@ export function DataManagement({
 
   const handleResetFilters = () => {
     setSearchTerm('');
-    setStatusFilter('');
-    setSourceFilter('');
     setSortBy('updateTime');
     setSortOrder('desc');
     setAdvancedFilters({
@@ -736,6 +739,17 @@ export function DataManagement({
       formats: []
     });
   toast.success(t('data.toast.filtersReset'));
+  };
+
+  /**
+   * handleApplyQuery
+   * 点击顶栏“查询”按钮的处理函数。
+   * 说明：由于筛选条件（标签检索、日期范围、行/列范围、格式等）已是响应式应用，
+   * 按钮仅用于显式触发用户的“查询”动作，不弹出任何弹窗，也不更改筛选状态。
+   * 为了确保一次渲染触发，这里会对 advancedFilters 进行一次浅拷贝赋值。
+   */
+  const handleApplyQuery = () => {
+    setAdvancedFilters(prev => ({ ...prev }));
   };
 
   // 新增：按状态的操作函数
@@ -850,27 +864,16 @@ export function DataManagement({
         </div>
         
         <div className="flex gap-2">
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">{t('data.status.all')}</option>
-            <option value="success">{t('data.status.success')}</option>
-            <option value="processing">{t('data.status.processing')}</option>
-            <option value="failed">{t('data.status.failed')}</option>
-          </select>
+          {/* 状态筛选器已移除，仅保留标签检索与日期范围筛选 */}
           
-          <select
+          {/* 将“来源”筛选替换为“标签检索”（与高级筛选的标签搜索共享状态） */}
+          <input
+            type="text"
+            placeholder={t('data.filter.tags.placeholder')}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-          >
-            <option value="">{t('data.source.all')}</option>
-            <option value="upload">{t('data.source.upload')}</option>
-            <option value="api">{t('data.source.api')}</option>
-            <option value="database">{t('data.source.database')}</option>
-          </select>
+            value={advancedFilters.tagQuery}
+            onChange={(e) => setAdvancedFilters(prev => ({ ...prev, tagQuery: e.target.value }))}
+          />
 
           {/* 日期范围选择：更新时间 */}
           <Popover>
@@ -902,10 +905,10 @@ export function DataManagement({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsAdvancedFilterOpen(true)}
+            onClick={handleApplyQuery}
           >
             <Filter className="h-4 w-4 mr-2" />
-            {t('data.filter.advanced')}
+            {t('data.filter.query')}
           </Button>
           
           <Button
@@ -1172,7 +1175,50 @@ export function DataManagement({
                 } : undefined,
                 columnSettings.categories ? {
                   key: 'categories',
-                  label: t('data.columns.tags'),
+                  label: (
+                    <div className="flex items-center gap-1">
+                      <span>{t('data.columns.tags')}</span>
+                      <Popover open={isTagsColFilterOpen} onOpenChange={setIsTagsColFilterOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="p-0 h-auto">
+                            <Filter className="h-3.5 w-3.5 text-gray-500" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-48 p-2">
+                          <div className="space-y-1 max-h-48 overflow-auto">
+                            {availableTags.map((tag) => (
+                              <label key={tag} className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={columnFilterTags.includes(tag)}
+                                  onChange={(e) => {
+                                    setColumnFilterTags((prev) => e.target.checked
+                                      ? [...prev, tag]
+                                      : prev.filter(tg => tg !== tag)
+                                    );
+                                  }}
+                                />
+                                <span>{tag}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="flex justify-end gap-2 mt-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setColumnFilterTags([])}
+                              className="text-gray-500"
+                            >
+                              {t('common.reset')}
+                            </Button>
+                            <Button variant="default" size="sm" onClick={() => setIsTagsColFilterOpen(false)}>
+                              {t('common.confirm')}
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  ),
                   render: (_v: any, row: any) => (
                     <div className="flex flex-wrap gap-1">
                       {row.tags.map((tag: any, index: number) => (
@@ -1181,20 +1227,56 @@ export function DataManagement({
                     </div>
                   )
                 } : undefined,
-                columnSettings.format ? { key: 'format', label: t('data.columns.format') } : undefined,
-                columnSettings.size ? { key: 'size', label: t('data.columns.size'), sortable: true } : undefined,
-                columnSettings.rows ? { key: 'rows', label: t('data.columns.rows'), sortable: true } : undefined,
-                columnSettings.columns ? { key: 'columns', label: t('data.columns.columns') } : undefined,
-                columnSettings.completeness ? {
-                  key: 'completeness',
-                  label: t('data.columns.completeness'),
-                  render: (v: any) => (
-                    <div className="flex items-center space-x-2">
-                      <Progress value={v} className="h-2 w-16" />
-                      <span className="text-sm">{v}%</span>
+                columnSettings.format ? { 
+                  key: 'format', 
+                  label: (
+                    <div className="flex items-center gap-1">
+                      <span>{t('data.columns.format')}</span>
+                      <Popover open={isFormatColFilterOpen} onOpenChange={setIsFormatColFilterOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="p-0 h-auto">
+                            <Filter className="h-3.5 w-3.5 text-gray-500" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-40 p-2">
+                          <div className="space-y-1">
+                            {['CSV','Excel','xls','xlsx','json'].map((fmt) => (
+                              <label key={fmt} className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={columnFilterFormat.includes(fmt)}
+                                  onChange={(e) => {
+                                    setColumnFilterFormat((prev) => e.target.checked
+                                      ? [...prev, fmt]
+                                      : prev.filter(f => f !== fmt)
+                                    );
+                                  }}
+                                />
+                                <span>{fmt}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="flex justify-end gap-2 mt-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setColumnFilterFormat([])}
+                              className="text-gray-500"
+                            >
+                              {t('common.reset')}
+                            </Button>
+                            <Button variant="default" size="sm" onClick={() => setIsFormatColFilterOpen(false)}>
+                              {t('common.confirm')}
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   )
                 } : undefined,
+                columnSettings.size ? { key: 'size', label: t('data.columns.size'), sortable: true } : undefined,
+                columnSettings.rows ? { key: 'rows', label: t('data.columns.rows'), sortable: true } : undefined,
+                columnSettings.columns ? { key: 'columns', label: t('data.columns.columns'), sortable: true } : undefined,
                 columnSettings.source ? { key: 'source', label: t('data.columns.source') } : undefined,
                 columnSettings.version ? { key: 'version', label: t('data.columns.version') } : undefined,
                 columnSettings.updateTime ? { key: 'updateTime', label: t('data.columns.updateTime'), sortable: true, render: (v: any) => formatYYYYMMDD(v) } : undefined,
@@ -1316,166 +1398,7 @@ export function DataManagement({
         </>
       )}
 
-      {/* 高级筛选弹窗 */}
-      {isAdvancedFilterOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">{t('data.filter.title')}</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsAdvancedFilterOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="space-y-6">
-              {/* 列数范围 */}
-              <div>
-                <label className="block text-sm font-medium mb-2">{t('data.filter.sizeRange')}</label>
-                {/* 使用现有 i18n 键 data.filter.sizeRange，但翻译文案调整为“列数范围” */}
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="number"
-                    placeholder={t('common.min')}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                    value={advancedFilters.columnsRange[0]}
-                    onChange={(e) => setAdvancedFilters(prev => ({
-                      ...prev,
-                      columnsRange: [Number(e.target.value), prev.columnsRange[1]]
-                    }))}
-                  />
-                  <span>-</span>
-                  <input
-                    type="number"
-                    placeholder={t('common.max')}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                    value={advancedFilters.columnsRange[1]}
-                    onChange={(e) => setAdvancedFilters(prev => ({
-                      ...prev,
-                      columnsRange: [prev.columnsRange[0], Number(e.target.value)]
-                    }))}
-                  />
-                </div>
-              </div>
-
-              {/* 行数范围 */}
-              <div>
-                <label className="block text-sm font-medium mb-2">{t('data.filter.rowsRange')}</label>
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="number"
-                    placeholder={t('common.min')}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                    value={advancedFilters.rowsRange[0]}
-                    onChange={(e) => setAdvancedFilters(prev => ({
-                      ...prev,
-                      rowsRange: [Number(e.target.value), prev.rowsRange[1]]
-                    }))}
-                  />
-                  <span>-</span>
-                  <input
-                    type="number"
-                    placeholder={t('common.max')}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                    value={advancedFilters.rowsRange[1]}
-                    onChange={(e) => setAdvancedFilters(prev => ({
-                      ...prev,
-                      rowsRange: [prev.rowsRange[0], Number(e.target.value)]
-                    }))}
-                  />
-                </div>
-              </div>
-
-              {/* 已移除：完整度范围筛选 */}
-
-              {/* 标签筛选（改为模糊搜索） */}
-              <div>
-                <label className="block text-sm font-medium mb-2">{t('data.filter.tags')}</label>
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    placeholder={t('data.filter.tags.placeholder')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    value={advancedFilters.tagQuery}
-                    onChange={(e) => setAdvancedFilters(prev => ({ ...prev, tagQuery: e.target.value }))}
-                  />
-                  {advancedFilters.tagQuery && (
-                    <div className="flex flex-wrap gap-2">
-                      {availableTags
-                        .filter(tag => tag.toLowerCase().includes(advancedFilters.tagQuery.toLowerCase()))
-                        .map(tag => (
-                          <button
-                            key={tag}
-                            type="button"
-                            className="text-xs px-2 py-1 border rounded hover:bg-gray-100"
-                            onClick={() => setAdvancedFilters(prev => ({ ...prev, tagQuery: tag }))}
-                          >
-                            {tag}
-                          </button>
-                        ))}
-                      {availableTags.filter(tag => tag.toLowerCase().includes(advancedFilters.tagQuery.toLowerCase())).length === 0 && (
-                        <span className="text-xs text-gray-500">{t('data.filter.tags.noMatch')}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 格式筛选 */}
-              <div>
-                <label className="block text-sm font-medium mb-2">{t('data.filter.formats')}</label>
-                <div className="flex flex-wrap gap-2">
-                  {availableFormats.map(format => (
-                    <label key={format} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={advancedFilters.formats.includes(format)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setAdvancedFilters(prev => ({
-                              ...prev,
-                              formats: [...prev.formats, format]
-                            }));
-                          } else {
-                            setAdvancedFilters(prev => ({
-                              ...prev,
-                              formats: prev.formats.filter(f => f !== format)
-                            }));
-                          }
-                        }}
-                      />
-                      <span className="text-sm">{format}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setAdvancedFilters({
-                    columnsRange: [0, 1000],
-                    rowsRange: [0, 1000000],
-                    dateRange: null,
-                    tagQuery: '',
-                    formats: []
-                  });
-                }}
-              >
-                {t('common.clear')}
-              </Button>
-              <Button onClick={() => setIsAdvancedFilterOpen(false)}>
-                {t('common.apply')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 已移除：高级筛选弹窗，改为顶栏“查询”按钮直接使用当前筛选条件 */}
 
       {/* 列设置弹窗 */}
       {isColumnSettingsOpen && (
@@ -1536,7 +1459,6 @@ export function DataManagement({
                      size: true,
                      rows: true,
                      columns: true,
-                     completeness: true,
                      source: true,
                      version: true,
                      updateTime: true,
