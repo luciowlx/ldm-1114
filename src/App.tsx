@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { RadioGroup, RadioGroupItem } from "./components/ui/radio-group";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { X, Search, Grid3X3, List, ChevronDown, Calendar, Users, Database, TrendingUp, Clock, CheckCircle, Settings, UserPlus, Mail, Trash2, Eye, Archive, Copy, ToggleLeft, ToggleRight, Filter, ArrowUpDown } from "lucide-react";
+ import { X, Search, Grid3X3, List, ChevronDown, Calendar, Users, Database, TrendingUp, Clock, CheckCircle, Settings, UserPlus, Mail, Trash2, Eye, Archive, Copy, ToggleLeft, ToggleRight, Filter, ArrowUpDown, Plus } from "lucide-react";
 import { Toaster } from "./components/ui/sonner";
 import { Checkbox } from "./components/ui/checkbox";
 import FloatingAssistantEntry from "./components/FloatingAssistantEntry";
@@ -701,7 +701,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 右侧：视图切换按钮（靠右展示） */}
+                {/* 右侧：视图切换按钮（靠右展示） + 创建项目 */}
                 <div className="flex items-center gap-2 ml-auto shrink-0">
                   <Button
                     variant={viewMode === "grid" ? "default" : "outline"}
@@ -718,6 +718,15 @@ export default function App() {
                   >
                     <List className="w-4 h-4 mr-1" />
                     列表
+                  </Button>
+                  {/* 新增：创建项目按钮（顶栏右侧） */}
+                  <Button
+                    variant="default"
+                    onClick={() => setIsCreateProjectOpen(true)}
+                    className="px-4 h-10 md:h-12 ml-2"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    创建项目
                   </Button>
                 </div>
               </div>
@@ -807,24 +816,7 @@ export default function App() {
                   <div>操作</div>
                 </div>
                 
-                {/* 创建新项目行 */}
-                <div 
-                  className="grid gap-2 px-6 py-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors min-w-max"
-                  style={{gridTemplateColumns: "80px 200px 100px 80px 150px 150px 150px 100px 120px 120px 120px 100px"}}
-                  onClick={() => setIsCreateProjectOpen(true)}
-                >
-                  <div className="flex items-center gap-3" style={{gridColumn: "1 / 4"}}>
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <span className="text-blue-600 font-medium">创建新项目</span>
-                  </div>
-                  <div className="flex items-center text-gray-500" style={{gridColumn: "4 / -1"}}>
-                    <span>开始一个新的项目并配置项目设置</span>
-                  </div>
-                </div>
+                {/* 已移除：列表内的“创建新项目”占位行，改为顶栏右侧按钮触发 */}
 
                 {sortedProjects.map((project, index) => (
                   <div key={index} className="grid gap-2 px-6 py-4 border-b border-gray-200 hover:bg-gray-50 transition-colors min-w-max" style={{gridTemplateColumns: "80px 200px 100px 80px 150px 150px 150px 100px 120px 120px 120px 100px"}}>
