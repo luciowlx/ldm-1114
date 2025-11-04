@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { RadioGroup, RadioGroupItem } from "./components/ui/radio-group";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { X, Search, Grid3X3, List, ChevronDown, Calendar, Users, Database, TrendingUp, Clock, CheckCircle, Settings, UserPlus, Mail, Trash2, Eye, Archive, Copy, ToggleLeft, ToggleRight } from "lucide-react";
+import { X, Search, Grid3X3, List, ChevronDown, Calendar, Users, Database, TrendingUp, Clock, CheckCircle, Settings, UserPlus, Mail, Trash2, Eye, Archive, Copy, ToggleLeft, ToggleRight, Filter, ArrowUpDown } from "lucide-react";
 import { Toaster } from "./components/ui/sonner";
 import { Checkbox } from "./components/ui/checkbox";
 import FloatingAssistantEntry from "./components/FloatingAssistantEntry";
@@ -54,6 +54,9 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [projectDateRange, setProjectDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
+  // 列表排序状态：支持按创建时间/更新时间排序
+  const [projectSortField, setProjectSortField] = useState<"createdTime" | "updatedTime" | null>(null);
+  const [projectSortOrder, setProjectSortOrder] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isProjectDetailOpen, setIsProjectDetailOpen] = useState(false);
   const [isProjectManageOpen, setIsProjectManageOpen] = useState(false);
@@ -240,6 +243,32 @@ export default function App() {
     const matchesDate = (!start || projectCreated >= start) && (!end || projectCreated <= end);
     
     return matchesSearch && matchesStatus && matchesOwner && matchesDate;
+  });
+
+  /**
+   * 列表排序处理函数：切换“创建时间/更新时间”列的排序。
+   * 参数：field - 要排序的字段（createdTime | updatedTime）。
+   * 行为：
+   * - 若重复点击同一字段，切换升序/降序；
+   * - 若点击不同字段，切换到该字段并默认升序；
+   * 返回值：无（更新组件内部的排序状态）。
+   */
+  const handleToggleProjectSort = (field: "createdTime" | "updatedTime") => {
+    if (projectSortField === field) {
+      setProjectSortOrder(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setProjectSortField(field);
+      setProjectSortOrder("asc");
+    }
+  };
+
+  // 根据排序状态生成排序后的项目列表（无排序时保持原过滤顺序）
+  const sortedProjects = [...filteredProjects].sort((a, b) => {
+    if (!projectSortField) return 0;
+    const aDate = new Date((projectSortField === "createdTime" ? a.createdTime : a.updatedTime) || a.date);
+    const bDate = new Date((projectSortField === "createdTime" ? b.createdTime : b.updatedTime) || b.date);
+    const diff = aDate.getTime() - bDate.getTime();
+    return projectSortOrder === "asc" ? diff : -diff;
   });
 
   const handleCreateProject = () => {
@@ -687,7 +716,7 @@ export default function App() {
                 </div>
                 
                 {/* 项目卡片 */}
-                {filteredProjects.map((project) => (
+                {sortedProjects.map((project) => (
                   <ProjectCard 
                     key={project.id} 
                     title={project.title}
@@ -710,14 +739,47 @@ export default function App() {
                   <div>项目ID</div>
                   <div>项目名称</div>
                   <div>项目模式</div>
-                  <div>状态</div>
+                  <div className="flex items-center gap-1">
+                    <span>状态</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" aria-label="状态列筛选">
+                          <Filter className="h-3 w-3" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-44 p-2" align="start">
+                        <div className="space-y-2">
+                          <div className="text-xs text-gray-500">状态筛选</div>
+                          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder="选择状态" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">全部状态</SelectItem>
+                              <SelectItem value="进行中">进行中</SelectItem>
+                              <SelectItem value="已完成">已完成</SelectItem>
+                              <SelectItem value="暂停">暂停</SelectItem>
+                              <SelectItem value="归档">归档</SelectItem>
+                              <SelectItem value="已延期">已延期</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                   <div>数据集</div>
                   <div>模型</div>
                   <div>任务</div>
                   <div>负责人</div>
                   <div>项目周期</div>
-                  <div>创建时间</div>
-                  <div>更新时间</div>
+                  <div className="flex items-center gap-1 cursor-pointer select-none" onClick={() => handleToggleProjectSort("createdTime")}>
+                    <span>创建时间</span>
+                    <ArrowUpDown className={`h-3 w-3 ${projectSortField === "createdTime" ? "text-blue-600" : "text-gray-400"}`} />
+                  </div>
+                  <div className="flex items-center gap-1 cursor-pointer select-none" onClick={() => handleToggleProjectSort("updatedTime")}>
+                    <span>更新时间</span>
+                    <ArrowUpDown className={`h-3 w-3 ${projectSortField === "updatedTime" ? "text-blue-600" : "text-gray-400"}`} />
+                  </div>
                   <div>操作</div>
                 </div>
                 
@@ -740,7 +802,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {filteredProjects.map((project, index) => (
+                {sortedProjects.map((project, index) => (
                   <div key={index} className="grid gap-2 px-6 py-4 border-b border-gray-200 hover:bg-gray-50 transition-colors min-w-max" style={{gridTemplateColumns: "80px 200px 100px 80px 150px 150px 150px 100px 120px 120px 120px 100px"}}>
                     <div className="flex items-center text-sm text-gray-700">{project.id}</div>
                     <div>

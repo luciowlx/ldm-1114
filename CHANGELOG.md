@@ -29,6 +29,11 @@
     - src/i18n/LanguageContext.tsx（新增 `data.filter.query` 的中英键值：查询/Query）
   - 说明/验证：启动 `npm run dev` 并在 http://localhost:3000/ 进入“数据管理”页；顶部显示“查询”按钮，点击不弹窗；标签检索和日期范围选择仍可即时过滤；控制台无报错。
 
+- [Feat/ProjectManagement/List] 项目管理列表：状态列筛选（列头 Popover）+ 创建时间/更新时间排序（点击列头切换升/降序）。
+  - 涉及文件：
+    - src/App.tsx（新增 projectSortField/order 状态与 handleToggleProjectSort；列表/网格视图统一使用 sortedProjects；在“状态”列头加入 Popover 复用顶部 statusFilter；为“创建时间/更新时间”列头加入 ArrowUpDown 点击切换）。
+  - 说明/验证：`npm run dev` 启动后在 http://localhost:3001/ 打开“项目管理 → 列表视图”；点击“状态”列头的筛选图标选择状态，列表与顶部筛选保持一致；点击“创建时间/更新时间”列头切换升/降序；控制台无报错。
+
 ### 2025-11-03
 - [Feat/DataManagement/Filter] 高级筛选：将“大小范围 (MB)”改为“列数范围”，并移除“完整度范围”筛选项；筛选逻辑改为按列数过滤。
   - 涉及文件：
