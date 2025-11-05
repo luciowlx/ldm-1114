@@ -22,6 +22,14 @@
 
 ## 变更历史
 
+### 2025-11-05
+- [Remove/DataManagement/Preprocessing/UI] 预处理任务列表移除“复制规则”按钮（保持其他操作不变）。
+  - 涉及文件：
+    - src/components/DataManagement.tsx（删除在 failed/success 两种状态下渲染的 `t('task.actions.copyRules')` 按钮）
+  - 说明/验证：
+    - 运行 `npm run dev` 并打开 http://localhost:3000/ → 数据管理 → 预处理任务管理；
+    - 在列表“操作”列不再显示“复制规则”按钮；其他按钮如“查看详情/开始/编辑/删除/重试”等正常；终端与控制台无报错。
+
 ### 2025-11-04
 - [Remove/DataDetail&VersionHistory/UI] 去掉红框内的内容：移除“数据概览”页的标题与说明文案；移除“版本历史”页顶部标题与数据集名称；删除版本列表“操作”列中的两个图标按钮（仅保留“切换查看”文字按钮）。
   - 涉及文件：

@@ -2034,14 +2034,12 @@ export function DataManagement({
                         {task.status === 'failed' && (
                           <>
                             <Button size="sm" onClick={() => handleRetryTask(task.id)}>{t('task.actions.retry')}</Button>
-                            <Button variant="outline" size="sm" onClick={() => handleCopyRules(task.id)}>{t('task.actions.copyRules')}</Button>
                             <Button variant="ghost" size="sm" onClick={() => handleDeleteTask(task.id)}>{t('task.actions.delete')}</Button>
                           </>
                         )}
                         {task.status === 'success' && (
                           <>
                             <Button variant="outline" size="sm" onClick={() => handleViewTask(task.id)}>{t('task.actions.viewDetail')}</Button>
-                            <Button variant="outline" size="sm" onClick={() => handleCopyRules(task.id)}>{t('task.actions.copyRules')}</Button>
                           </>
                         )}
                       </div>
