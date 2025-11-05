@@ -23,6 +23,16 @@
 ## 变更历史
 
 ### 2025-11-05
+- [Tweak/DataManagement/Preprocessing/UI] 排队中状态的主操作由“开始执行”改为“取消排队”；新增二次确认弹窗；确认后任务状态置为“未开始(not_started)”，并在曾经排队的任务上显示“重试”主操作（清空进度）。
+  - 涉及文件：
+    - src/components/DataManagement.tsx（新增 not_started 与 hasQueuedBefore 字段；加入取消排队确认弹窗与处理逻辑；调整操作列按钮与状态徽章渲染）
+    - src/i18n/LanguageContext.tsx（新增键：task.actions.cancelQueue、task.dialog.cancelQueue.description、task.filters.status.not_started、data.toast.cancelQueueSuccess 的中英文文案）
+  - 说明/验证：
+    - 启动开发服务器并预览 http://localhost:3000/ → “数据管理” → “预处理任务管理”；
+    - 在排队中（pending）任务行点击“取消排队”，弹出确认对话框；点击“确认”后状态切换为“未开始”，进度清空；若 hasQueuedBefore=true，则“未开始”主操作显示为“重试”；
+    - 切换语言，确认新增文案键均正常展示；终端与控制台无报错；交互符合预期。
+
+### 2025-11-05
 - [Remove/DataManagement/Preprocessing/UI] 预处理任务列表移除“复制规则”按钮（保持其他操作不变）。
   - 涉及文件：
     - src/components/DataManagement.tsx（删除在 failed/success 两种状态下渲染的 `t('task.actions.copyRules')` 按钮）

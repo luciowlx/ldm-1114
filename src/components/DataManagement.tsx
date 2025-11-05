@@ -221,7 +221,10 @@ export function DataManagement({
     name: string;
     dataset: string;
     type: string;
-    status: 'success' | 'running' | 'pending' | 'failed';
+    // 任务状态：新增 not_started 用于“未开始”展示
+    status: 'success' | 'running' | 'pending' | 'failed' | 'not_started';
+    // 是否曾经排队过：用于在未开始状态下显示“重试”而非“开始执行”
+    hasQueuedBefore?: boolean;
     operations: string[];
     startTime?: string | null;
     createdAt?: string;
@@ -324,6 +327,30 @@ export function DataManagement({
       t.id === id ? { ...t, status: 'running', progress: 0, startTime: new Date().toISOString(), completedAt: null } : t
     )));
     toast.success(t('data.toast.taskRetry'));
+  };
+
+  // 取消排队相关：二次确认对话框状态
+  const [cancelQueueDialog, setCancelQueueDialog] = useState<{ open: boolean; taskId: number | null }>({ open: false, taskId: null });
+
+  /**
+   * 打开取消排队确认弹窗
+   * @param id 任务ID
+   */
+  const openCancelQueueConfirm = (id: number) => {
+    setCancelQueueDialog({ open: true, taskId: id });
+  };
+
+  /**
+   * 确认取消排队：任务状态改为 not_started，标记 hasQueuedBefore=true，使操作按钮显示“重试”
+   */
+  const confirmCancelQueue = () => {
+    if (!cancelQueueDialog.taskId) return;
+    const id = cancelQueueDialog.taskId;
+    setPreprocessingTasks(prev => prev.map(t => (
+      t.id === id ? { ...t, status: 'not_started', progress: undefined, startTime: null, completedAt: null, hasQueuedBefore: true } : t
+    )));
+    setCancelQueueDialog({ open: false, taskId: null });
+    toast.success(t('data.toast.cancelQueueSuccess'));
   };
 
   const handleEditTask = (id: number) => {
@@ -2000,6 +2027,9 @@ export function DataManagement({
                       {task.status === 'pending' && (
   <Badge variant="outline">{t('task.filters.status.pending')}</Badge>
                       )}
+                      {task.status === 'not_started' && (
+  <Badge variant="outline">{t('task.filters.status.not_started')}</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
@@ -2020,7 +2050,18 @@ export function DataManagement({
                         )}
                         {task.status === 'pending' && (
                           <>
-                            <Button size="sm" onClick={() => handleStartTask(task.id)}>{t('task.actions.start')}</Button>
+                            <Button size="sm" onClick={() => openCancelQueueConfirm(task.id)}>{t('task.actions.cancelQueue')}</Button>
+                            <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteTask(task.id)}>{t('task.actions.delete')}</Button>
+                          </>
+                        )}
+                        {task.status === 'not_started' && (
+                          <>
+                            {task.hasQueuedBefore ? (
+                              <Button size="sm" onClick={() => handleRetryTask(task.id)}>{t('task.actions.retry')}</Button>
+                            ) : (
+                              <Button size="sm" onClick={() => handleStartTask(task.id)}>{t('task.actions.start')}</Button>
+                            )}
                             <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
                             <Button variant="ghost" size="sm" onClick={() => handleDeleteTask(task.id)}>{t('task.actions.delete')}</Button>
                           </>
@@ -2045,6 +2086,21 @@ export function DataManagement({
           </Card>
         </div>
       )}
+      {/* 取消排队确认弹窗 */}
+      <Dialog open={cancelQueueDialog.open} onOpenChange={(open) => setCancelQueueDialog(prev => ({ ...prev, open }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('task.actions.cancelQueue')}</DialogTitle>
+            <DialogDescription>
+              {t('task.dialog.cancelQueue.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setCancelQueueDialog({ open: false, taskId: null })}>{t('common.cancel')}</Button>
+            <Button onClick={confirmCancelQueue}>{t('common.confirm')}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
