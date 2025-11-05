@@ -135,7 +135,6 @@ const messages: Record<Lang, Record<string, string>> = {
     "data.toast.datasourceCreateSuccess": "数据源创建成功",
     "data.toast.datasourceCreateSuccess.prefix": "数据源",
     "data.toast.datasourceCreateSuccess.suffix": "已成功创建并开始同步",
-    "data.toast.copyRulesToTemplateSuccess": "已复制预处理规则为新模板",
     "data.toast.taskDeleteSuccess": "任务已删除",
     "data.toast.copyDatasetSuccess": "已复制数据集",
     "data.toast.filtersReset": "筛选条件已重置",
@@ -177,7 +176,6 @@ const messages: Record<Lang, Record<string, string>> = {
     "task.actions.edit": "编辑",
     "task.actions.delete": "删除",
     "task.actions.retry": "重试",
-    "task.actions.copyRules": "复制规则",
 
     // 模型管理页
     "model.title": "模型管理",
@@ -552,7 +550,6 @@ const messages: Record<Lang, Record<string, string>> = {
     "data.toast.datasourceCreateSuccess": "Datasource Created",
     "data.toast.datasourceCreateSuccess.prefix": "Datasource",
     "data.toast.datasourceCreateSuccess.suffix": "created successfully and started syncing",
-    "data.toast.copyRulesToTemplateSuccess": "Copied preprocessing rules to new template",
     "data.toast.taskDeleteSuccess": "Task deleted",
     "data.toast.copyDatasetSuccess": "Dataset copied",
     "data.toast.filtersReset": "Filters reset",
@@ -594,7 +591,6 @@ const messages: Record<Lang, Record<string, string>> = {
     "task.actions.edit": "Edit",
     "task.actions.delete": "Delete",
     "task.actions.retry": "Retry",
-    "task.actions.copyRules": "Copy Rules",
 
     // Model Management
     "model.title": "Model Management",

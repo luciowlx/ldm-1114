@@ -30,6 +30,15 @@
     - 运行 `npm run dev` 并打开 http://localhost:3000/ → 数据管理 → 预处理任务管理；
     - 在列表“操作”列不再显示“复制规则”按钮；其他按钮如“查看详情/开始/编辑/删除/重试”等正常；终端与控制台无报错。
 
+- [Chore/Cleanup] 清理“复制规则”相关的残留代码与文案键值（避免死代码与无用 i18n）。
+  - 涉及文件：
+    - src/components/DataManagement.tsx（删除未使用的 `handleCopyRules` 函数）
+    - src/i18n/LanguageContext.tsx（移除 `task.actions.copyRules` 与 `data.toast.copyRulesToTemplateSuccess` 的中英文键值）
+  - 说明/验证：
+    - 启动 `npm run dev`，确认编译通过、控制台无缺失键值的报错；
+    - 页面功能不受影响；“复制规则”按钮与相关提示已不存在；
+    - HMR 正常，无 Fast Refresh 异常停止（有日志提示但页面刷新后正常）。
+
 ### 2025-11-04
 - [Remove/DataDetail&VersionHistory/UI] 去掉红框内的内容：移除“数据概览”页的标题与说明文案；移除“版本历史”页顶部标题与数据集名称；删除版本列表“操作”列中的两个图标按钮（仅保留“切换查看”文字按钮）。
   - 涉及文件：

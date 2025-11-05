@@ -326,12 +326,6 @@ export function DataManagement({
     toast.success(t('data.toast.taskRetry'));
   };
 
-  const handleCopyRules = (id: number) => {
-    const task = preprocessingTasks.find(t => t.id === id);
-    if (!task) return;
-  toast.success(t('data.toast.copyRulesToTemplateSuccess'));
-  };
-
   const handleEditTask = (id: number) => {
     const task = preprocessingTasks.find(t => t.id === id);
     if (!task) return;
