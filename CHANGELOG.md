@@ -610,3 +610,7 @@
 
 ### 预览
 - 本地开发服务器: http://localhost:3000/
+### 2025-11-06
+
+- docs(guidelines): add bilingual heading to src/guidelines/Guidelines.md to align with zh-first style
+- docs(readme): translate README to zh-CN with bilingual style

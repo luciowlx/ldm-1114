@@ -1,4 +1,4 @@
-**Add your own guidelines here**
+**请在此补充你的项目规范（Add your own guidelines here）**
 <!--
 
 System Guidelines
