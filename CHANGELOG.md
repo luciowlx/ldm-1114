@@ -22,6 +22,16 @@
 
 ## 变更历史
 
+### 2025-11-06
+- [Chore/i18n] 补全多页面的中文文案键值并提供英文翻译；为后续替换硬编码中文提供映射。
+  - 涉及文件：
+    - src/i18n/LanguageContext.tsx（新增 PersonalCenter、NotificationCenter、GlobalAIAssistant、AddCategoryModal、ReportView、VersionDetail 等模块的 zh/en 键值共 300+ 行）
+  - 说明/验证：
+    - 通过 ripgrep 全局扫描 `src` 内硬编码中文，归纳多页面通用文案并补全到 i18n 映射表；
+    - 切换语言后，已使用 `t()` 的页面可正常显示英文；未使用 `t()` 的页面需在下一步替换硬编码中文为 i18n 键；
+    - 词汇遵循产品与技术文档术语：如“自动清洗/Auto Cleaning”“缺失值填充/Missing Value Imputation”“异常值处理/Anomaly Handling”等；
+    - 待办：逐页将硬编码中文替换为对应键值，进行 UI 预览与布局核验。
+
 ### 2025-11-05
 - [Tweak/DataManagement/Preprocessing/UI] 排队中状态的主操作由“开始执行”改为“取消排队”；新增二次确认弹窗；确认后任务状态置为“未开始(not_started)”，并在曾经排队的任务上显示“重试”主操作（清空进度）。
   - 涉及文件：
