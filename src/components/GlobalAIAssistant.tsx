@@ -33,6 +33,7 @@ import { Avatar, Button, Space, Spin, message } from 'antd';
 import CSVAnalysisDemo from './CSVAnalysisDemo';
 import { createStyles } from 'antd-style';
 import dayjs from 'dayjs';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const DEFAULT_CONVERSATIONS_ITEMS = [
   {
@@ -257,6 +258,8 @@ interface GlobalAIAssistantProps {
 }
 
 const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
+  // i18n
+  const { t } = useLanguage();
   const { styles } = useStyle();
   const abortController = useRef<AbortController | null>(null);
   const replyTimerRef = useRef<number | null>(null);
@@ -276,24 +279,33 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
   const [showAnalysisDemo, setShowAnalysisDemo] = useState(false);
 
   // ==================== Event ====================
-  const buildMockReply = (input: string) => {
+  /**
+   * 构建基于关键字的本地模拟回复文本（原型演示，不触发网络请求）。
+   * @param input 用户输入的文本内容
+   * @returns 返回本地化后的回复文本（string）
+   */
+  const buildMockReply = (input: string): string => {
     const lower = input.toLowerCase();
     if (lower.includes('项目') || lower.includes('project')) {
-      return '已为你整理项目管理关键流程：\n- 需求确认与范围界定\n- 里程碑与任务拆分（支持甘特图与看板）\n- 风险清单与应对方案\n- 数据/模型/任务三视图联动\n- 进度与质量指标（准确率/召回率/工期偏差）\n如需演示，我可以基于当前示例项目生成「项目进度报告」与可视化摘要。';
+        return t('assistant.quick.project.plan');
     }
     if (lower.includes('团队') || lower.includes('协作')) {
-      return '团队协作建议如下：\n- 角色与权限：管理员/成员/访客分级\n- 评论与@提醒：支持任务、数据集与模型侧边栏讨论\n- 版本管理：数据集与模型支持版本标签与变更记录\n- 通知中心：合并未读提醒，支持筛选与跳转\n我也可以创建「协作清单」模板，帮助你快速分工与跟踪。';
+        return t('assistant.quick.collaboration.plan');
     }
     if (lower.includes('数据') || lower.includes('分析')) {
-      return '数据分析工作台示例：\n- 数据概览：样本量/缺失率/分布图\n- 质量检查：异常值与数据漂移监测\n- 可视化：折线/柱状/饼图与因果关系图\n- 报告导出：支持 Markdown/HTML 两种格式\n我已为你准备了演示数据，随时可以生成图表或报告。';
+        return t('assistant.quick.analysis.plan');
     }
     if (lower.includes('帮助') || lower.includes('使用')) {
       return '系统使用指南：\n- 左侧导航进入看板/项目/数据/任务/模型/系统管理\n- 右上角「智能助手」为统一入口，支持多会话、上传附件与快捷提示\n- 任何页面均可唤起助手获取解释或生成报告\n需要我按你的需求生成一个「快速上手清单」吗？';
     }
-    return '我已收到你的请求：「' + input + '」。以下是可执行的演示动作：\n1) 生成任务配置草案（含参数与资源配额）\n2) 创建数据质量概览图并解释关键指标\n3) 输出项目周报模板并填写示例内容\n你也可以上传文件，我会在聊天中做要点提取与结构化摘要。';
+        return t('assistant.reply.template').replace('${chatInput}', input);
   };
 
-  const onSubmit = (val: string) => {
+  /**
+   * 发送用户输入并追加模拟助手回复。
+   * @param val 当前输入框内容
+   */
+  const onSubmit = (val: string): void => {
     if (!val) return;
     if (loading) {
       message.error('助手正在响应中，请稍后再试或取消当前回复。');
@@ -330,7 +342,7 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
         }}>
           AI
         </div>
-        <span>limix智能助手</span>
+            <span>{t('assistant.floating.title')}</span>
       </div>
 
       {/* 添加会话 */}
@@ -338,7 +350,7 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
         onClick={() => {
           // 当正在生成回复时，不允许切换来创建新会话
           if (loading) {
-            message.error('消息正在响应中，请等待完成或取消当前回复');
+            message.error(t('assistant.replyInProgress.tip'));
             return;
           }
           const now = dayjs().valueOf().toString();
@@ -357,7 +369,7 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
         className={styles.addBtn}
         icon={<PlusOutlined />}
       >
-        新建对话
+            {t('assistant.actions.newChat')}
       </Button>
 
       {/* 会话管理 */}
@@ -365,7 +377,7 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
         items={conversations}
         className={styles.conversations}
         activeKey={curConversation}
-        onActiveChange={async (val) => {
+        onActiveChange={async (val: string) => {
           abortController.current?.abort();
           setTimeout(() => {
             setCurConversation(val);
@@ -374,15 +386,15 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
         }}
         groupable
         styles={{ item: { padding: '0 8px' } }}
-        menu={(conversation) => ({
+        menu={(conversation: any) => ({
           items: [
             {
-              label: '重命名',
+            label: t('common.rename'),
               key: 'rename',
               icon: <EditOutlined />,
             },
             {
-              label: '删除',
+            label: t('common.delete'),
               key: 'delete',
               icon: <DeleteOutlined />,
               danger: true,
@@ -463,8 +475,8 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
                 AI
               </div>
             }
-            title="你好，我是 limix智能助手"
-            description="基于AI技术，为您提供专业的项目管理建议和帮助~"
+            title={t('assistant.welcome.title')}
+            description={t('assistant.welcome.subtitle')}
             extra={
               <Space>
                 <Button icon={<ShareAltOutlined />} />
@@ -485,7 +497,7 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
                 },
                 subItem: { padding: 0, background: 'transparent' },
               }}
-              onItemClick={(info) => {
+              onItemClick={(info: any) => {
                 onSubmit(info.data.description);
               }}
               className={styles.chatPrompt}
@@ -502,9 +514,14 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
                 },
                 subItem: { background: '#ffffffa6' },
               }}
-              onItemClick={(info) => {
+              onItemClick={(info: any) => {
                 // 点击“数据分析”展示 CSV 演示工作台，其它项走常规聊天流程
-                if (info?.data?.label === '数据分析' || String(info?.data?.description || '').includes('数据分析')) {
+            if (
+              info?.data?.label === t('assistant.quick.analysis') ||
+              info?.data?.label === '数据分析' ||
+              String(info?.data?.description || '').includes(t('assistant.quick.analysis')) ||
+              String(info?.data?.description || '').includes('数据分析')
+            ) {
                   setShowAnalysisDemo(true);
                 } else {
                   onSubmit(info.data.description);
@@ -525,7 +542,7 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
 
   const senderHeader = (
     <Sender.Header
-      title="上传文件"
+            title={t('assistant.upload.title')}
       open={attachmentsOpen}
       onOpenChange={setAttachmentsOpen}
       styles={{ content: { padding: 0 } }}
@@ -533,14 +550,14 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
       <Attachments
         beforeUpload={() => false}
         items={attachedFiles}
-        onChange={(info) => setAttachedFiles(info.fileList)}
+        onChange={(info: any) => setAttachedFiles(info.fileList)}
         placeholder={(type) =>
           type === 'drop'
-            ? { title: '拖拽文件到此处' }
+            ? { title: t('assistant.upload.dragHere') }
             : {
                 icon: <CloudUploadOutlined />,
-                title: '上传文件',
-                description: '点击或拖拽文件到此区域上传',
+            title: t('assistant.upload.title'),
+            description: t('assistant.upload.description'),
               }
         }
       />
@@ -552,9 +569,9 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
       {/* 提示词 */}
       <Prompts
         items={SENDER_PROMPTS}
-        onItemClick={(info) => {
+        onItemClick={(info: any) => {
           const text = String(info?.data?.description || '');
-          if (text.includes('数据分析')) {
+            if (text.includes('数据分析') || text.includes(t('assistant.quick.analysis'))) {
             setShowAnalysisDemo(true);
           } else {
             onSubmit(info.data.description);
@@ -592,7 +609,7 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
         loading={loading}
         className={styles.sender}
         allowSpeech
-        actions={(_, info) => {
+        actions={(_: any, info: any) => {
           const { SendButton, LoadingButton, SpeechButton } = info.components;
           return (
             <div style={{ display: 'flex', gap: 4 }}>
@@ -601,7 +618,7 @@ const GlobalAIAssistant: React.FC<GlobalAIAssistantProps> = ({ onClose }) => {
             </div>
           );
         }}
-        placeholder="询问或输入 / 使用技能"
+            placeholder={t('assistant.input.placeholder')}
       />
     </>
   );

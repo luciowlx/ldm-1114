@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from './ui/button';
+import { useLanguage } from '../i18n/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -36,11 +37,12 @@ interface VersionDetailProps {
 }
 
 const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onBack }) => {
+  const { t } = useLanguage();
   const [previewRows, setPreviewRows] = useState<number>(20);
   const getStatusBadge = (status: string) => {
     return (
       <Badge variant={status === '成功' ? 'default' : 'destructive'}>
-        {status}
+        {status === '成功' ? t('versionDetail.status.success') : t('versionDetail.status.failed')}
       </Badge>
     );
   };
@@ -54,7 +56,7 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
     
     return (
       <Badge variant={variants[source as keyof typeof variants]}>
-        {source}
+        {source === '上传' ? t('versionDetail.source.upload') : source === '订阅' ? t('versionDetail.source.subscription') : t('versionDetail.source.cleaning')}
       </Badge>
     );
   };
@@ -102,10 +104,10 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
         <div className="flex items-center space-x-4">
           <Button variant="ghost" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            返回
+            {t('common.back')}
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">版本详情</h1>
+            <h1 className="text-2xl font-bold">{t('versionDetail.title')}</h1>
             <p className="text-gray-600">{datasetName} - {version.versionNumber}</p>
           </div>
         </div>
@@ -121,48 +123,48 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
           <CardHeader>
             <CardTitle className="flex items-center">
               <FileText className="h-5 w-5 mr-2" />
-              基本信息
+              {t('versionDetail.basicInfo.title')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium text-gray-500">版本号</label>
+                <label className="text-sm font-medium text-gray-500">{t('versionDetail.fields.versionNumber')}</label>
                 <p className="text-lg font-semibold">{version.versionNumber}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-500">来源方式</label>
+                <label className="text-sm font-medium text-gray-500">{t('versionDetail.fields.source')}</label>
                 <div className="mt-1">{getSourceBadge(version.source)}</div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-500">创建时间</label>
+                <label className="text-sm font-medium text-gray-500">{t('versionDetail.fields.createTime')}</label>
                 <div className="flex items-center mt-1">
                   <Calendar className="h-4 w-4 mr-1 text-gray-400" />
                   <span>{version.createTime}</span>
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-500">创建人</label>
+                <label className="text-sm font-medium text-gray-500">{t('versionDetail.fields.creator')}</label>
                 <div className="flex items-center mt-1">
                   <User className="h-4 w-4 mr-1 text-gray-400" />
                   <span>{version.creator}</span>
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-500">数据大小</label>
+                <label className="text-sm font-medium text-gray-500">{t('versionDetail.fields.size')}</label>
                 <div className="flex items-center mt-1">
                   <Database className="h-4 w-4 mr-1 text-gray-400" />
                   <span>{version.size}</span>
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-500">状态</label>
+                <label className="text-sm font-medium text-gray-500">{t('versionDetail.fields.status')}</label>
                 <div className="mt-1">{getStatusBadge(version.status)}</div>
               </div>
             </div>
             {version.description && (
               <div>
-                <label className="text-sm font-medium text-gray-500">描述</label>
+                <label className="text-sm font-medium text-gray-500">{t('versionDetail.fields.description')}</label>
                 <p className="mt-1 text-gray-700">{version.description}</p>
               </div>
             )}
@@ -174,26 +176,26 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
           <CardHeader>
             <CardTitle className="flex items-center">
               <BarChart3 className="h-5 w-5 mr-2" />
-              统计信息
+              {t('versionDetail.stats.title')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">{version.fieldCount}</div>
-                <div className="text-sm text-blue-600">字段数</div>
+                <div className="text-sm text-blue-600">{t('versionDetail.stats.fieldCount')}</div>
               </div>
               <div className="bg-green-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">{version.sampleCount.toLocaleString()}</div>
-                <div className="text-sm text-green-600">样本数</div>
+                <div className="text-sm text-green-600">{t('versionDetail.stats.sampleCount')}</div>
               </div>
               <div className="bg-yellow-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-yellow-600">{version.missingRate}%</div>
-                <div className="text-sm text-yellow-600">缺失比例</div>
+                <div className="text-sm text-yellow-600">{t('versionDetail.stats.missingRate')}</div>
               </div>
               <div className="bg-red-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-red-600">{version.anomalyRate}%</div>
-                <div className="text-sm text-red-600">异常比例</div>
+                <div className="text-sm text-red-600">{t('versionDetail.stats.anomalyRate')}</div>
               </div>
             </div>
           </CardContent>
@@ -206,7 +208,7 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
           <CardHeader>
             <CardTitle className="flex items-center">
               <Settings className="h-5 w-5 mr-2" />
-              处理规则摘要
+              {t('versionDetail.rules.summary.title')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -226,26 +228,26 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
       {version.processingDetails && (
         <Card>
           <CardHeader>
-            <CardTitle>处理详情</CardTitle>
+            <CardTitle>{t('versionDetail.process.detail.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-semibold mb-3">字段变化</h4>
+                <h4 className="font-semibold mb-3">{t('versionDetail.process.fieldChanges.title')}</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">原始字段数:</span>
+                    <span className="text-gray-600">{t('versionDetail.process.originalFields')}:</span>
                     <span className="font-medium">{version.processingDetails.originalFields}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">处理后字段数:</span>
+                    <span className="text-gray-600">{t('versionDetail.process.processedFields')}:</span>
                     <span className="font-medium">{version.processingDetails.processedFields}</span>
                   </div>
                 </div>
               </div>
               
               <div>
-                <h4 className="font-semibold mb-3">数据转换</h4>
+                <h4 className="font-semibold mb-3">{t('versionDetail.process.transformations.title')}</h4>
                 <div className="space-y-1">
                   {version.processingDetails.transformations.map((transformation, index) => (
                     <div key={index} className="text-sm text-gray-600">
@@ -260,7 +262,7 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {version.processingDetails.removedFields.length > 0 && (
                   <div>
-                    <h4 className="font-semibold mb-3 text-red-600">删除的字段</h4>
+                    <h4 className="font-semibold mb-3 text-red-600">{t('versionDetail.process.deletedFields.title')}</h4>
                     <div className="space-y-1">
                       {version.processingDetails.removedFields.map((field, index) => (
                         <div key={index} className="text-sm text-red-600 bg-red-50 px-2 py-1 rounded">
@@ -273,7 +275,7 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
 
                 {version.processingDetails.addedFields.length > 0 && (
                   <div>
-                    <h4 className="font-semibold mb-3 text-green-600">新增的字段</h4>
+                    <h4 className="font-semibold mb-3 text-green-600">{t('versionDetail.process.addedFields.title')}</h4>
                     <div className="space-y-1">
                       {version.processingDetails.addedFields.map((field, index) => (
                         <div key={index} className="text-sm text-green-600 bg-green-50 px-2 py-1 rounded">
@@ -293,9 +295,9 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>版本数据预览（预处理后）</span>
+            <span>{t('versionDetail.preview.title')}</span>
             <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-600">选择预览行数:</span>
+              <span className="text-sm text-gray-600">{t('versionDetail.preview.selectRows.label')}</span>
               <Select value={String(previewRows)} onValueChange={(v: string) => setPreviewRows(Number(v))}>
                 <SelectTrigger className="w-24">
                   <SelectValue />
@@ -312,7 +314,7 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
         <CardContent className="space-y-6">
           {/* 数据结构与字段处理状态 */}
           <div>
-            <h4 className="font-semibold mb-3">数据结构与字段处理状态</h4>
+            <h4 className="font-semibold mb-3">{t('versionDetail.structure.title')}</h4>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {processedSchema.map((field) => (
                 <div key={field.name} className="p-3 border rounded-lg bg-gray-50">
@@ -358,7 +360,7 @@ const VersionDetail: React.FC<VersionDetailProps> = ({ version, datasetName, onB
           </div>
 
           {/* 说明 */}
-          <p className="text-xs text-gray-500">注：为保证预览性能，本界面展示经过预处理后的示例数据与字段状态。实际数据以导入/清洗结果为准。</p>
+          <p className="text-xs text-gray-500">{t('versionDetail.note')}</p>
         </CardContent>
       </Card>
     </div>

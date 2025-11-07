@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BarChart3, CheckCircle, FileText, LineChart as LineChartIcon, Loader2, X, Check } from 'lucide-react';
 import { Button } from './ui/button';
+import { useLanguage } from '../i18n/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -105,6 +106,7 @@ function computeCorrelation(xs: number[], ys: number[]): number {
 }
 
 export function ReportView({ onClose }: ReportViewProps) {
+  const { t } = useLanguage();
   const [step, setStep] = useState<'idle' | 'cleaning' | 'analyzing' | 'report'>('idle');
   const [data, setData] = useState<PredictionPoint[]>([]);
   const [sourceInfo, setSourceInfo] = useState<string>('');
@@ -265,9 +267,9 @@ export function ReportView({ onClose }: ReportViewProps) {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-medium">分析报表</h1>
+          <h1 className="text-xl font-medium">{t('report.title')}</h1>
         </div>
-        <Badge variant="secondary" className="bg-slate-700 text-white">自动清洗</Badge>
+        <Badge variant="secondary" className="bg-slate-700 text-white">{t('report.badge.autoClean')}</Badge>
       </div>
 
       {/* Content */}
@@ -278,20 +280,20 @@ export function ReportView({ onClose }: ReportViewProps) {
         {summary && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />总体统计</CardTitle>
+              <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />{t('report.stats.title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 bg-white rounded border">
-                  <div className="text-sm text-gray-600">预测均值</div>
+                  <div className="text-sm text-gray-600">{t('report.stats.predictionMean')}</div>
                   <div className="text-2xl font-semibold">{summary.meanPred.toFixed(2)}</div>
                 </div>
                 <div className="p-4 bg-white rounded border">
-                  <div className="text-sm text-gray-600">实际均值</div>
+                  <div className="text-sm text-gray-600">{t('report.stats.actualMean')}</div>
                   <div className="text-2xl font-semibold">{summary.meanAct.toFixed(2)}</div>
                 </div>
                 <div className="p-4 bg-white rounded border">
-                  <div className="text-sm text-gray-600">预测与实际相关性</div>
+                  <div className="text-sm text-gray-600">{t('report.stats.correlation')}</div>
                   <div className="text-2xl font-semibold">{summary.corr.toFixed(3)}</div>
                 </div>
               </div>
@@ -302,7 +304,7 @@ export function ReportView({ onClose }: ReportViewProps) {
         {/* 交互维度选择（原型图样式：左右两栏、全选/清空、可视化标签） */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />交互维度选择</CardTitle>
+            <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />{t('report.interactive.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -310,12 +312,12 @@ export function ReportView({ onClose }: ReportViewProps) {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <div className="text-base font-medium">特征字段（X）</div>
-                    <div className="text-xs text-gray-500">默认全选，共 {allColumns.x.length} 个字段</div>
+                    <div className="text-base font-medium">{t('report.interactive.xFields.title')}</div>
+                    <div className="text-xs text-gray-500">{t('report.interactive.xFields.defaultAllHint').replace('{count}', String(allColumns.x.length))}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setSelectedX(allColumns.x)}>全选</Button>
-                    <Button variant="outline" size="sm" onClick={() => setSelectedX([])}>清空</Button>
+                    <Button variant="outline" size="sm" onClick={() => setSelectedX(allColumns.x)}>{t('common.selectAll')}</Button>
+                    <Button variant="outline" size="sm" onClick={() => setSelectedX([])}>{t('common.clear')}</Button>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -335,19 +337,19 @@ export function ReportView({ onClose }: ReportViewProps) {
                     );
                   })}
                 </div>
-                <div className="text-xs text-gray-500 mt-2">已选 {selectedX.length}/{allColumns.x.length}</div>
+                <div className="text-xs text-gray-500 mt-2">{t('report.interactive.xFields.selectedCount')} {selectedX.length}/{allColumns.x.length}</div>
               </div>
 
               {/* Y 目标字段 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <div className="text-base font-medium">目标字段（Y）</div>
-                    <div className="text-xs text-gray-500">支持多选，默认全选</div>
+                    <div className="text-base font-medium">{t('report.interactive.yFields.title')}</div>
+                    <div className="text-xs text-gray-500">{t('report.interactive.yFields.multiSelectHint')}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setSelectedY(allColumns.y)}>全选</Button>
-                    <Button variant="outline" size="sm" onClick={() => setSelectedY([])}>清空</Button>
+                    <Button variant="outline" size="sm" onClick={() => setSelectedY(allColumns.y)}>{t('common.selectAll')}</Button>
+                    <Button variant="outline" size="sm" onClick={() => setSelectedY([])}>{t('common.clear')}</Button>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -367,17 +369,17 @@ export function ReportView({ onClose }: ReportViewProps) {
                     );
                   })}
                 </div>
-                <div className="text-xs text-gray-500 mt-2">已选 {selectedY.length}/{allColumns.y.length}</div>
+                <div className="text-xs text-gray-500 mt-2">{t('report.interactive.xFields.selectedCount')} {selectedY.length}/{allColumns.y.length}</div>
               </div>
             </div>
-            <div className="text-xs text-gray-500 mt-4">所选维度用于交互展示，下方“数据表预览”仅显示选中列，并带有自动清洗标记。</div>
+            <div className="text-xs text-gray-500 mt-4">{t('report.interactive.tableHint')}</div>
           </CardContent>
         </Card>
 
         {/* Time series chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><LineChartIcon className="h-5 w-5" />时序预测结果</CardTitle>
+            <CardTitle className="flex items-center gap-2"><LineChartIcon className="h-5 w-5" />{t('report.timeseries.title')}</CardTitle>
           </CardHeader>
           <CardContent style={{ height: 360 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -387,8 +389,8 @@ export function ReportView({ onClose }: ReportViewProps) {
                 <YAxis tick={{ fontSize: 12 }} />
                 <RechartsTooltip />
                 <Legend />
-                <Line type="monotone" dataKey="actual" name="实际" stroke="#60a5fa" dot={false} />
-                <Line type="monotone" dataKey="prediction" name="预测" stroke="#f59e0b" dot={false} />
+                <Line type="monotone" dataKey="actual" name={t('report.timeseries.series.actual')} stroke="#60a5fa" dot={false} />
+                <Line type="monotone" dataKey="prediction" name={t('report.timeseries.series.prediction')} stroke="#f59e0b" dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -397,10 +399,10 @@ export function ReportView({ onClose }: ReportViewProps) {
         {/* Causal visualization approximation */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />因果关系近似(相关权重)</CardTitle>
+            <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />{t('report.causal.title')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-gray-600 mb-3">基于特征与预测值的相关性近似显示影响权重（示意）</div>
+            <div className="text-sm text-gray-600 mb-3">{t('report.causal.desc')}</div>
             <div style={{ height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={causalBars} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
@@ -408,7 +410,7 @@ export function ReportView({ onClose }: ReportViewProps) {
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} angle={-15} interval={0} height={60} />
                   <YAxis tick={{ fontSize: 12 }} domain={[0, 1]} />
                   <RechartsTooltip />
-                  <Bar dataKey="weight" name="影响权重(0-1)" fill="#34d399" />
+                  <Bar dataKey="weight" name={t('report.causal.weightLabel')} fill="#34d399" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -418,20 +420,20 @@ export function ReportView({ onClose }: ReportViewProps) {
         {/* Raw data preview with SOLO自动清洗标识与统计摘要 */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />数据表预览</CardTitle>
+            <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />{t('report.table.preview.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center flex-wrap gap-3 mb-4">
-              <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200">自动清洗</Badge>
-              <Badge className="bg-yellow-50 text-yellow-700 border border-yellow-200">缺失值填充：{processingSummary.missing}</Badge>
-              <Badge className="bg-red-50 text-red-700 border border-red-200">异常值处理：{processingSummary.abnormal}</Badge>
-              <Badge className="bg-blue-50 text-blue-700 border border-blue-200">类型转换：{processingSummary.typeConverted}</Badge>
+              <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-200">{t('report.badge.autoClean')}</Badge>
+              <Badge className="bg-yellow-50 text-yellow-700 border border-yellow-200">{t('report.badge.missingFill')}：{processingSummary.missing}</Badge>
+              <Badge className="bg-red-50 text-red-700 border border-red-200">{t('report.badge.abnormalProcess')}：{processingSummary.abnormal}</Badge>
+              <Badge className="bg-blue-50 text-blue-700 border border-blue-200">{t('report.badge.typeConversion')}：{processingSummary.typeConverted}</Badge>
             </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>时间</TableHead>
+                    <TableHead>{t('report.table.timeHeader')}</TableHead>
                     {[...selectedX, ...selectedY].map(col => (
                       <TableHead key={col}>{col}</TableHead>
                     ))}
@@ -455,9 +457,9 @@ export function ReportView({ onClose }: ReportViewProps) {
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <div className="space-y-1">
-                                    <div className="font-medium">自动处理：{ev.type === 'missing' ? '缺失值填充' : ev.type === 'abnormal' ? '异常值处理' : '数据类型转换'}</div>
-                                    <div>原始值：{String(ev.original)}</div>
-                                    <div>处理后：{String(ev.processed)}</div>
+                                    <div className="font-medium">{t('report.events.title')}：{ev.type === 'missing' ? t('report.events.missingFill') : ev.type === 'abnormal' ? t('report.events.abnormalProcess') : t('report.events.typeConversion')}</div>
+                                    <div>{t('report.events.originalLabel')}：{String(ev.original)}</div>
+                                    <div>{t('report.events.processedLabel')}：{String(ev.processed)}</div>
                                   </div>
                                 </TooltipContent>
                               </Tooltip>
@@ -477,8 +479,8 @@ export function ReportView({ onClose }: ReportViewProps) {
 
         {/* Footer actions */}
         <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>返回</Button>
-          <Button onClick={() => window.print()}>导出报表</Button>
+          <Button variant="outline" onClick={onClose}>{t('common.back')}</Button>
+          <Button onClick={() => window.print()}>{t('common.export')}</Button>
         </div>
       </div>
     </div>

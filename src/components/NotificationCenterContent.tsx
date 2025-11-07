@@ -5,6 +5,7 @@ import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
+import { useLanguage } from "../i18n/LanguageContext";
 import { 
   Bell, 
   Search, 
@@ -291,7 +292,13 @@ const mockActivities: ActivityItem[] = [
   },
 ];
 
+/**
+ * 通知中心内容组件，提供通知与活动的筛选、统计与详情查看（前端原型，基于本地模拟数据）。
+ * @param initialTab 初始选中的标签页（notifications | activity）
+ * @returns JSX.Element 通知中心界面
+ */
 export function NotificationCenterContent({ initialTab = 'notifications' }: { initialTab?: 'notifications' | 'activity' }) {
+  const { t } = useLanguage();
   const [tabValue, setTabValue] = useState<'notifications' | 'activity'>(initialTab);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<NotificationType | "all">("all");
@@ -331,7 +338,11 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
   }, [searchTerm, selectedType, selectedStatus]);
 
   // 统计信息
-  const stats = useMemo(() => {
+  /**
+   * 计算通知统计信息。
+   * @returns 通知数量、未读数量、按类型与优先级汇总的记录
+   */
+  const stats = useMemo((): NotificationStats & { byType: Record<NotificationType, number>; byPriority: Record<NotificationPriority, number> } => {
     const total = mockNotifications.filter(n => n.targetRoles.includes(CURRENT_USER_ROLE)).length;
     const unread = mockNotifications.filter(n => n.targetRoles.includes(CURRENT_USER_ROLE) && n.status === NotificationStatus.UNREAD).length;
     
@@ -352,7 +363,11 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
   }, []);
 
   // 过滤活动
-  const filteredActivities = useMemo(() => {
+  /**
+   * 过滤活动列表（按搜索、类型、状态）。
+   * @returns 过滤后的活动数组
+   */
+  const filteredActivities = useMemo((): ActivityItem[] => {
     return mockActivities
       .filter((act) => {
         // 搜索过滤
@@ -383,7 +398,11 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
   }, [searchTerm, activitySelectedType, activitySelectedStatus]);
 
   // 活动统计信息
-  const activityStats = useMemo(() => {
+  /**
+   * 活动统计信息。
+   * @returns 活动总数、进行中、失败、今日新增及按类型分布
+   */
+  const activityStats = useMemo((): { total: number; inProgress: number; failed: number; todayCount: number; byType: Record<ActivityType, number> } => {
     const total = mockActivities.length;
     const inProgress = mockActivities.filter((a) => a.status === "进行中").length;
     const failed = mockActivities.filter((a) => a.status === "失败").length;
@@ -410,15 +429,27 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
     return { total, inProgress, failed, todayCount, byType };
   }, []);
 
-  const markAsRead = (notificationId: string) => {
+  /**
+   * 标记通知为已读（原型演示：仅打印到控制台）。
+   * @param notificationId 通知ID
+   */
+  const markAsRead = (notificationId: string): void => {
     console.log("标记为已读:", notificationId);
   };
 
-  const deleteNotification = (notificationId: string) => {
+  /**
+   * 删除通知（原型演示：仅打印到控制台）。
+   * @param notificationId 通知ID
+   */
+  const deleteNotification = (notificationId: string): void => {
     console.log("删除通知:", notificationId);
   };
 
-  const viewDetails = (notification: Notification) => {
+  /**
+   * 查看通知详情并打开对话框，同时将未读通知标记为已读（原型演示）。
+   * @param notification 选中的通知对象
+   */
+  const viewDetails = (notification: Notification): void => {
     setSelectedNotification(notification);
     setIsDetailOpen(true);
     if (notification.status === NotificationStatus.UNREAD) {
@@ -426,18 +457,23 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
     }
   };
 
-  const formatTime = (dateString: string) => {
+  /**
+   * 格式化时间差，显示“刚刚/xx小时前/xx天前”。
+   * @param dateString ISO 时间字符串
+   * @returns 本地化的人类可读时间差文本
+   */
+  const formatTime = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
     
     if (diffInHours < 1) {
-      return "刚刚";
+      return t('notifications.center.time.justNow');
     } else if (diffInHours < 24) {
-      return `${diffInHours}小时前`;
+      return `${diffInHours}${t('notifications.center.time.hoursAgo')}`;
     } else {
       const diffInDays = Math.floor(diffInHours / 24);
-      return `${diffInDays}天前`;
+      return `${diffInDays}${t('notifications.center.time.daysAgo')}`;
     }
   };
 
@@ -445,10 +481,10 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
     <div className="h-full bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
         {/* 顶部选项卡：通知 / 活动 */}
-        <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as 'notifications' | 'activity')}>
+        <Tabs value={tabValue} onValueChange={(v: string) => setTabValue(v as 'notifications' | 'activity')}>
           <TabsList>
-            <TabsTrigger value="notifications">通知</TabsTrigger>
-            <TabsTrigger value="activity">活动</TabsTrigger>
+            <TabsTrigger value="notifications">{t('notifications.center.tabs.notifications')}</TabsTrigger>
+            <TabsTrigger value="activity">{t('notifications.center.tabs.activity')}</TabsTrigger>
           </TabsList>
 
           {/* 通知统计卡片 */}
@@ -458,7 +494,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">总通知</p>
+                      <p className="text-sm text-gray-600">{t('notifications.center.stats.total')}</p>
                       <p className="text-2xl font-bold">{stats.total}</p>
                     </div>
                     <Bell className="h-8 w-8 text-blue-500" />
@@ -469,7 +505,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">未读通知</p>
+                      <p className="text-sm text-gray-600">{t('notifications.center.stats.unread')}</p>
                       <p className="text-2xl font-bold text-red-600">{stats.unread}</p>
                     </div>
                     <AlertCircle className="h-8 w-8 text-red-500" />
@@ -480,7 +516,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">今日通知</p>
+                      <p className="text-sm text-gray-600">{t('notifications.center.stats.today')}</p>
                       <p className="text-2xl font-bold text-green-600">3</p>
                     </div>
                     <Calendar className="h-8 w-8 text-green-500" />
@@ -491,7 +527,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">紧急通知</p>
+                      <p className="text-sm text-gray-600">{t('notifications.center.stats.urgent')}</p>
                       <p className="text-2xl font-bold text-orange-600">{stats.byPriority[NotificationPriority.URGENT] || 0}</p>
                     </div>
                     <Clock className="h-8 w-8 text-orange-500" />
@@ -508,9 +544,9 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
-                        placeholder="搜索通知..."
+                        placeholder={t('notifications.center.search.placeholder.notifications')}
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                         className="pl-10"
                       />
                     </div>
@@ -518,22 +554,22 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                   <div className="flex gap-2">
                     <select
                       value={selectedType}
-                      onChange={(e) => setSelectedType(e.target.value as NotificationType | "all")}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedType(e.target.value as NotificationType | "all")}
                       className="px-3 py-2 border border-gray-300 rounded-md text-sm"
                     >
-                      <option value="all">所有类型</option>
+                      <option value="all">{t('notifications.center.filter.type.all')}</option>
                       {Object.entries(notificationTypeConfig).map(([type, config]) => (
                         <option key={type} value={type}>{config.label}</option>
                       ))}
                     </select>
                     <select
                       value={selectedStatus}
-                      onChange={(e) => setSelectedStatus(e.target.value as NotificationStatus | "all")}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedStatus(e.target.value as NotificationStatus | "all")}
                       className="px-3 py-2 border border-gray-300 rounded-md text-sm"
                     >
-                      <option value="all">所有状态</option>
-                      <option value={NotificationStatus.UNREAD}>未读</option>
-                      <option value={NotificationStatus.READ}>已读</option>
+                      <option value="all">{t('notifications.center.filter.status.all')}</option>
+                      <option value={NotificationStatus.UNREAD}>{t('notifications.center.filter.status.unread')}</option>
+                      <option value={NotificationStatus.READ}>{t('notifications.center.filter.status.read')}</option>
                     </select>
                   </div>
                 </div>
@@ -544,8 +580,8 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>通知列表</span>
-                  <Badge variant="secondary">{filteredNotifications.length} 条</Badge>
+                  <span>{t('notifications.center.list.title')}</span>
+                  <Badge variant="secondary">{filteredNotifications.length} {t('notifications.center.list.count.suffix')}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -575,7 +611,10 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                               </h3>
                               <div className="flex items-center space-x-2">
                                 <Badge className={`text-xs ${priorityConfig_.color}`}>
-                                  {priorityConfig_.label}
+                                  {notification.priority === NotificationPriority.LOW && t('notifications.center.priority.low')}
+                                  {notification.priority === NotificationPriority.MEDIUM && t('notifications.center.priority.medium')}
+                                  {notification.priority === NotificationPriority.HIGH && t('notifications.center.priority.high')}
+                                  {notification.priority === NotificationPriority.URGENT && t('notifications.center.priority.urgent')}
                                 </Badge>
                                 <span className="text-xs text-gray-500">{formatTime(notification.createdAt)}</span>
                               </div>
@@ -584,14 +623,14 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2">
                                 <Badge variant="outline" className="text-xs">{typeConfig.label}</Badge>
-                                <span className="text-xs text-gray-500">来自: {notification.sender}</span>
+                                <span className="text-xs text-gray-500">{t('notifications.center.detail.sender')}: {notification.sender}</span>
                               </div>
                               <div className="flex items-center space-x-1">
                                 {notification.status === NotificationStatus.UNREAD && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={(e) => {
+                                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                       e.stopPropagation();
                                       markAsRead(notification.id);
                                     }}
@@ -603,7 +642,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={(e) => {
+                                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                     e.stopPropagation();
                                     deleteNotification(notification.id);
                                   }}
@@ -622,7 +661,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                   {filteredNotifications.length === 0 && (
                     <div className="p-8 text-center text-gray-500">
                       <Bell className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>暂无通知</p>
+                      <p>{t('notifications.center.empty')}</p>
                     </div>
                   )}
                 </div>
@@ -631,7 +670,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
 
             {/* 通知详情对话框 */}
             {selectedNotification && (
-              <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+              <Dialog open={isDetailOpen} onOpenChange={(open: boolean) => setIsDetailOpen(open)}>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle className="flex items-center space-x-2">
@@ -646,7 +685,10 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Badge className={priorityConfig[selectedNotification.priority].color}>
-                        {priorityConfig[selectedNotification.priority].label}优先级
+                        {(selectedNotification.priority === NotificationPriority.LOW && t('notifications.center.priority.low'))
+                          || (selectedNotification.priority === NotificationPriority.MEDIUM && t('notifications.center.priority.medium'))
+                          || (selectedNotification.priority === NotificationPriority.HIGH && t('notifications.center.priority.high'))
+                          || (selectedNotification.priority === NotificationPriority.URGENT && t('notifications.center.priority.urgent'))}{t('notifications.center.detail.priorityLabelSuffix')}
                       </Badge>
                       <span className="text-sm text-gray-500">{formatTime(selectedNotification.createdAt)}</span>
                     </div>
@@ -655,16 +697,16 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="font-medium text-gray-600">发送者:</span>
+                        <span className="font-medium text-gray-600">{t('notifications.center.detail.sender')}:</span>
                         <span className="ml-2">{selectedNotification.sender}</span>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-600">类型:</span>
+                        <span className="font-medium text-gray-600">{t('notifications.center.detail.type')}:</span>
                         <span className="ml-2">{notificationTypeConfig[selectedNotification.type].label}</span>
                       </div>
                       {selectedNotification.relatedEntityName && (
                         <div>
-                          <span className="font-medium text-gray-600">相关实体:</span>
+                        <span className="font-medium text-gray-600">{t('notifications.center.detail.relatedEntity')}:</span>
                           <span className="ml-2">{selectedNotification.relatedEntityName}</span>
                         </div>
                       )}
@@ -672,11 +714,11 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                     <div className="flex justify-end space-x-2 pt-4">
                       {selectedNotification.status === NotificationStatus.UNREAD && (
                         <Button variant="outline" onClick={() => markAsRead(selectedNotification.id)}>
-                          <CheckCircle className="h-4 w-4 mr-2" />标记为已读
+                          <CheckCircle className="h-4 w-4 mr-2" />{t('notifications.center.actions.markRead')}
                         </Button>
                       )}
                       <Button variant="destructive" onClick={() => deleteNotification(selectedNotification.id)}>
-                        <Trash2 className="h-4 w-4 mr-2" />删除
+                        <Trash2 className="h-4 w-4 mr-2" />{t('notifications.center.actions.delete')}
                       </Button>
                     </div>
                   </div>
@@ -692,7 +734,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">总活动</p>
+                      <p className="text-sm text-gray-600">{t('notifications.center.activities.stats.total')}</p>
                       <p className="text-2xl font-bold">{activityStats.total}</p>
                     </div>
                     <Activity className="h-8 w-8 text-green-500" />
@@ -703,7 +745,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">进行中</p>
+                      <p className="text-sm text-gray-600">{t('notifications.center.activities.stats.inProgress')}</p>
                       <p className="text-2xl font-bold text-blue-600">{activityStats.inProgress}</p>
                     </div>
                     <Clock className="h-8 w-8 text-blue-500" />
@@ -714,7 +756,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">今日活动</p>
+                      <p className="text-sm text-gray-600">{t('notifications.center.activities.stats.today')}</p>
                       <p className="text-2xl font-bold text-green-600">{activityStats.todayCount}</p>
                     </div>
                     <Calendar className="h-8 w-8 text-green-500" />
@@ -725,7 +767,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">失败</p>
+                      <p className="text-sm text-gray-600">{t('notifications.center.activities.stats.failed')}</p>
                       <p className="text-2xl font-bold text-red-600">{activityStats.failed}</p>
                     </div>
                     <AlertCircle className="h-8 w-8 text-red-500" />
@@ -742,9 +784,9 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
-                        placeholder="搜索活动..."
+                        placeholder={t('notifications.center.search.placeholder.activities')}
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                         className="pl-10"
                       />
                     </div>
@@ -752,24 +794,24 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                   <div className="flex gap-2">
                     <select
                       value={activitySelectedType}
-                      onChange={(e) => setActivitySelectedType(e.target.value as ActivityType | 'all')}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setActivitySelectedType(e.target.value as ActivityType | 'all')}
                       className="px-3 py-2 border border-gray-300 rounded-md text-sm"
                     >
-                      <option value="all">所有类型</option>
+                      <option value="all">{t('notifications.center.activities.filter.type.all')}</option>
                       {Object.entries(activityTypeConfig).map(([type, config]) => (
                         <option key={type} value={type}>{config.label}</option>
                       ))}
                     </select>
                     <select
                       value={activitySelectedStatus}
-                      onChange={(e) => setActivitySelectedStatus(e.target.value as ActivityStatus | 'all')}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setActivitySelectedStatus(e.target.value as ActivityStatus | 'all')}
                       className="px-3 py-2 border border-gray-300 rounded-md text-sm"
                     >
-                      <option value="all">所有状态</option>
-                      <option value="成功">成功</option>
-                      <option value="进行中">进行中</option>
-                      <option value="失败">失败</option>
-                      <option value="提醒">提醒</option>
+                      <option value="all">{t('notifications.center.activities.filter.status.all')}</option>
+                      <option value="成功">{t('notifications.center.activities.status.success')}</option>
+                      <option value="进行中">{t('notifications.center.activities.status.inProgress')}</option>
+                      <option value="失败">{t('notifications.center.activities.status.failed')}</option>
+                      <option value="提醒">{t('notifications.center.activities.status.remind')}</option>
                     </select>
                   </div>
                 </div>
@@ -780,8 +822,8 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>活动列表</span>
-                  <Badge variant="secondary">{filteredActivities.length} 条</Badge>
+                  <span>{t('notifications.center.activities.list.title')}</span>
+                  <Badge variant="secondary">{filteredActivities.length} {t('notifications.center.activities.list.count.suffix')}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -816,7 +858,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                               <div className="flex items-center space-x-2">
                                 <Badge variant="outline" className="text-xs">{cfg.label}</Badge>
                                 {act.related && (
-                                  <span className="text-xs text-gray-500">关联: {act.related}</span>
+                                  <span className="text-xs text-gray-500">{t('notifications.center.activities.related.prefix')} {act.related}</span>
                                 )}
                                 <Badge variant="secondary" className={`text-xs ${statusClass}`}>{act.status}</Badge>
                               </div>
@@ -842,7 +884,7 @@ export function NotificationCenterContent({ initialTab = 'notifications' }: { in
                   {filteredActivities.length === 0 && (
                     <div className="p-8 text-center text-gray-500">
                       <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>暂无活动</p>
+                      <p>{t('notifications.center.activities.empty')}</p>
                     </div>
                   )}
                 </div>

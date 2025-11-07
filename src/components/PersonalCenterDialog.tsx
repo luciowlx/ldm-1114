@@ -18,6 +18,7 @@ import {
   X,
   AlertCircle
 } from "lucide-react";
+import { useLanguage } from "../i18n/LanguageContext";
 
 interface PersonalCenterDialogProps {
   open: boolean;
@@ -32,7 +33,15 @@ interface UserProfile {
   role: string;
 }
 
+/**
+ * 个人中心弹窗组件：包含基本信息展示、邮箱验证与密码修改。
+ * 仅前端模拟交互，支持国际化文案。
+ * @param open 是否打开弹窗
+ * @param onOpenChange 弹窗打开状态变更回调
+ * @returns JSX 元素
+ */
 export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialogProps) {
+  const { t } = useLanguage();
   const [userProfile, setUserProfile] = useState<UserProfile>({
     username: "lixin",
     email: "lixin@company.com",
@@ -58,19 +67,29 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   // 邮箱验证相关函数
+  /**
+   * 校验邮箱格式是否合法
+   * @param email 邮箱地址
+   * @returns 是否为有效邮箱格式
+   */
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
+  /**
+   * 发送邮箱验证码（前端模拟）
+   * - 校验新邮箱是否为空与格式是否正确
+   * - 设置已发送状态与错误提示
+   */
   const handleSendVerificationCode = () => {
     if (!emailForm.newEmail) {
-      setErrors({...errors, email: "请输入邮箱地址"});
+      setErrors({...errors, email: t("personal.center.email.errors.emailRequired")});
       return;
     }
     
     if (!validateEmail(emailForm.newEmail)) {
-      setErrors({...errors, email: "请输入有效的邮箱地址"});
+      setErrors({...errors, email: t("personal.center.email.errors.emailInvalid")});
       return;
     }
 
@@ -80,9 +99,14 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
     console.log("发送验证码到:", emailForm.newEmail);
   };
 
+  /**
+   * 验证邮箱验证码（前端模拟）
+   * - 验证码为空时提示
+   * - 正确验证码为 "123456"
+   */
   const handleVerifyEmail = () => {
     if (!emailForm.verificationCode) {
-      setErrors({...errors, verificationCode: "请输入验证码"});
+      setErrors({...errors, verificationCode: t("personal.center.email.errors.codeRequired")});
       return;
     }
 
@@ -90,15 +114,19 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
     if (emailForm.verificationCode === "123456") {
       setEmailForm({...emailForm, isEmailVerified: true});
       setErrors({...errors, verificationCode: ""});
-      console.log("邮箱验证成功");
+      console.log(t("personal.center.email.verification.success"));
     } else {
-      setErrors({...errors, verificationCode: "验证码错误"});
+      setErrors({...errors, verificationCode: t("personal.center.email.errors.codeInvalid")});
     }
   };
 
+  /**
+   * 更新用户邮箱（前端模拟）
+   * - 需先完成验证码验证
+   */
   const handleUpdateEmail = () => {
     if (!emailForm.isEmailVerified) {
-      setErrors({...errors, email: "请先验证邮箱"});
+      setErrors({...errors, email: t("personal.center.email.errors.verifyFirst")});
       return;
     }
 
@@ -109,34 +137,44 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
       isEmailSent: false,
       isEmailVerified: false
     });
-    console.log("邮箱更新成功");
+    console.log(t("personal.center.email.update"));
   };
 
   // 密码验证相关函数
+  /**
+   * 校验新密码是否满足安全要求
+   * 要求：至少8位，包含大小写字母、数字与特殊字符(@$!%*?&)
+   * @param password 新密码
+   * @returns 校验结果与提示信息
+   */
   const validatePassword = (password: string): {isValid: boolean, message: string} => {
     if (password.length < 8) {
-      return {isValid: false, message: "密码长度至少8位"};
+      return {isValid: false, message: t("personal.center.password.requirements.minLength")};
     }
     
     if (!/(?=.*[a-z])/.test(password)) {
-      return {isValid: false, message: "密码必须包含小写字母"};
+      return {isValid: false, message: t("personal.center.password.requirements.lowercase")};
     }
     
     if (!/(?=.*[A-Z])/.test(password)) {
-      return {isValid: false, message: "密码必须包含大写字母"};
+      return {isValid: false, message: t("personal.center.password.requirements.uppercase")};
     }
     
     if (!/(?=.*\d)/.test(password)) {
-      return {isValid: false, message: "密码必须包含数字"};
+      return {isValid: false, message: t("personal.center.password.requirements.number")};
     }
     
     if (!/(?=.*[@$!%*?&])/.test(password)) {
-      return {isValid: false, message: "密码必须包含特殊字符(@$!%*?&)"};
+      return {isValid: false, message: t("personal.center.password.requirements.special")};
     }
     
     return {isValid: true, message: ""};
   };
 
+  /**
+   * 提交密码修改（前端模拟）
+   * - 先校验新密码强度与确认密码一致性
+   */
   const handlePasswordChange = () => {
     const newErrors: {[key: string]: string} = {};
 
@@ -148,7 +186,7 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
 
     // 验证确认密码
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      newErrors.confirmPassword = "两次输入的密码不一致";
+      newErrors.confirmPassword = t("personal.center.alert.passwordMismatch");
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -164,9 +202,14 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
       showConfirmPassword: false
     });
     setErrors({});
-    console.log("密码修改成功");
+    console.log(t("personal.center.alert.passwordUpdated"));
   };
 
+  /**
+   * 计算密码强度（前端估算）
+   * @param password 密码
+   * @returns 强度等级、标签文案与颜色样式
+   */
   const getPasswordStrength = (password: string): {level: number, text: string, color: string} => {
     if (password.length === 0) return {level: 0, text: "", color: ""};
     
@@ -177,10 +220,10 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
     if (/(?=.*\d)/.test(password)) score++;
     if (/(?=.*[@$!%*?&])/.test(password)) score++;
 
-    if (score <= 2) return {level: 1, text: "弱", color: "text-red-500"};
-    if (score <= 3) return {level: 2, text: "中", color: "text-yellow-500"};
-    if (score <= 4) return {level: 3, text: "强", color: "text-green-500"};
-    return {level: 4, text: "很强", color: "text-green-600"};
+    if (score <= 2) return {level: 1, text: t("personal.center.password.strength.weak"), color: "text-red-500"};
+    if (score <= 3) return {level: 2, text: t("personal.center.password.strength.medium"), color: "text-yellow-500"};
+    if (score <= 4) return {level: 3, text: t("personal.center.password.strength.strong"), color: "text-green-500"};
+    return {level: 4, text: t("personal.center.password.strength.veryStrong"), color: "text-green-600"};
   };
 
   const passwordStrength = getPasswordStrength(passwordForm.newPassword);
@@ -191,15 +234,15 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <User className="h-5 w-5" />
-            <span>个人中心</span>
+            <span>{t("personal.center.title")}</span>
           </DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="profile" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="profile">基本信息</TabsTrigger>
-            <TabsTrigger value="email">邮箱设置</TabsTrigger>
-            <TabsTrigger value="password">密码修改</TabsTrigger>
+            <TabsTrigger value="profile">{t("personal.center.dialog.tabs.basic")}</TabsTrigger>
+            <TabsTrigger value="email">{t("personal.center.dialog.tabs.email")}</TabsTrigger>
+            <TabsTrigger value="password">{t("personal.center.dialog.tabs.password")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile" className="space-y-4">
@@ -207,7 +250,7 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <User className="h-4 w-4" />
-                  <span>个人信息</span>
+                  <span>{t("personal.center.section.basicInfo")}</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -226,23 +269,23 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>用户名</Label>
+                    <Label>{t("personal.center.form.username")}</Label>
                     <Input value={userProfile.username} disabled />
                   </div>
                   <div>
-                    <Label>真实姓名</Label>
+                    <Label>{t("personal.center.form.realName")}</Label>
                     <Input value={userProfile.realName} disabled />
                   </div>
                   <div>
-                    <Label>部门</Label>
+                    <Label>{t("personal.center.form.department")}</Label>
                     <Input value={userProfile.department} disabled />
                   </div>
                   <div>
-                    <Label>角色</Label>
+                    <Label>{t("personal.center.form.role")}</Label>
                     <Input value={userProfile.role} disabled />
                   </div>
                   <div className="col-span-2">
-                    <Label>当前邮箱</Label>
+                    <Label>{t("personal.center.email.current")}</Label>
                     <Input value={userProfile.email} disabled />
                   </div>
                 </div>
@@ -255,21 +298,21 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Mail className="h-4 w-4" />
-                  <span>邮箱验证</span>
+                  <span>{t("personal.center.email.verification.title")}</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label>当前邮箱</Label>
+                  <Label>{t("personal.center.email.current")}</Label>
                   <Input value={userProfile.email} disabled />
                 </div>
 
                 <div>
-                  <Label>新邮箱地址</Label>
+                  <Label>{t("personal.center.email.new")}</Label>
                   <div className="flex space-x-2">
                     <Input
                       type="email"
-                      placeholder="请输入新的邮箱地址"
+                      placeholder={t("personal.center.email.new.placeholder")}
                       value={emailForm.newEmail}
                       onChange={(e) => setEmailForm({...emailForm, newEmail: e.target.value})}
                       className={errors.email ? "border-red-500" : ""}
@@ -279,7 +322,7 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
                       disabled={emailForm.isEmailSent}
                       variant="outline"
                     >
-                      {emailForm.isEmailSent ? "已发送" : "发送验证码"}
+                      {emailForm.isEmailSent ? t("personal.center.email.codeSent") : t("personal.center.email.sendCode")}
                     </Button>
                   </div>
                   {errors.email && (
@@ -292,10 +335,10 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
 
                 {emailForm.isEmailSent && (
                   <div>
-                    <Label>验证码</Label>
+                    <Label>{t("personal.center.email.verificationCode")}</Label>
                     <div className="flex space-x-2">
                       <Input
-                        placeholder="请输入6位验证码"
+                        placeholder={t("personal.center.email.verificationCode.placeholder")}
                         value={emailForm.verificationCode}
                         onChange={(e) => setEmailForm({...emailForm, verificationCode: e.target.value})}
                         className={errors.verificationCode ? "border-red-500" : ""}
@@ -308,7 +351,7 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
                         {emailForm.isEmailVerified ? (
                           <Check className="h-4 w-4 text-green-500" />
                         ) : (
-                          "验证"
+                          t("personal.center.email.verify")
                         )}
                       </Button>
                     </div>
@@ -321,7 +364,7 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
                     {emailForm.isEmailVerified && (
                       <p className="text-sm text-green-500 flex items-center mt-1">
                         <Check className="h-3 w-3 mr-1" />
-                        邮箱验证成功
+                        {t("personal.center.email.verification.success")}
                       </p>
                     )}
                   </div>
@@ -333,7 +376,7 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
                   className="w-full"
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  更新邮箱
+                  {t("personal.center.email.update")}
                 </Button>
               </CardContent>
             </Card>
@@ -344,16 +387,16 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Lock className="h-4 w-4" />
-                  <span>密码修改</span>
+                  <span>{t("personal.center.dialog.tabs.password")}</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label>新密码</Label>
+                  <Label>{t("personal.center.security.newPassword")}</Label>
                   <div className="relative">
                     <Input
                       type={passwordForm.showNewPassword ? "text" : "password"}
-                      placeholder="请输入新密码"
+                      placeholder={t("personal.center.security.newPassword.placeholder")}
                       value={passwordForm.newPassword}
                       onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
                       className={errors.newPassword ? "border-red-500" : ""}
@@ -375,7 +418,7 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
                   {passwordForm.newPassword && (
                     <div className="mt-2">
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-500">密码强度:</span>
+                        <span className="text-sm text-gray-500">{t("personal.center.password.strength.label")}:</span>
                         <span className={`text-sm font-medium ${passwordStrength.color}`}>
                           {passwordStrength.text}
                         </span>
@@ -401,11 +444,11 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
                 </div>
 
                 <div>
-                  <Label>确认新密码</Label>
+                  <Label>{t("personal.center.security.confirmPassword")}</Label>
                   <div className="relative">
                     <Input
                       type={passwordForm.showConfirmPassword ? "text" : "password"}
-                      placeholder="请再次输入新密码"
+                      placeholder={t("personal.center.security.confirmPassword.placeholder")}
                       value={passwordForm.confirmPassword}
                       onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
                       className={errors.confirmPassword ? "border-red-500" : ""}
@@ -433,13 +476,13 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
                 </div>
 
                 <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-blue-900 mb-2">密码安全要求：</h4>
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">{t("personal.center.password.requirements.title")}：</h4>
                   <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• 长度至少8位字符</li>
-                    <li>• 包含大写字母(A-Z)</li>
-                    <li>• 包含小写字母(a-z)</li>
-                    <li>• 包含数字(0-9)</li>
-                    <li>• 包含特殊字符(@$!%*?&)</li>
+                    <li>• {t("personal.center.password.requirements.minLength")}</li>
+                    <li>• {t("personal.center.password.requirements.uppercase")}</li>
+                    <li>• {t("personal.center.password.requirements.lowercase")}</li>
+                    <li>• {t("personal.center.password.requirements.number")}</li>
+                    <li>• {t("personal.center.password.requirements.special")}</li>
                   </ul>
                 </div>
 
@@ -449,7 +492,7 @@ export function PersonalCenterDialog({ open, onOpenChange }: PersonalCenterDialo
                   disabled={!passwordForm.newPassword || !passwordForm.confirmPassword}
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  修改密码
+                  {t("personal.center.security.submit")}
                 </Button>
               </CardContent>
             </Card>

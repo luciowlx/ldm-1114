@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLanguage } from "../i18n/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -59,7 +60,14 @@ interface SecurityLog {
   status: "success" | "failed";
 }
 
+/**
+ * PersonalCenter component
+ * 功能：展示并编辑个人资料、密码安全设置、通知偏好与安全日志。
+ * 说明：纯前端原型演示，所有数据为本地状态模拟；支持国际化文案。
+ * 返回值：React JSX 元素。
+ */
 export function PersonalCenter() {
+  const { t } = useLanguage();
   const [userProfile, setUserProfile] = useState<UserProfile>({
     id: "1",
     username: "zhangsan",
@@ -128,49 +136,81 @@ export function PersonalCenter() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(userProfile);
 
-  const handleProfileUpdate = () => {
+  /**
+   * 更新个人资料表单内容到主档。
+   * 参数：无
+   * 返回：void
+   */
+  const handleProfileUpdate = (): void => {
     setUserProfile(editForm);
     setIsEditing(false);
   };
 
-  const handlePasswordChange = () => {
+  /**
+   * 提交修改密码表单，进行基本一致性校验并模拟成功提示。
+   * 参数：无
+   * 返回：void
+   */
+  const handlePasswordChange = (): void => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      alert("新密码和确认密码不匹配");
+      alert(t("personal.center.alert.passwordMismatch"));
       return;
     }
     // 这里应该调用API更新密码
-    alert("密码修改成功");
+    alert(t("personal.center.alert.passwordUpdated"));
     setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
   };
 
-  const handleNotificationChange = (key: keyof NotificationSettings, value: boolean) => {
+  /**
+   * 切换通知偏好开关。
+   * 参数：key 通知字段键；value 新的布尔值
+   * 返回：void
+   */
+  const handleNotificationChange = (key: keyof NotificationSettings, value: boolean): void => {
     setNotificationSettings(prev => ({
       ...prev,
       [key]: value
     }));
   };
 
-  const togglePasswordVisibility = (field: keyof typeof showPasswords) => {
+  /**
+   * 切换密码输入框的明文/密文显示。
+   * 参数：field 要切换的字段标识（current/new/confirm）
+   * 返回：void
+   */
+  const togglePasswordVisibility = (field: keyof typeof showPasswords): void => {
     setShowPasswords(prev => ({
       ...prev,
       [field]: !prev[field]
     }));
   };
 
+  /**
+   * 将安全日志中的中文动作文案映射为 i18n 文案。
+   * 参数：action 原始动作中文字符串
+   * 返回：对应的国际化字符串
+   */
+  const translateLogAction = (action: string): string => {
+    if (action === "登录") return t("personal.center.activity.login");
+    if (action === "修改密码") return t("personal.center.activity.changePassword");
+    if (action === "登录失败") return t("personal.center.activity.loginFailed");
+    return action;
+  };
+
   return (
     <div className="space-y-6">
       {/* 页面标题 */}
       <div>
-        <h2 className="text-2xl font-semibold text-gray-900">个人中心</h2>
-        <p className="text-gray-600 mt-1">管理您的个人信息和账户设置</p>
+        <h2 className="text-2xl font-semibold text-gray-900">{t("personal.center.title")}</h2>
+        <p className="text-gray-600 mt-1">{t("personal.center.description")}</p>
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">个人信息</TabsTrigger>
-          <TabsTrigger value="security">安全设置</TabsTrigger>
-          <TabsTrigger value="notifications">通知设置</TabsTrigger>
-          <TabsTrigger value="logs">安全日志</TabsTrigger>
+          <TabsTrigger value="profile">{t("personal.center.tabs.profile")}</TabsTrigger>
+          <TabsTrigger value="security">{t("personal.center.tabs.security")}</TabsTrigger>
+          <TabsTrigger value="notifications">{t("personal.center.tabs.notifications")}</TabsTrigger>
+          <TabsTrigger value="logs">{t("personal.center.tabs.logs")}</TabsTrigger>
         </TabsList>
 
         {/* 个人信息 */}
@@ -179,7 +219,7 @@ export function PersonalCenter() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <User className="h-5 w-5 mr-2" />
-                基本信息
+                {t("personal.center.section.basicInfo")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -211,7 +251,7 @@ export function PersonalCenter() {
               {/* 信息表单 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="realName">真实姓名</Label>
+                  <Label htmlFor="realName">{t("personal.center.form.realName")}</Label>
                   <Input
                     id="realName"
                     value={isEditing ? editForm.realName : userProfile.realName}
@@ -220,7 +260,7 @@ export function PersonalCenter() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="username">用户名</Label>
+                  <Label htmlFor="username">{t("personal.center.form.username")}</Label>
                   <Input
                     id="username"
                     value={isEditing ? editForm.username : userProfile.username}
@@ -229,7 +269,7 @@ export function PersonalCenter() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="email">邮箱地址</Label>
+                  <Label htmlFor="email">{t("personal.center.form.email")}</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
@@ -243,7 +283,7 @@ export function PersonalCenter() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="phone">手机号码</Label>
+                  <Label htmlFor="phone">{t("personal.center.form.phone")}</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
@@ -256,7 +296,7 @@ export function PersonalCenter() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="position">职位</Label>
+                  <Label htmlFor="position">{t("personal.center.form.position")}</Label>
                   <div className="relative">
                     <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
@@ -269,7 +309,7 @@ export function PersonalCenter() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="location">所在地</Label>
+                  <Label htmlFor="location">{t("personal.center.form.location")}</Label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
@@ -284,14 +324,14 @@ export function PersonalCenter() {
               </div>
 
               <div>
-                <Label htmlFor="bio">个人简介</Label>
+                <Label htmlFor="bio">{t("personal.center.form.bio")}</Label>
                 <Textarea
                   id="bio"
                   value={isEditing ? editForm.bio : userProfile.bio}
                   onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
                   disabled={!isEditing}
                   rows={3}
-                  placeholder="介绍一下自己..."
+                  placeholder={t("personal.center.form.bio.placeholder")}
                 />
               </div>
 
@@ -299,16 +339,16 @@ export function PersonalCenter() {
                 {isEditing ? (
                   <>
                     <Button variant="outline" onClick={() => setIsEditing(false)}>
-                      取消
+                      {t("personal.center.actions.cancel")}
                     </Button>
                     <Button onClick={handleProfileUpdate}>
                       <Save className="h-4 w-4 mr-2" />
-                      保存
+                      {t("personal.center.actions.save")}
                     </Button>
                   </>
                 ) : (
                   <Button onClick={() => setIsEditing(true)}>
-                    编辑信息
+                    {t("personal.center.actions.edit")}
                   </Button>
                 )}
               </div>
@@ -320,14 +360,14 @@ export function PersonalCenter() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Shield className="h-5 w-5 mr-2" />
-                账户信息
+                {t("personal.center.section.accountInfo")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
                   <div>
-                    <span className="font-medium">入职时间</span>
+                    <span className="font-medium">{t("personal.center.account.hireDate")}</span>
                     <p className="text-sm text-gray-600 flex items-center mt-1">
                       <Calendar className="h-3 w-3 mr-1" />
                       {userProfile.joinDate}
@@ -336,7 +376,7 @@ export function PersonalCenter() {
                 </div>
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
                   <div>
-                    <span className="font-medium">最后登录</span>
+                    <span className="font-medium">{t("personal.center.account.lastLogin")}</span>
                     <p className="text-sm text-gray-600 flex items-center mt-1">
                       <Calendar className="h-3 w-3 mr-1" />
                       {userProfile.lastLogin}
@@ -354,19 +394,19 @@ export function PersonalCenter() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Lock className="h-5 w-5 mr-2" />
-                修改密码
+                {t("personal.center.security.changePassword")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="currentPassword">当前密码</Label>
+                <Label htmlFor="currentPassword">{t("personal.center.security.currentPassword")}</Label>
                 <div className="relative">
                   <Input
                     id="currentPassword"
                     type={showPasswords.current ? "text" : "password"}
                     value={passwordForm.currentPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                    placeholder="请输入当前密码"
+                    placeholder={t("personal.center.security.currentPassword.placeholder")}
                   />
                   <Button
                     type="button"
@@ -380,14 +420,14 @@ export function PersonalCenter() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="newPassword">新密码</Label>
+                <Label htmlFor="newPassword">{t("personal.center.security.newPassword")}</Label>
                 <div className="relative">
                   <Input
                     id="newPassword"
                     type={showPasswords.new ? "text" : "password"}
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    placeholder="请输入新密码"
+                    placeholder={t("personal.center.security.newPassword.placeholder")}
                   />
                   <Button
                     type="button"
@@ -401,14 +441,14 @@ export function PersonalCenter() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="confirmPassword">确认新密码</Label>
+                <Label htmlFor="confirmPassword">{t("personal.center.security.confirmPassword")}</Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
                     type={showPasswords.confirm ? "text" : "password"}
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                    placeholder="请再次输入新密码"
+                    placeholder={t("personal.center.security.confirmPassword.placeholder")}
                   />
                   <Button
                     type="button"
@@ -422,7 +462,7 @@ export function PersonalCenter() {
                 </div>
               </div>
               <Button onClick={handlePasswordChange} className="w-full">
-                修改密码
+                {t("personal.center.security.submit")}
               </Button>
             </CardContent>
           </Card>
@@ -434,34 +474,28 @@ export function PersonalCenter() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Bell className="h-5 w-5 mr-2" />
-                通知偏好
+                {t("personal.center.notifications.preferences")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {Object.entries({
-                emailNotifications: "邮件通知",
-                smsNotifications: "短信通知",
-                systemNotifications: "系统通知",
-                projectUpdates: "项目更新",
-                taskReminders: "任务提醒"
-              }).map(([key, label]) => (
+              {([
+                { key: "emailNotifications", label: t("personal.center.notifications.email"), hint: t("personal.center.notifications.hint.email") },
+                { key: "smsNotifications", label: t("personal.center.notifications.sms"), hint: t("personal.center.notifications.hint.sms") },
+                { key: "systemNotifications", label: t("personal.center.notifications.system"), hint: t("personal.center.notifications.hint.system") },
+                { key: "projectUpdates", label: t("personal.center.notifications.projectUpdates"), hint: t("personal.center.notifications.hint.projectUpdates") },
+                { key: "taskReminders", label: t("personal.center.notifications.taskReminders"), hint: t("personal.center.notifications.hint.taskReminders") },
+              ] as { key: keyof NotificationSettings; label: string; hint: string }[]).map(({ key, label, hint }) => (
                 <div key={key} className="flex items-center justify-between p-3 border rounded">
                   <div>
                     <span className="font-medium">{label}</span>
-                    <p className="text-sm text-gray-600">
-                      {key === "emailNotifications" && "接收重要系统邮件通知"}
-                      {key === "smsNotifications" && "接收紧急事件短信提醒"}
-                      {key === "systemNotifications" && "接收系统内消息通知"}
-                      {key === "projectUpdates" && "接收项目状态更新通知"}
-                      {key === "taskReminders" && "接收任务截止日期提醒"}
-                    </p>
+                    <p className="text-sm text-gray-600">{hint}</p>
                   </div>
                   <Button
-                    variant={notificationSettings[key as keyof NotificationSettings] ? "default" : "outline"}
+                    variant={notificationSettings[key] ? "default" : "outline"}
                     size="sm"
-                    onClick={() => handleNotificationChange(key as keyof NotificationSettings, !notificationSettings[key as keyof NotificationSettings])}
+                    onClick={() => handleNotificationChange(key, !notificationSettings[key])}
                   >
-                    {notificationSettings[key as keyof NotificationSettings] ? "已开启" : "已关闭"}
+                    {notificationSettings[key] ? t("personal.center.notifications.status.enabled") : t("personal.center.notifications.status.disabled")}
                   </Button>
                 </div>
               ))}
@@ -475,7 +509,7 @@ export function PersonalCenter() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Shield className="h-5 w-5 mr-2" />
-                安全日志
+                {t("personal.center.logs.title")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -485,7 +519,7 @@ export function PersonalCenter() {
                     <div className="flex items-center space-x-4">
                       <div className={`w-2 h-2 rounded-full ${log.status === "success" ? "bg-green-500" : "bg-red-500"}`} />
                       <div>
-                        <div className="font-medium">{log.action}</div>
+                        <div className="font-medium">{translateLogAction(log.action)}</div>
                         <div className="text-sm text-gray-600">
                           {log.device} • {log.ip} • {log.location}
                         </div>
@@ -494,7 +528,7 @@ export function PersonalCenter() {
                     <div className="text-right">
                       <div className="text-sm text-gray-600">{log.timestamp}</div>
                       <Badge variant={log.status === "success" ? "default" : "destructive"} className="mt-1">
-                        {log.status === "success" ? "成功" : "失败"}
+                        {log.status === "success" ? t("personal.center.logs.status.success") : t("personal.center.logs.status.failed")}
                       </Badge>
                     </div>
                   </div>

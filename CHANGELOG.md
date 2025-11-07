@@ -22,6 +22,16 @@
 
 ## 变更历史
 
+### 2025-11-07
+- [I18n/UI] ReportView 与 VersionDetail 页面国际化替换，补齐语言键并完成本地预览验证。
+  - 涉及文件：
+    - src/components/ReportView.tsx（导入 useLanguage；将标题、统计、交互维度、时序预测、因果权重、数据表预览与底部按钮替换为 t('report.*' / 'common.*')；补充关键函数 JSDoc 注释）
+    - src/components/VersionDetail.tsx（导入 useLanguage；统一页面文案使用 t('versionDetail.*' / 'common.*')；getStatusBadge/getSourceBadge 映射为 t('versionDetail.status.*'、'versionDetail.source.*')）
+    - src/i18n/LanguageContext.tsx（新增 common.selectAll、common.back、common.export；补齐 report.* 与 versionDetail.* 的中英翻译）
+  - 说明/验证：
+    - 运行 `npm run dev` 启动 Vite，本地预览地址：`http://localhost:3002/`；
+    - 切换 zh/en 语言后，两个页面文案正确国际化，布局未破坏；控制台无报错。
+
 ### 2025-11-06
 - [Chore/i18n] 补全多页面的中文文案键值并提供英文翻译；为后续替换硬编码中文提供映射。
   - 涉及文件：
@@ -614,3 +624,14 @@
 
 - docs(guidelines): add bilingual heading to src/guidelines/Guidelines.md to align with zh-first style
 - docs(readme): translate README to zh-CN with bilingual style
+### 2025-11-06
+- [I18n/UI] GlobalAIAssistant 与 NotificationCenter 国际化替换与语言键补齐：
+  - GlobalAIAssistant.tsx：替换 Welcome（标题/副标题）、Sender（上传文件/拖拽提示/描述）、chatSider（新建对话）、回复进度提示为 t('assistant.*')；保留原型交互逻辑与本地模拟回复。
+  - NotificationCenterContent.tsx：修正“相关实体”键名为 `notifications.center.detail.relatedEntity`，确保与语言包一致；活动列表“关联:”已使用 `notifications.center.activities.related.prefix`；其他通知与活动文案此前已完成替换。
+  - LanguageContext.tsx：新增并补齐缺失的助手相关键（zh/en）：
+    - `assistant.replyInProgress.tip`、`assistant.actions.newChat`
+    - `assistant.upload.title`、`assistant.upload.dragHere`、`assistant.upload.description`
+    - `assistant.welcome.title`、`assistant.welcome.subtitle`
+    - `assistant.input.placeholder`（作为 `assistant.placeholder.input` 的别名）
+    - `assistant.quick.analysis` 及 `assistant.quick.*.plan`
+  - 验证：`npm run dev` 启动 Vite（端口 3002），在助手与通知中心页面切换中英文，文案正常、布局无异常；控制台与终端无报错。
