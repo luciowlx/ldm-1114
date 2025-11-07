@@ -23,6 +23,20 @@
 ## 变更历史
 
 ### 2025-11-07
+- [I18n/UI] 顶层动态浏览器标题：新增 `app.title`（zh/en），在 App.tsx 根据当前语言动态设置 `document.title`。
+  - 涉及文件：
+    - `src/i18n/LanguageContext.tsx`（新增 `app.title`：zh `LimiX智能平台`，en `Limix AI-powered ML Platform`）
+    - `src/App.tsx`（引入 `useEffect` 与 `useLanguage`，`document.title = t('app.title')`；补充组件级 JSDoc 注释）
+  - 说明/验证：
+    - 预览地址 `http://localhost:5000/`；切换 zh/en 标题即时更新；刷新后保留语言偏好（localStorage）；终端与浏览器控制台无报错。
+
+- [Chore/UI] 静态回退标题：将 `index.html` 的 `<title>` 改为“Limix Platform”，用于 JS 尚未执行阶段的回退显示。
+  - 涉及文件：
+    - `index.html`（`<title>Limix Platform</title>`）
+  - 说明/验证：
+    - 页面初次加载阶段显示“Limix Platform”，随后由 App.tsx 的动态国际化覆盖为当前语言对应标题。
+
+### 2025-11-07
 - [I18n/UI] ReportView 与 VersionDetail 页面国际化替换，补齐语言键并完成本地预览验证。
   - 涉及文件：
     - src/components/ReportView.tsx（导入 useLanguage；将标题、统计、交互维度、时序预测、因果权重、数据表预览与底部按钮替换为 t('report.*' / 'common.*')；补充关键函数 JSDoc 注释）

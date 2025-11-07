@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "./components/Header";
 import { Dashboard } from "./components/Dashboard";
 import { DataManagement } from "./components/DataManagement";
@@ -36,8 +36,19 @@ import TeamMemberSelector from "./components/TeamMemberSelector";
 import { registeredUsers } from "./mock/users";
 import { Popover, PopoverTrigger, PopoverContent } from "./components/ui/popover";
 import { Calendar as DateRangeCalendar } from "./components/ui/calendar";
+import { useLanguage } from "./i18n/LanguageContext";
 
+/**
+ * App 根组件
+ * 功能：
+ * - 管理顶层页面状态（导航、项目/数据/任务/模型等模块的视图与对话框）
+ * - 集成 i18n 语言上下文，并动态设置浏览器 Tab 标题：根据当前语言切换为
+ *   zh: "LimiX智能平台" / en: "Limix AI-powered ML Platform"
+ * 参数：无
+ * 返回：React 元素（页面主内容）
+ */
 export default function App() {
+  const { t, lang } = useLanguage();
   const [activeTab, setActiveTab] = useState("看板");
   const [showModelTuning, setShowModelTuning] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -228,6 +239,13 @@ export default function App() {
       ]
     }
   ];
+
+  // 动态设置浏览器标题，随语言切换实时更新
+  useEffect(() => {
+    try {
+      document.title = t("app.title") || "Limix";
+    } catch {}
+  }, [lang, t]);
 
   // 过滤项目逻辑
   const filteredProjects = projects.filter(project => {
