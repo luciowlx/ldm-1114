@@ -23,6 +23,11 @@
 ## 变更历史
 
 ### 2025-11-07
+- [Chore/Git] 更新 Git 远端地址：将 `origin` 由 `git@github.com:luciowlx/limix.git` 更新为 `git@github.com:luciowlx/ldm-mvp.git`。
+  - 涉及文件：N/A（仓库配置变更）
+  - 说明/验证：`git remote -v` 显示 fetch/push 均为新地址；后续 `git push` 正常。
+
+### 2025-11-07
 - [I18n/UI] 顶层动态浏览器标题：新增 `app.title`（zh/en），在 App.tsx 根据当前语言动态设置 `document.title`。
   - 涉及文件：
     - `src/i18n/LanguageContext.tsx`（新增 `app.title`：zh `LimiX智能平台`，en `Limix AI-powered ML Platform`）
