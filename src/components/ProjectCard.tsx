@@ -38,6 +38,9 @@ export function ProjectCard({ title, description, status, stats, date, members, 
     orange: "bg-orange-100 text-orange-700"
   };
 
+  // 归档状态统一灰色显示，其他状态按卡片色系展示
+  const statusBadgeClass = status === '已归档' ? 'bg-gray-100 text-gray-700' : badgeColors[color];
+
   return (
     <Card className={`${colorClasses[color]} hover:shadow-md transition-shadow flex flex-col h-full`}>
       <CardHeader className="pb-3">
@@ -45,7 +48,7 @@ export function ProjectCard({ title, description, status, stats, date, members, 
           <div>
             <CardTitle className="text-lg mb-2">{title}</CardTitle>
             <p className="text-sm text-gray-600 mb-3">{description}</p>
-            <Badge className={`${badgeColors[color]} text-xs`}>
+            <Badge className={`${statusBadgeClass} text-xs`}>
               {status}
             </Badge>
           </div>

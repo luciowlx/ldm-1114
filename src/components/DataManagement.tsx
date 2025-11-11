@@ -1053,7 +1053,7 @@ export function DataManagement({
                 
                 <div className="flex flex-wrap gap-1">
                   {dataset.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className={tag.color}>
+                    <Badge key={index} variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200">
                       {tag.name}
                     </Badge>
                   ))}
@@ -1146,6 +1146,8 @@ export function DataManagement({
               density={'normal'}
               enableColumnResize
               enableColumnDrag
+              // 固定右侧操作栏
+              freezeRightCount={1}
               sortState={{ column: sortBy, order: sortOrder }}
               onSortChange={(column, order) => {
                 const col = String(column);
@@ -1247,7 +1249,7 @@ export function DataManagement({
                   render: (_v: any, row: any) => (
                     <div className="flex flex-wrap gap-1">
                       {row.tags.map((tag: any, index: number) => (
-                        <Badge key={index} className={tag.color}>{tag.name}</Badge>
+                        <Badge key={index} variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200">{tag.name}</Badge>
                       ))}
                     </div>
                   )
@@ -1317,6 +1319,8 @@ export function DataManagement({
                 columnSettings.actions ? {
                   key: 'actions',
                   label: t('data.columns.actions'),
+                  width: 220,
+                  align: 'right',
                   render: (_v: any, row: any) => (
                     <div className="flex space-x-1">
                       {row.status === 'success' && (
@@ -1915,10 +1919,11 @@ export function DataManagement({
             </div>
           </div>
 
-          {/* 任务列表表格 */}
+          {/* 任务列表表格（支持粘性表头与右侧操作列） */}
           <Card>
-            <Table>
-              <TableHeader>
+            <div className="relative overflow-auto max-h-[480px]" style={{ scrollBehavior: 'smooth' }}>
+              <Table className="min-w-[1000px]">
+              <TableHeader className="sticky top-0 bg-white z-10">
                 <TableRow>
   <TableHead>{t('data.preprocessing.table.taskId')}</TableHead>
   <TableHead>{t('data.preprocessing.table.dataset')}</TableHead>
@@ -1993,7 +1998,7 @@ export function DataManagement({
   <TableHead>{t('data.preprocessing.table.operation')}</TableHead>
   <TableHead>{t('data.preprocessing.table.startTime')}</TableHead>
   <TableHead>{t('data.preprocessing.table.endTime')}</TableHead>
-  <TableHead className="text-right">{t('data.preprocessing.table.actions')}</TableHead>
+  <TableHead className="sticky right-0 bg-white z-20 border-l w-[220px] text-right">{t('data.preprocessing.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2040,7 +2045,7 @@ export function DataManagement({
                     </TableCell>
                     <TableCell>{formatYYYYMMDD(task.startTime)}</TableCell>
                     <TableCell>{formatYYYYMMDD(task.completedAt)}</TableCell>
-                    <TableCell>
+                    <TableCell className="sticky right-0 bg-white z-20 border-l w-[220px]">
                       <div className="flex justify-end gap-2">
                         {task.status === 'running' && (
                           <>
@@ -2083,6 +2088,7 @@ export function DataManagement({
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </div>
       )}

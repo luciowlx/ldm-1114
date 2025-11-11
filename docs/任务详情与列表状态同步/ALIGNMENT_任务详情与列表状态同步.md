@@ -38,3 +38,4 @@
 
 ## 6. 初步结论
 - 采用 onTaskPatched → App.handleTaskPatched → externalTaskPatch → TaskManagement.useEffect 的单向数据流桥接；满足一致性与低耦合目标。
+

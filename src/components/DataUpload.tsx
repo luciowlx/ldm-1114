@@ -34,7 +34,7 @@ interface UploadFile {
   id: string;
   file: File;
   progress: number;
-  status: 'pending' | 'uploading' | 'parsing' | 'success' | 'error';
+  status: 'pending' | 'uploading' | 'paused' | 'parsing' | 'success' | 'error';
   error?: string;
   parsedData?: {
     fields: Array<{
@@ -62,6 +62,14 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
   const { t } = useLanguage();
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  // 上传限制常量
+  const MAX_SINGLE_SIZE = 100 * 1024 * 1024; // 100MB
+  const MAX_BATCH_SIZE = 1024 * 1024 * 1024; // 1GB
+  const MAX_CONCURRENT = 10; // 并行上限
+  // 速度限制（bytes/second），null 表示不限制
+  const [speedLimitBps, setSpeedLimitBps] = useState<number | null>(null);
+  // 暂停/恢复控制器（每个文件一个）
+  const controllersRef = useRef<Map<string, { paused: boolean }>>(new Map());
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -96,7 +104,13 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
     { id: 'proj_004', name: '设备故障预测' }
   ];
 
-  const getProjectName = (id: string) => mockProjects.find(p => p.id === id)?.name || t('data.projects.noneSelected');
+  /**
+   * 获取项目名称（用于权限可见性提示中的上下文显示）。
+   * 参数：id - 项目ID字符串
+   * 返回：若能在 mockProjects 中找到匹配项，则返回对应项目名称；否则返回国际化的“未选择项目”。
+   */
+  const getProjectName = (id: string) =>
+    mockProjects.find(p => p.id === id)?.name || t('data.projects.noneSelected');
 
   // 重置状态
   const resetState = useCallback(() => {
@@ -133,28 +147,43 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
     }));
 
     // 验证文件类型和大小
-    const validFiles = newFiles.filter(fileItem => {
+    const validFiles = [] as UploadFile[];
+    // 现有总大小
+    const existingTotal = files.reduce((sum, f) => sum + f.file.size, 0);
+    let currentTotal = existingTotal;
+
+    for (const fileItem of newFiles) {
       const { file } = fileItem;
       const validTypes = ['.csv', '.xlsx', '.xls', '.json'];
-      const isValidType = validTypes.some(type => file.name.toLowerCase().endsWith(type));
-      const isValidSize = file.size <= 1024 * 1024 * 1024; // 1GB
+      const lower = file.name.toLowerCase();
+      const isValidType = validTypes.some(type => lower.endsWith(type));
+      const isValidSize = file.size <= MAX_SINGLE_SIZE; // 单文件≤100MB
 
       if (!isValidType) {
         toast.error(`${t('data.upload.toast.unsupportedFormat')}: ${file.name}`, {
           description: t('data.upload.toast.supportedFormatsDesc')
         });
-        return false;
+        continue;
       }
 
       if (!isValidSize) {
         toast.error(`${t('data.upload.toast.sizeExceeded')}: ${file.name}`, {
           description: t('data.upload.toast.sizeLimitDesc')
         });
-        return false;
+        continue;
       }
 
-      return true;
-    });
+      // 批量总大小限制：不超过 1GB
+      if (currentTotal + file.size > MAX_BATCH_SIZE) {
+        toast.error(`${t('data.upload.toast.sizeExceeded')}: ${file.name}`, {
+          description: t('data.upload.toast.batchLimitDesc')
+        });
+        continue;
+      }
+
+      validFiles.push(fileItem);
+      currentTotal += file.size;
+    }
 
     setFiles(prev => [...prev, ...validFiles]);
   }, []);
@@ -181,25 +210,49 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
     setFiles(prev => prev.filter(f => f.id !== fileId));
   }, []);
 
-  // 模拟文件上传和解析
-  const uploadFile = useCallback(async (fileItem: UploadFile) => {
+  /**
+   * 模拟分块上传（含速度限制与暂停/继续）并在完成后进行解析。
+   * 参数：fileItem - 上传队列中的文件项
+   * 返回：Promise<void> - 当该文件的上传与解析流程结束时 resolve
+   */
+  const uploadFile = useCallback(async (fileItem: UploadFile): Promise<void> => {
     const { id, file } = fileItem;
+    // 初始化控制器
+    if (!controllersRef.current.has(id)) {
+      controllersRef.current.set(id, { paused: false });
+    }
 
     // 更新状态为上传中
-    setFiles(prev => prev.map(f => 
+    setFiles(prev => prev.map(f =>
       f.id === id ? { ...f, status: 'uploading' as const } : f
     ));
 
-    // 模拟上传进度
-    for (let progress = 0; progress <= 100; progress += 10) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setFiles(prev => prev.map(f => 
+    const total = file.size || 1;
+    const chunkSize = 5 * 1024 * 1024; // 5MB
+    let uploaded = 0;
+
+    // 以 200ms 为粒度推进进度
+    while (uploaded < total) {
+      const controller = controllersRef.current.get(id);
+      if (controller?.paused) {
+        // 暂停时等待，200ms 轮询
+        await new Promise(r => setTimeout(r, 200));
+        continue;
+      }
+
+      const intervalMs = 200;
+      const limitPerTick = speedLimitBps ? Math.max(1, Math.floor(speedLimitBps * (intervalMs / 1000))) : chunkSize;
+      const step = Math.min(chunkSize, limitPerTick, total - uploaded);
+      uploaded += step;
+      const progress = Math.max(0, Math.min(100, Math.round((uploaded / total) * 100)));
+      await new Promise(resolve => setTimeout(resolve, intervalMs));
+      setFiles(prev => prev.map(f =>
         f.id === id ? { ...f, progress } : f
       ));
     }
 
     // 更新状态为解析中
-    setFiles(prev => prev.map(f => 
+    setFiles(prev => prev.map(f =>
       f.id === id ? { ...f, status: 'parsing' as const } : f
     ));
 
@@ -247,14 +300,14 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
     };
 
     // 更新状态为成功
-    setFiles(prev => prev.map(f => 
-      f.id === id ? { 
-        ...f, 
-        status: 'success' as const, 
-        parsedData: mockParsedData 
+    setFiles(prev => prev.map(f =>
+      f.id === id ? {
+        ...f,
+        status: 'success' as const,
+        parsedData: mockParsedData
       } : f
     ));
-  }, []);
+  }, [speedLimitBps]);
 
   // 重试上传
   const retryUpload = useCallback((fileId: string) => {
@@ -263,6 +316,28 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
       uploadFile(fileItem);
     }
   }, [files, uploadFile]);
+
+  /**
+   * 暂停指定文件的上传。
+   * 参数：fileId - 文件唯一标识
+   * 返回：void
+   */
+  const pauseUpload = useCallback((fileId: string) => {
+    const ctrl = controllersRef.current.get(fileId);
+    if (ctrl) ctrl.paused = true;
+    setFiles(prev => prev.map(f => f.id === fileId ? { ...f, status: 'paused' } : f));
+  }, []);
+
+  /**
+   * 继续指定文件的上传。
+   * 参数：fileId - 文件唯一标识
+   * 返回：void
+   */
+  const resumeUpload = useCallback((fileId: string) => {
+    const ctrl = controllersRef.current.get(fileId);
+    if (ctrl) ctrl.paused = false;
+    setFiles(prev => prev.map(f => f.id === fileId ? { ...f, status: 'uploading' } : f));
+  }, []);
 
   // 标签管理
   const [newTagName, setNewTagName] = useState('');
@@ -364,6 +439,12 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
   }, [files]);
 
   // 开始上传
+  /**
+   * 开始上传：
+   * - 验证必填信息
+   * - 按并行上限（MAX_CONCURRENT）执行队列
+   * - 结束后提示结果并回调
+   */
   const handleStartUpload = useCallback(async () => {
     if (!formData.name.trim()) {
       toast.error(t('data.upload.toast.nameRequired'));
@@ -383,19 +464,36 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
     setIsUploading(true);
 
     try {
-      // 并行上传所有文件
-      await Promise.all(files.map(uploadFile));
-      
+      // 并发上传，限制同时进行的文件数不超过 MAX_CONCURRENT
+      const queue = [...files];
+      const executing: Promise<void>[] = [];
+
+      const dequeue = () => {
+        const next = queue.shift();
+        if (!next) return;
+        const p = uploadFile(next).finally(() => {
+          const idx = executing.indexOf(p);
+          if (idx >= 0) executing.splice(idx, 1);
+          dequeue();
+        });
+        executing.push(p);
+      };
+
+      const startCount = Math.min(MAX_CONCURRENT, queue.length);
+      for (let i = 0; i < startCount; i++) {
+        dequeue();
+      }
+
+      await Promise.all(executing);
+
       toast.success(t('data.upload.toast.uploadSuccess'), {
         description: `${t('data.upload.toast.uploadSuccessDescPrefix')} ${files.length} ${t('data.upload.toast.uploadSuccessDescSuffix')}`
       });
 
-      // 调用成功回调
       if (onUploadSuccess) {
         onUploadSuccess('dataset-' + Date.now());
       }
 
-      // 延迟关闭对话框，让用户看到成功状态
       setTimeout(() => {
         onClose();
         resetState();
@@ -438,6 +536,8 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
       case 'uploading':
       case 'parsing':
         return <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />;
+      case 'paused':
+        return <RefreshCw className="h-4 w-4 text-yellow-500" />;
       default:
         return <FileText className="h-4 w-4 text-gray-400" />;
     }
@@ -454,6 +554,8 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
         return t('data.upload.status.success');
       case 'error':
         return t('data.upload.status.error');
+      case 'paused':
+        return t('common.pause') || '暂停';
       default:
         return t('data.upload.status.pending');
     }
@@ -597,9 +699,7 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
       <DialogContent className="max-w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('data.upload.title')}</DialogTitle>
-          <DialogDescription>
-            {t('data.upload.description')}
-          </DialogDescription>
+          {/* 根据需求，去掉顶部的说明文字 */}
         </DialogHeader>
 
         <div className="space-y-6">
@@ -649,7 +749,7 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
             </div>
           </div>
 
-          {/* 可见性预览与说明 */}
+          {/* 可见性预览与说明（移除“注意”说明文案，仅保留标签与提示行） */}
           <div className="rounded-md border p-3 bg-gray-50">
             <div className="flex items-center gap-2 mb-2">
               {formData.permission === 'public' ? (
@@ -659,13 +759,11 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
               )}
               <span className="text-sm text-gray-700">
                 {formData.permission === 'public'
-                  ? t('data.visibility.publicHint')
-                  : `${t('data.visibility.projectMembersOnly')}（${getProjectName(formData.projectId)}）`}
+                  ? t('data.visibility.publicHintLine')
+                  : `${t('data.visibility.teamHintLine')}（${getProjectName(formData.projectId)}）`}
               </span>
             </div>
-            <p className="text-xs text-gray-500">
-              {t('data.visibility.note')}
-            </p>
+            {/* 根据需求去掉“注意”说明文案行 */}
           </div>
 
           <div className="space-y-2">
@@ -826,6 +924,7 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
           {/* 文件上传区域 */}
           <div className="space-y-4">
             <Label>{t('data.upload.files.label')}</Label>
+            {/* 根据需求去掉队列状态、剩余容量与上传速度限制选择器的展示 */}
             <div
               className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                 isDragOver 
@@ -848,9 +947,7 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
                     {t('data.upload.dragDrop.select')}
                   </Button>
                 </p>
-                <p className="text-sm text-gray-500">
-                  {t('data.upload.description')}
-                </p>
+                {/* 根据需求，去掉拖拽区域下方的说明文字 */}
               </div>
               <input
                 ref={fileInputRef}
@@ -890,6 +987,24 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
                             >
                               <RefreshCw className="h-4 w-4 mr-1" />
                               {t('task.actions.retry')}
+                            </Button>
+                          )}
+                          {fileItem.status === 'uploading' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => pauseUpload(fileItem.id)}
+                            >
+                              {t('data.upload.actions.pause')}
+                            </Button>
+                          )}
+                          {fileItem.status === 'paused' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => resumeUpload(fileItem.id)}
+                            >
+                              {t('data.upload.actions.resume')}
                             </Button>
                           )}
                           {fileItem.status === 'pending' && (

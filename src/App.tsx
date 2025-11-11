@@ -189,7 +189,7 @@ export default function App() {
       title: "工艺优化分析",
       mode: "协作模式",
       description: "基于目标数据智能推荐中的分析化。量实最终优化产品分析", 
-      status: "已完成",
+      status: "已归档",
       stats: { datasets: 4, models: 6, tasks: 10 },
       dataset: "生产工艺数据",
       model: "优化算法模型",
@@ -247,13 +247,25 @@ export default function App() {
     } catch {}
   }, [lang, t]);
 
-  // 过滤项目逻辑
+  /**
+   * 功能：过滤项目列表。
+   * 规则：
+   * - 文本搜索：匹配项目标题或描述（忽略大小写）；
+   * - 状态筛选：
+   *   - 当 statusFilter === 'all'（全部状态）时，默认隐藏“已归档”项目；
+   *   - 其他情况严格匹配选定状态（进行中/已归档/已延期）；
+   * - 负责人筛选：匹配 owner；
+   * - 日期范围：按 createdTime（缺失则用 date）在选定范围内；
+   * 返回：满足以上条件的项目集合，用于列表展示。
+   */
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          project.description.toLowerCase().includes(searchQuery.toLowerCase());
+    // 当选择“全部状态”时，默认隐藏已归档项目；否则按选择的状态过滤
     const matchesStatus =
-      statusFilter === "all" ||
-      project.status === statusFilter;
+      statusFilter === "all"
+        ? project.status !== "已归档"
+        : project.status === statusFilter;
     const matchesOwner = ownerFilter === "all" || project.owner === ownerFilter;
     // 日期范围筛选：按项目创建时间 createdTime（若无则按 date）过滤
     const projectCreated = new Date(project.createdTime || project.date);
@@ -281,7 +293,13 @@ export default function App() {
     }
   };
 
-  // 根据排序状态生成排序后的项目列表（无排序时保持原过滤顺序）
+  /**
+   * 功能：根据当前排序字段与顺序，对过滤后的项目列表进行排序。
+   * 规则：
+   * - 无排序字段时返回原序；
+   * - 按创建时间或更新时间排序，支持升序/降序；
+   * 返回：排序后的项目数组。
+   */
   const sortedProjects = [...filteredProjects].sort((a, b) => {
     if (!projectSortField) return 0;
     const aDate = new Date((projectSortField === "createdTime" ? a.createdTime : a.updatedTime) || a.date);
@@ -294,6 +312,11 @@ export default function App() {
    * 项目管理统计口径计算
    * 说明：统计卡片应与顶部筛选器（搜索/负责人/日期范围）保持一致，但不受“状态列筛选”影响。
    * 因此这里基于 projects 按搜索/负责人/日期三项过滤后进行聚合统计。
+   */
+  /**
+   * 功能：为顶部统计卡片计算数据来源的过滤集合。
+   * 说明：与顶部筛选器（搜索/负责人/日期范围）联动，但不受“状态列筛选”影响。
+   * 返回：满足搜索/负责人/日期范围的项目集合，用于统计聚合。
    */
   const filteredProjectsForMetrics = projects.filter(project => {
     const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -318,9 +341,9 @@ export default function App() {
       icon: Clock
     },
     {
-      label: "已完成",
-      value: filteredProjectsForMetrics.filter(p => p.status === "已完成").length,
-      icon: CheckCircle
+      label: "已归档",
+      value: filteredProjectsForMetrics.filter(p => p.status === "已归档").length,
+      icon: Archive
     },
     {
       label: "已延期",
@@ -860,8 +883,7 @@ export default function App() {
                             <SelectContent>
                               <SelectItem value="all">全部状态</SelectItem>
                               <SelectItem value="进行中">进行中</SelectItem>
-                              <SelectItem value="已完成">已完成</SelectItem>
-                              <SelectItem value="归档">归档</SelectItem>
+                              <SelectItem value="已归档">已归档</SelectItem>
                               <SelectItem value="已延期">已延期</SelectItem>
                             </SelectContent>
                           </Select>
@@ -898,7 +920,7 @@ export default function App() {
                     <div className="flex items-center">
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         project.status === "进行中" ? "bg-green-100 text-green-700" :
-                        project.status === "已完成" ? "bg-blue-100 text-blue-700" :
+                        project.status === "已归档" ? "bg-gray-100 text-gray-700" :
                         "bg-gray-100 text-gray-700"
                       }`}>
                         {project.status}

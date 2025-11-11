@@ -34,3 +34,4 @@
 - UI：删除模式切换与 JSON 文本域，直接展示页面配置表单。
 - 逻辑：删除或改写 buildJsonTemplate/handleExportJsonTemplate/handleImportJsonFile；移除 manualConfig 与 hyperparameterMode 字段；保存时仅以对象写入 task.config。
 - 文档：更新 CHANGELOG 与设计/任务拆分文档，最终提交验收与总结。
+

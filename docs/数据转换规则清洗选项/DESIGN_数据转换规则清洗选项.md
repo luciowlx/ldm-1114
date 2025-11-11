@@ -70,3 +70,4 @@ sequenceDiagram
 
 7. 设计可行性与与现有系统一致性
 - 复用现有组件与模式（DistributionChart、ChartContainer、Select、Dialog等），与项目风格一致；性能与响应式策略已在现有代码验证。
+

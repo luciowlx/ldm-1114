@@ -65,7 +65,7 @@ interface FieldInfo {
  interface CleaningRule {
   id: string;
   field: string;
-  type: 'fill_null' | 'encode_categorical' | 'deduplicate' | 'normalize_unit' | 'split_range' | 'format_date' | 'resample' | 'numeric_transform';
+  type: 'fill_null' | 'encode_categorical' | 'deduplicate' | 'normalize_unit' | 'split_range' | 'format_date' | 'resample' | 'numeric_transform' | 'data_merge';
   config: any;
   enabled: boolean;
   description: string;
@@ -151,6 +151,10 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
   const [fieldNameEditValues, setFieldNameEditValues] = useState<Record<string, string>>({});
   const [fieldNameErrors, setFieldNameErrors] = useState<Record<string, string>>({});
 
+  // 多数据集（聚合视图）下的字段名编辑态与错误提示
+  const [aggFieldNameEditValues, setAggFieldNameEditValues] = useState<Record<string, string>>({});
+  const [aggFieldNameErrors, setAggFieldNameErrors] = useState<Record<string, string>>({});
+
   // 计算基于“编辑态值或当前值”的重复集合（忽略大小写，去除首尾空格）
   const duplicateNameSet = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -165,6 +169,21 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
   const hasAnyNameError = useMemo(() => {
     return Object.keys(fieldNameErrors).length > 0 || duplicateNameSet.size > 0;
   }, [fieldNameErrors, duplicateNameSet]);
+
+  // 计算多数据集聚合视图下的重复集合（忽略大小写，去除首尾空格）
+  const aggDuplicateNameSet = useMemo(() => {
+    const counts: Record<string, number> = {};
+    aggregatedFields.forEach(f => {
+      const proposed = (aggFieldNameEditValues[f.name] ?? f.name).trim().toLowerCase();
+      if (!proposed) return;
+      counts[proposed] = (counts[proposed] || 0) + 1;
+    });
+    return new Set(Object.keys(counts).filter(k => counts[k] > 1));
+  }, [aggregatedFields, aggFieldNameEditValues]);
+
+  const hasAnyAggNameError = useMemo(() => {
+    return Object.keys(aggFieldNameErrors).length > 0 || aggDuplicateNameSet.size > 0;
+  }, [aggFieldNameErrors, aggDuplicateNameSet]);
 
   // 工具函数：获取字段的唯一值/类别数估算
   const getUniqueValueCount = (fieldName: string): number | undefined => {
@@ -1248,6 +1267,46 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
     setFields(prev => prev.map(f => (f.name === fieldName ? { ...f, type: newType } : f)));
   };
 
+  // 聚合视图：字段名修改（在表格中可编辑）
+  const handleAggFieldNameChange = (oldName: string, newName: string) => {
+    const trimmed = newName.trim();
+    setAggregatedFields(prev => {
+      // 校验空值
+      if (!trimmed) {
+        toast.error('字段名不能为空');
+        setAggFieldNameErrors(errs => ({ ...errs, [oldName]: '字段名不能为空' }));
+        return prev;
+      }
+      // 校验重复（允许保持原名）
+      const exists = prev.some(f => f.name === trimmed && trimmed !== oldName);
+      if (exists) {
+        toast.error('字段名重复，请使用唯一名称');
+        setAggFieldNameErrors(errs => ({ ...errs, [oldName]: '字段名重复，请使用唯一名称' }));
+        return prev;
+      }
+      const next = prev.map(f => (f.name === oldName ? { ...f, name: trimmed } : f));
+      // 同步更新清洗规则里引用的字段名（多源场景下也需要）
+      setCleaningRules(rules => rules.map(r => (r.field === oldName ? { ...r, field: trimmed } : r)));
+      // 清理本行的编辑态与错误提示
+      setAggFieldNameEditValues(vals => {
+        const n = { ...vals };
+        delete n[oldName];
+        return n;
+      });
+      setAggFieldNameErrors(errs => {
+        const n = { ...errs };
+        delete n[oldName];
+        return n;
+      });
+      return next;
+    });
+  };
+
+  // 聚合视图：字段类型修改（下拉选择）
+  const handleAggFieldTypeChange = (fieldName: string, newType: FieldInfo['type']) => {
+    setAggregatedFields(prev => prev.map(f => (f.name === fieldName ? { ...f, type: newType } : f)));
+  };
+
   // 添加清洗规则
   const addCleaningRule = () => {
     // 当前视图下的可选字段（Step2 聚合 or Step1 单源）
@@ -1289,6 +1348,28 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
       // 预合并，便于判断类型/字段
       const next: CleaningRule = { ...rule, ...updates } as CleaningRule;
       const isEncode = (next.type || rule.type) === 'encode_categorical';
+
+      // 数据合并：初始化默认配置（与 Step2 主/从表选择对齐）
+      if (updates.type === 'data_merge') {
+        const baseId = step2PrimaryDatasetId || primaryDatasetId || activeDatasetId || selectedDatasetIds[0] || null;
+        const baseVers = baseId ? (selectedDatasetVersions[baseId] || []) : [];
+        const baseVer = step2PrimaryVersionId || activeVersionByDataset[baseId || ''] || (baseVers[0] || (baseId ? getDefaultVersionId(baseId) : undefined));
+
+        const otherIds = selectedDatasetIds.filter(id => id !== baseId);
+        const secId = step2SecondaryDatasetId || (otherIds.length ? otherIds[0] : baseId) || null;
+        const secVers = secId ? (selectedDatasetVersions[secId] || []) : [];
+        const secVerCandidate = secVers.find(v => v !== baseVer);
+        const secVer = step2SecondaryVersionId || activeVersionByDataset[secId || ''] || (secVerCandidate || (secId ? getDefaultVersionId(secId) : undefined));
+
+        next.config = {
+          commonField: typeof next.config?.commonField === 'string' ? next.config.commonField : '',
+          joinType: next.config?.joinType || '',
+          primaryDatasetId: baseId,
+          primaryVersionId: baseVer,
+          secondaryDatasetId: secId,
+          secondaryVersionId: secVer
+        };
+      }
 
       // 当前视图字段源
       const isMultiSource = selectedSourcesForView.length > 1;
@@ -2127,14 +2208,47 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                                   />
                                 </TableCell>
                                 <TableCell className="font-medium">
-                                  {/* 多数据源模式下暂不支持改名，避免跨表不一致 */}
-                                  <Input value={af.name} disabled className="h-8" />
+                                  <Input
+                                    value={aggFieldNameEditValues[af.name] ?? af.name}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setAggFieldNameEditValues(prev => ({ ...prev, [af.name]: val }));
+                                      const trimmed = val.trim();
+                                      if (!trimmed) {
+                                        setAggFieldNameErrors(prev => ({ ...prev, [af.name]: '字段名不能为空' }));
+                                      } else {
+                                        // 计算包含当前修改后的整体是否重复（忽略大小写）
+                                        const proposed = aggregatedFields.map(f => {
+                                          if (f.name === af.name) return trimmed.toLowerCase();
+                                          return (aggFieldNameEditValues[f.name] ?? f.name).trim().toLowerCase();
+                                        });
+                                        const cnts: Record<string, number> = {};
+                                        proposed.forEach(n => { if (n) cnts[n] = (cnts[n] || 0) + 1; });
+                                        const isDup = cnts[trimmed.toLowerCase()] > 1;
+                                        setAggFieldNameErrors(prev => {
+                                          const next = { ...prev };
+                                          if (isDup) next[af.name] = '字段名重复，请使用唯一名称';
+                                          else delete next[af.name];
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    onBlur={(e) => handleAggFieldNameChange(af.name, e.target.value)}
+                                    aria-invalid={!!aggFieldNameErrors[af.name] || aggDuplicateNameSet.has((aggFieldNameEditValues[af.name] ?? af.name).trim().toLowerCase())}
+                                    className="h-8"
+                                  />
+                                  {(aggFieldNameErrors[af.name] || aggDuplicateNameSet.has((aggFieldNameEditValues[af.name] ?? af.name).trim().toLowerCase())) && (
+                                    <div className="mt-1 text-[11px] text-red-600 flex items-center gap-1">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      <span>{aggFieldNameErrors[af.name] || '字段名重复，请使用唯一名称'}</span>
+                                    </div>
+                                  )}
                                   {af.presentInCount !== undefined && af.presentInCount < selectedDatasetIds.length && (
                                     <Badge variant="outline" className="ml-2">非公共</Badge>
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  <Select value={af.type} disabled>
+                                  <Select value={af.type} onValueChange={(v: string) => handleAggFieldTypeChange(af.name, v as FieldInfo['type'])}>
                                     <SelectTrigger className={`h-8 ${getFieldTypeColor(af.type)}`}>
                                       <SelectValue />
                                     </SelectTrigger>
@@ -2320,7 +2434,9 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                   <div className="flex justify-end">
                     <Button 
                       onClick={() => setCurrentStep(2)}
-                      disabled={fields.filter(f => f.selected).length === 0 || hasAnyNameError}
+                      disabled={(selectedDatasetIds.length > 1
+                        ? aggregatedFields.filter(f => f.selected).length === 0 || hasAnyAggNameError
+                        : fields.filter(f => f.selected).length === 0 || hasAnyNameError)}
                     >
                       下一步：配置规则
                     </Button>
@@ -2618,6 +2734,12 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                                           keyFields: []
                                         };
                                         updateCleaningRule(rule.id, { type: t, config: nextCfg });
+                                      } else if (t === 'data_merge') {
+                                        const nextCfg = {
+                                          commonField: '',
+                                          joinType: ''
+                                        };
+                                        updateCleaningRule(rule.id, { type: t, config: nextCfg });
                                       } else {
                                         updateCleaningRule(rule.id, { type: t });
                                       }
@@ -2635,11 +2757,12 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                                       <SelectItem value="format_date">日期格式化</SelectItem>
                                       <SelectItem value="resample">时间序列重采样</SelectItem>
                                       <SelectItem value="numeric_transform">数据转换</SelectItem>
+                                      <SelectItem value="data_merge">数据合并</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </div>
-                                {/* 右侧：字段（当规则类型为“去重”或“数据转换”时不展示；numeric_transform 使用下方多选字段区） */}
-                                {(rule.type !== 'deduplicate' && rule.type !== 'numeric_transform') && (
+                                {/* 右侧：字段（当规则类型为“去重”、“数据转换”或“数据合并”时不展示；numeric_transform 使用下方多选字段区；data_merge 使用专属映射区） */}
+                                {(rule.type !== 'deduplicate' && rule.type !== 'numeric_transform' && rule.type !== 'data_merge') && (
                                   <div>
                                     <Label>字段</Label>
                                     {(() => {
@@ -2971,6 +3094,112 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                                     <div className="text-xs text-gray-500">
                                       系统会保留首次出现的记录并移除后续重复记录；去重前后记录数变化将记录在日志中。对于“所有判定字段均为空”的记录组，若其他字段不同，将不会视为完全重复。
                                     </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {rule.type === 'data_merge' && (() => {
+                                // 计算主/从数据集与版本（优先使用规则内配置，其次 Step2，再次当前选择）
+                                const baseId = rule.config?.primaryDatasetId || step2PrimaryDatasetId || primaryDatasetId || activeDatasetId || selectedDatasetIds[0];
+                                const baseVer = rule.config?.primaryVersionId || step2PrimaryVersionId || (baseId ? (activeVersionByDataset[baseId] || getDefaultVersionId(baseId)) : undefined);
+                                const secId = rule.config?.secondaryDatasetId || step2SecondaryDatasetId || (selectedDatasetIds.find(id => id !== baseId) || baseId);
+                                const secVer = rule.config?.secondaryVersionId || step2SecondaryVersionId || (secId ? (activeVersionByDataset[secId] || getDefaultVersionId(secId)) : undefined);
+
+                                const baseFieldInfos = (baseId && baseVer) ? ensureFieldInfosForDatasetVersion(baseId, baseVer) : [];
+                                const secFieldInfos = (secId && secVer) ? ensureFieldInfosForDatasetVersion(secId, secVer) : [];
+                                const baseFieldOptions = baseFieldInfos.map(f => ({ name: f.name, type: f.type }));
+                                const secFieldOptions = secFieldInfos.map(f => ({ name: f.name, type: f.type }));
+                                const commonField: string = typeof rule.config?.commonField === 'string' ? rule.config.commonField : '';
+                                const joinType: string = rule.config?.joinType || '';
+
+                                const getType = (list: {name: string; type: any}[], name: string) => (list.find(f => f.name === name)?.type);
+                                // 统一为严格类型相等判断（FieldInfo.type 为 'string' | 'number' | 'boolean' | 'date' | 'object' | 'array'）
+                                const isTypeCompatible = (t1?: FieldInfo['type'], t2?: FieldInfo['type']) => {
+                                  if (!t1 || !t2) return false;
+                                  return t1 === t2;
+                                };
+                                const hasCommonField = !!commonField;
+                                const existsInBoth = hasCommonField && baseFieldOptions.some(o => o.name === commonField) && secFieldOptions.some(o => o.name === commonField);
+                                const typeOk = hasCommonField && isTypeCompatible(getType(baseFieldOptions as any, commonField) as any, getType(secFieldOptions as any, commonField) as any);
+                                const needJoinType = !joinType;
+                                const hasError = (!hasCommonField) || !existsInBoth || !typeOk || needJoinType;
+
+                                return (
+                                  <div className="space-y-3">
+                                    <div>
+                                      <Label>公共字段（主/从均存在时可选）</Label>
+                                      {(() => {
+                                        // 计算主从公共且类型兼容的字段集合
+                                        const secMap = new Map(secFieldOptions.map(o => [o.name, o.type]));
+                                        const commonOptions = baseFieldOptions.filter(o => {
+                                          const st = secMap.get(o.name);
+                                          return !!st && (o.type === st);
+                                        });
+                                        const selectedCommon: string = rule.config?.commonField || '';
+                                        const hasCommonOptions = commonOptions.length > 0;
+                                        const selectedValid = selectedCommon ? commonOptions.some(o => o.name === selectedCommon) : false;
+
+                                        return (
+                                          <div className="space-y-2">
+                                            <Select
+                                              value={selectedCommon}
+                                              onValueChange={(val: string) => {
+                                                updateCleaningRule(rule.id, { config: { ...rule.config, commonField: val } });
+                                              }}
+                                            >
+                                              <SelectTrigger>
+                                                <SelectValue placeholder={hasCommonOptions ? '请选择公共字段' : '无公共字段可选'} />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                {commonOptions.map(o => (
+                                                  <SelectItem key={o.name} value={o.name}>{o.name}</SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                            {selectedCommon && selectedValid && (() => {
+                                              const t1 = getType(baseFieldOptions as any, selectedCommon);
+                                              const t2 = getType(secFieldOptions as any, selectedCommon);
+                                              return (<div className="text-xs text-gray-500">类型：主 {String(t1)} / 从 {String(t2)}</div>);
+                                            })()}
+                                            {!hasCommonOptions && (
+                                              <div className="flex items-start gap-2 text-amber-700">
+                                                <AlertCircle className="w-4 h-4 mt-0.5" />
+                                                <span>当前两数据集无公共且类型兼容的字段，无法配置合并键。</span>
+                                              </div>
+                                            )}
+                                            {selectedCommon && !selectedValid && (
+                                              <div className="flex items-start gap-2 text-red-700">
+                                                <AlertCircle className="w-4 h-4 mt-0.5" />
+                                                <span>公共字段无效：请重新选择。</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+
+                                    <div>
+                                      <Label>合并方式（必填）</Label>
+                                      <Select
+                                        value={joinType}
+                                        onValueChange={(t: string) => {
+                                          updateCleaningRule(rule.id, { config: { ...rule.config, joinType: t } });
+                                        }}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="请选择合并方式" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="inner">内连接（仅保留主/从均匹配的记录）</SelectItem>
+                                          <SelectItem value="left">左连接（保留主数据集全部记录，未匹配从字段填 null）</SelectItem>
+                                          <SelectItem value="outer">全连接（保留全部记录，主/从缺失填 null）</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      {needJoinType && (
+                                        <div className="mt-1 text-xs text-red-700">请选择合并方式</div>
+                                      )}
+                                    </div>
+                                    {/* 根据需求，移除面板内的校验规则说明和统一错误提示文案，仅保留控件级提示与提交禁用 */}
                                   </div>
                                 );
                               })()}
@@ -3606,7 +3835,34 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                         disabled={
                           isProcessing ||
                           cleaningRules.filter(r => r.enabled).length === 0 ||
-                          (selectedSourcesForView.length > 1 && step2ShowCommonOnly && step2AggregatedFields.filter(f => f.selected).length === 0)
+                          (selectedSourcesForView.length > 1 && step2ShowCommonOnly && step2AggregatedFields.filter(f => f.selected).length === 0) ||
+                          (() => {
+                            // data_merge 全局校验：任一启用的合并规则不合法则禁止提交
+                            const enabledMerge = cleaningRules.filter(r => r.enabled && r.type === 'data_merge');
+                            if (enabledMerge.length === 0) return false;
+                            const isInvalid = enabledMerge.some((rule) => {
+                              const baseId = rule.config?.primaryDatasetId || step2PrimaryDatasetId || primaryDatasetId || activeDatasetId || selectedDatasetIds[0];
+                              const baseVer = rule.config?.primaryVersionId || step2PrimaryVersionId || (baseId ? (activeVersionByDataset[baseId] || getDefaultVersionId(baseId)) : undefined);
+                              const secId = rule.config?.secondaryDatasetId || step2SecondaryDatasetId || (selectedDatasetIds.find(id => id !== baseId) || baseId);
+                              const secVer = rule.config?.secondaryVersionId || step2SecondaryVersionId || (secId ? (activeVersionByDataset[secId] || getDefaultVersionId(secId)) : undefined);
+                              const baseFieldInfos = (baseId && baseVer) ? ensureFieldInfosForDatasetVersion(baseId, baseVer) : [];
+                              const secFieldInfos = (secId && secVer) ? ensureFieldInfosForDatasetVersion(secId, secVer) : [];
+                              const getType = (list: any[], name: string) => (list.find((f: any) => f.name === name)?.type);
+                              const isTypeCompatible = (t1: any, t2: any) => {
+                                if (!t1 || !t2) return false;
+                                if (t1 === t2) return true;
+                                if ((t1 === 'text' && t2 === 'category') || (t1 === 'category' && t2 === 'text')) return true;
+                                return false;
+                              };
+                              const commonField: string = typeof rule.config?.commonField === 'string' ? rule.config.commonField : '';
+                              const hasCommonField = !!commonField;
+                              const existsInBoth = hasCommonField && baseFieldInfos.some((f: any) => f.name === commonField) && secFieldInfos.some((f: any) => f.name === commonField);
+                              const typeOk = hasCommonField && isTypeCompatible(getType(baseFieldInfos as any, commonField), getType(secFieldInfos as any, commonField));
+                              const needJoinType = !(rule.config?.joinType);
+                              return (!hasCommonField) || !existsInBoth || !typeOk || needJoinType;
+                            });
+                            return isInvalid;
+                          })()
                         }
                       >
                         {isProcessing ? (

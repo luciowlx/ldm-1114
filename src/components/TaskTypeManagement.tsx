@@ -42,9 +42,9 @@ export default function TaskTypeManagement({ isAdmin = true }: TaskTypeManagemen
   const [items, setItems] = useState<TaskTypeItem[]>(() => {
     // 初始 mock 列表
     const init: TaskTypeItem[] = [
-      { id: "TimeSeries_Electricity", name: "时序预测-电价", category: "时序预测", enabled: true, version: 1, createdAt: "2024-01-15", updatedAt: "2024-01-20" },
-      { id: "Classification_SteelDefect", name: "分类-钢铁缺陷", category: "分类", enabled: true, version: 1, createdAt: "2024-01-15", updatedAt: "2024-01-20" },
-      { id: "Regression_Quality", name: "回归-质量检测", category: "回归", enabled: true, version: 1, createdAt: "2024-01-15", updatedAt: "2024-01-20" }
+      { id: "TimeSeries_Electricity", name: "时序预测", category: "时序预测", enabled: true, version: 1, createdAt: "2024-01-15", updatedAt: "2024-01-20" },
+      { id: "Classification_SteelDefect", name: "分类", category: "分类", enabled: true, version: 1, createdAt: "2024-01-15", updatedAt: "2024-01-20" },
+      { id: "Regression_Quality", name: "回归", category: "回归", enabled: true, version: 1, createdAt: "2024-01-15", updatedAt: "2024-01-20" }
     ];
     return init;
   });
@@ -416,7 +416,8 @@ export default function TaskTypeManagement({ isAdmin = true }: TaskTypeManagemen
                       <div className="text-xs text-gray-500">{it.category} | v{it.version}</div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Switch checked={it.enabled} onCheckedChange={(v) => handleToggleEnabled(it.id, !!v)} />
+                      {/* onCheckedChange 显式声明参数类型，避免 TS 隐式 any 警告 */}
+                      <Switch checked={it.enabled} onCheckedChange={(v: boolean) => handleToggleEnabled(it.id, !!v)} />
                       <span className="text-xs text-gray-600">{it.enabled ? '启用' : '禁用'}</span>
                     </div>
                   </div>

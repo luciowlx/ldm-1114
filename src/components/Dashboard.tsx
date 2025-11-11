@@ -24,6 +24,17 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../i18n/LanguageContext";
 
+/**
+ * DashboardProps
+ * 描述：仪表盘组件的导航与交互回调集合。
+ * 字段：
+ * - onNavigateToProjectManagement?: () => void — 跳转到“项目管理”页。
+ * - onNavigateToDataManagement?: () => void — 跳转到“数据管理”页。
+ * - onNavigateToTaskManagement?: () => void — 跳转到“任务管理”页。
+ * - onNavigateToModelManagement?: () => void — 跳转到“模型管理”页。
+ * - onOpenActivityCenter?: () => void — 打开统一活动中心（通知中心的“活动”Tab）。
+ * - onNavigateToProjectOverview?: () => void — 跳转到项目管理总览（不弹创建项目弹窗）。
+ */
 interface DashboardProps {
   onNavigateToProjectManagement?: () => void;
   onNavigateToDataManagement?: () => void;
@@ -35,6 +46,13 @@ interface DashboardProps {
   onNavigateToProjectOverview?: () => void;
 }
 
+/**
+ * Dashboard 组件
+ * 功能：展示平台的近期项目、系统状态、最近活动与快捷操作入口；
+ *       在“项目状态”中统一使用“已归档”表示项目完成后的归档状态。
+ * 参数：props（见 DashboardProps）— 导航与交互回调。
+ * 返回：JSX.Element — 仪表盘页面 JSX 结构。
+ */
 export function Dashboard({ 
   onNavigateToProjectManagement,
   onNavigateToDataManagement,
@@ -45,7 +63,14 @@ export function Dashboard({
 }: DashboardProps = {}) {
   const { t } = useLanguage();
 
+  /**
+   * 功能：将原始状态文案映射为国际化后的展示文本。
+   * 参数：
+   * - status: string — 原始状态（进行中/失败/已归档/已完成）。
+   * 返回：string — 对应的国际化文本，若未匹配则返回原始值。
+   */
   const displayStatus = (status: string) => {
+    if (status === "已归档") return t("status.archived") || "已归档";
     if (status === "已完成") return t("status.completed");
     if (status === "进行中") return t("status.inProgress");
     if (status === "失败") return t("status.failed");
@@ -107,7 +132,7 @@ export function Dashboard({
     {
       name: "价格预测模型",
       description: "基于时间序列的价格预测分析",
-      status: "已完成",
+      status: "已归档",
       members: ["C", "D", "E", "F", "G"],
       color: "purple",
       startDate: "2025-08-01T09:00:00Z",
@@ -115,9 +140,19 @@ export function Dashboard({
     }
   ];
 
-  // 计算剩余时间文案（如：2天3小时；已到期；已完成）
+  /**
+   * 功能：计算项目剩余时间的展示文案。
+   * 规则：
+   * - 已归档：直接返回“已归档”；
+   * - 已到期（当前时间≥截止时间）：返回“已到期”；
+   * - 其余：返回“X天Y小时”或“Y小时Z分钟”。
+   * 参数：
+   * - deadline: string — ISO 格式或可被 Date 解析的截止时间。
+   * - status: string — 项目状态（用于处理“已归档”特殊文案）。
+   * 返回：string — 用于 UI 展示的剩余时间文案。
+   */
   const formatRemainingTime = (deadline: string, status: string) => {
-    if (status === "已完成") return "已完成";
+    if (status === "已归档") return "已归档";
     const now = new Date();
     const end = new Date(deadline);
     const diffMs = end.getTime() - now.getTime();
@@ -131,9 +166,19 @@ export function Dashboard({
     return `${diffHours}小时${diffMinutes}分钟`;
   };
 
-  // 计算时间使用进度百分比（用于进度条），区间 [0, 100]
+  /**
+   * 功能：计算从开始到截止的时间使用百分比（用于进度条）。
+   * 规则：
+   * - 已归档：固定返回 100；
+   * - 其余：在 [0, 100] 区间内按 (now-start)/(end-start) 计算并四舍五入。
+   * 参数：
+   * - startDate: string — 项目开始时间（ISO 或可被 Date 解析）。
+   * - deadline: string — 项目截止时间（ISO 或可被 Date 解析）。
+   * - status: string — 项目状态（用于处理“已归档”特殊逻辑）。
+   * 返回：number — 进度百分比（0-100 的整数）。
+   */
   const calcTimeUsedPercent = (startDate: string, deadline: string, status: string) => {
-    if (status === "已完成") return 100;
+    if (status === "已归档") return 100;
     const start = new Date(startDate);
     const end = new Date(deadline);
     const now = new Date();
@@ -210,7 +255,7 @@ export function Dashboard({
       items: [
         { label: "总项目", value: 25 },
         { label: "进行中", value: 12 },
-        { label: "已完成", value: 10 },
+        { label: "已归档", value: 10 },
         { label: "已延期", value: 3 },
       ],
       footer: { label: "项目健康度", value: "85%", delta: "+5%" },
@@ -426,7 +471,7 @@ export function Dashboard({
                       <p className="text-xs text-gray-500 mt-1 truncate">{project.description}</p>
                     </div>
                     <Badge 
-                      variant={project.status === "已完成" ? "default" : "secondary"}
+                      variant={project.status === "进行中" ? "default" : "secondary"}
                       className="ml-2"
                     >
                       {displayStatus(project.status)}

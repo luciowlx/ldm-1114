@@ -34,9 +34,16 @@ export interface VirtualTableProps<T extends Record<string, any>> {
   style?: React.CSSProperties;
   headerRight?: React.ReactNode;
   freezeLeftCount?: number; // 新增：冻结左侧列数量
+  freezeRightCount?: number; // 新增：冻结右侧列数量（用于固定操作栏）
 }
 
 // 统一的虚拟滚动 Table 组件（CSS-in-JS 样式隔离 + 列宽拖拽 + 列顺序拖拽 + 重置能力）
+/**
+ * VirtualTable
+ * 功能：提供高性能、可拖拽/可调整列宽的表格，支持粘性表头与左右侧冻结列。
+ * 参数：详见 VirtualTableProps。
+ * 返回：React 组件，渲染一个支持虚拟滚动的表格。
+ */
 export function VirtualTable<T extends Record<string, any>>({
   data,
   columns,
@@ -58,6 +65,7 @@ export function VirtualTable<T extends Record<string, any>>({
   style,
   headerRight,
   freezeLeftCount = 0,
+  freezeRightCount = 0,
 }: VirtualTableProps<T>) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -111,6 +119,26 @@ export function VirtualTable<T extends Record<string, any>>({
     });
     return arr;
   }, [orderedColumns, widths]);
+
+  /**
+   * 计算右侧冻结列的 right 偏移。
+   * 说明：从最右侧开始累加列宽，以便为 position: sticky; right: X 提供偏移值。
+   */
+  const rightOffsets = useMemo(() => {
+    const arr: number[] = [];
+    let acc = 0;
+    // 仅当 freezeRightCount > 0 时计算，提高性能
+    if (freezeRightCount > 0) {
+      for (let i = orderedColumns.length - 1; i >= 0; i--) {
+        const c = orderedColumns[i];
+        const key = String(c.key);
+        const w = widths[key] ?? c.width ?? 100;
+        arr[i] = acc; // 为该列记录当前偏移
+        acc += w;
+      }
+    }
+    return arr;
+  }, [orderedColumns, widths, freezeRightCount]);
 
   // 虚拟滚动范围计算（使用 rAF 节流）
   const total = data.length;
@@ -194,14 +222,17 @@ export function VirtualTable<T extends Record<string, any>>({
     position: 'relative',
     border: '1px solid var(--border, #e5e7eb)',
     borderRadius: 8,
-    background: 'var(--background, #fff)'
+    background: 'var(--background, #fff)',
+    scrollBehavior: 'smooth',
+    WebkitOverflowScrolling: 'touch'
   };
 
   const tableStyle: React.CSSProperties = {
     position: 'absolute',
     top: 0,
     left: 0,
-    width: '100%',
+    // 使用 max-content 使表格在列总宽度超过容器时出现水平滚动
+    width: 'max-content',
     borderCollapse: 'separate',
     fontSize: '0.875rem'
   };
@@ -236,9 +267,13 @@ export function VirtualTable<T extends Record<string, any>>({
                 position: 'relative',
                 ...(w ? { width: w, minWidth: w } : {})
               };
-              const isFrozen = i < freezeLeftCount;
-              if (isFrozen) {
+              const isFrozenLeft = i < freezeLeftCount;
+              const isFrozenRight = freezeRightCount > 0 && i >= orderedColumns.length - freezeRightCount;
+              if (isFrozenLeft) {
                 Object.assign(styleTh, { position: 'sticky', left: leftOffsets[i], zIndex: 3, background: 'var(--background, #fff)' });
+              }
+              if (isFrozenRight) {
+                Object.assign(styleTh, { position: 'sticky', right: rightOffsets[i] ?? 0, zIndex: 3, background: 'var(--background, #fff)', boxShadow: 'inset 8px 0 8px -8px rgba(0,0,0,0.06)' });
               }
               return (
                 <th
@@ -286,9 +321,13 @@ export function VirtualTable<T extends Record<string, any>>({
                   whiteSpace: 'nowrap',
                   ...(w ? { width: w, minWidth: w } : {})
                 };
-                const isFrozen = ci < freezeLeftCount;
-                if (isFrozen) {
+                const isFrozenLeft = ci < freezeLeftCount;
+                const isFrozenRight = freezeRightCount > 0 && ci >= orderedColumns.length - freezeRightCount;
+                if (isFrozenLeft) {
                   Object.assign(styleTd, { position: 'sticky', left: leftOffsets[ci], zIndex: 1, background: 'var(--background, #fff)' });
+                }
+                if (isFrozenRight) {
+                  Object.assign(styleTd, { position: 'sticky', right: rightOffsets[ci] ?? 0, zIndex: 2, background: 'var(--background, #fff)', borderLeft: '1px solid var(--border, #e5e7eb)' });
                 }
                 const v = (row as any)[key];
                 const content = c.render ? c.render(v, row, startIndex + i) : (typeof v === 'number' && Number.isNaN(v) ? 'NaN' : String(v));

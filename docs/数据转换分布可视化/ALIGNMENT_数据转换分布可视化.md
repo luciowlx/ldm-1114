@@ -49,3 +49,4 @@
 
 ## Align 输出
 - 若上述决策获得确认，将固化到 CONSENSUS 文档并在 DESIGN/TASK 中体现。
+

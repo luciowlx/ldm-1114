@@ -16,3 +16,4 @@
 
 技术约束：
 - 复用现有 Table、Tooltip 组件；Tailwind 类名用于样式表达；不引入新依赖。
+

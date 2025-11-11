@@ -12,7 +12,7 @@ export type TaskTypeTemplate = {
 export const taskTypeTemplates: TaskTypeTemplate[] = [
   {
     id: "TimeSeries_Electricity",
-    name: "时序预测-电价",
+    name: "时序预测",
     category: "时序预测",
     input: {
       dataset: {
@@ -29,8 +29,8 @@ export const taskTypeTemplates: TaskTypeTemplate[] = [
       ],
       parameters: [
         { name: "context_length", label: "上下文长度", type: "number", required: true, default: 30 },
-        // 改为非必填，类型改为文本
-        { name: "forecast_start_time", label: "预测开始时间", type: "text", required: false },
+        // 改为非必填，类型使用字符串以符合 JSON Schema 定义
+        { name: "forecast_start_time", label: "预测开始时间", type: "string", required: false },
         { name: "primary_dataset", label: "主变量文件", type: "enum", optionsSource: "datasets", required: true }
       ]
     },
@@ -46,7 +46,7 @@ export const taskTypeTemplates: TaskTypeTemplate[] = [
   },
   {
     id: "Classification_SteelDefect",
-    name: "分类-钢铁缺陷",
+    name: "分类",
     category: "分类",
     input: {
       dataset: {
@@ -74,7 +74,7 @@ export const taskTypeTemplates: TaskTypeTemplate[] = [
   },
   {
     id: "Regression_Quality",
-    name: "回归-质量检测",
+    name: "回归",
     category: "回归",
     input: {
       dataset: {
