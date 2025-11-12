@@ -22,6 +22,15 @@
 
 ## 变更历史
 
+### 2025-11-12
+- [Fix/DataManagement/Preprocessing] 操作二次确认弹窗文案兜底：为“停止/重试/删除”确认弹窗增加本地化兜底逻辑，缺失 i18n 键时仍显示中文提示，避免出现键名。
+  - 涉及文件：`src/components/DataManagement.tsx`
+  - 说明/验证：在“数据管理 → 预处理任务管理”列表，点击“停止/重试/删除”均弹出二次确认；文案显示为中文，不再出现 `task.confirm.*`。
+
+- [Tweak/PersonalCenter/UI] 精简个人信息页：移除“职位/所在地/个人简介”与下方“账户信息卡片”；将“最后登录时间”移动到基本信息区域只读显示。
+  - 涉及文件：`src/components/PersonalCenter.tsx`
+  - 说明/验证：打开“个人信息”页，红框内内容不再显示；“最后登录时间”在基本信息区域展示且不可编辑。
+
 ### 2025-11-11
 - [Feat/DataPreprocessing/DataMerge] 简化数据合并面板：移除主/从展示与红色校验规则提示，仅保留“公共字段”“合并方式”控件与禁用逻辑。
   - 涉及文件：`src/components/DataPreprocessing.tsx`
