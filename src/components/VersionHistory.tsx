@@ -440,7 +440,8 @@ const filteredVersions = versions
                         <Badge variant="destructive">v1.3</Badge>
                         <span className="text-xs text-gray-500">清洗 · 赵六 · 2024-01-18 · 失败</span>
                       </div>
-                      <Button size="sm" variant="outline" disabled>切换查看</Button>
+                      {/* 允许失败版本切换查看，用于查看失败日志与详情 */}
+                      <Button size="sm" variant="outline" onClick={() => onSwitchVersion(versions[3])}>切换查看</Button>
                     </div>
                   </div>
                 </div>
@@ -633,7 +634,6 @@ const filteredVersions = versions
                         variant="outline"
                         size="sm"
                         onClick={() => onSwitchVersion(version)}
-                        disabled={version.status === '失败'}
                       >
                         切换查看
                       </Button>

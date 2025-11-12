@@ -221,6 +221,11 @@ export function DataManagement({
     name: string;
     dataset: string;
     type: string;
+    /**
+     * 创建人（任务预处理列表新增字段）
+     * 用途：在任务列表中展示任务的创建人，提升责任归属与沟通效率。
+     */
+    creator: string;
     // 任务状态：新增 not_started 用于“未开始”展示
     status: 'success' | 'running' | 'pending' | 'failed' | 'not_started';
     // 是否曾经排队过：用于在未开始状态下显示“重试”而非“开始执行”
@@ -238,6 +243,7 @@ export function DataManagement({
       name: '传感器数据预处理',
       dataset: '生产线传感器数据集',
       type: '数据清洗',
+      creator: '张三',
       status: 'success',
       operations: ['异常值处理', '缺失值处理', '数据标准化'],
       startTime: '2024-01-15T09:00:00.000Z',
@@ -249,6 +255,7 @@ export function DataManagement({
       name: '缺陷记录清洗正则',
       dataset: '生产线缺陷记录集',
       type: '特征工程',
+      creator: '李四',
       status: 'running',
       operations: ['特征选择', '特征转换', '特征组合'],
       startTime: '2024-01-15T14:00:00.000Z',
@@ -260,6 +267,7 @@ export function DataManagement({
       name: 'ERP数据质量评估',
       dataset: 'ERP系统数据集',
       type: '质量评估',
+      creator: '王五',
       status: 'pending',
       operations: ['完整性检测', '一致性校验', '准确性评估'],
       startTime: null,
@@ -270,6 +278,7 @@ export function DataManagement({
       name: '设备日志预处理',
       dataset: '生产设备日志集',
       type: '数据清洗',
+      creator: '赵六',
       status: 'failed',
       operations: ['异常值处理', '日志解析'],
       startTime: '2024-01-13T09:30:00.000Z',
@@ -1954,6 +1963,8 @@ export function DataManagement({
   <TableHead>{t('data.preprocessing.table.taskId')}</TableHead>
   <TableHead>{t('data.preprocessing.table.dataset')}</TableHead>
   <TableHead>{t('data.preprocessing.table.type')}</TableHead>
+  {/* 新增：创建人 */}
+  <TableHead>{t('data.preprocessing.table.creator')}</TableHead>
                   <TableHead>
                     <div className="flex items-center gap-1">
                       <span>{t('data.preprocessing.table.status')}</span>
@@ -2037,6 +2048,8 @@ export function DataManagement({
                       </Button>
                     </TableCell>
                     <TableCell>{task.type}</TableCell>
+                    {/* 新增：创建人 */}
+                    <TableCell>{task.creator}</TableCell>
                     <TableCell>
                       {task.status === 'success' && (
   <Badge variant="default">{t('task.filters.status.completed')}</Badge>
@@ -2081,31 +2094,32 @@ export function DataManagement({
                         )}
                         {task.status === 'pending' && (
                           <>
+                            {/* 排队中：仅允许“取消排队”，取消后进入未开始状态再提供重试/编辑/删除 */}
                             <Button size="sm" onClick={() => openCancelQueueConfirm(task.id)}>{t('task.actions.cancelQueue')}</Button>
-                            <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
-                            <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
                           </>
                         )}
                         {task.status === 'not_started' && (
                           <>
-                            {task.hasQueuedBefore ? (
-                              <Button size="sm" onClick={() => openTaskConfirm('retry', task.id)}>{t('task.actions.retry')}</Button>
-                            ) : (
-                              <Button size="sm" onClick={() => handleStartTask(task.id)}>{t('task.actions.start')}</Button>
-                            )}
+                            {/* 未开始：按需求仅提供“重试、编辑、删除” */}
+                            <Button size="sm" onClick={() => openTaskConfirm('retry', task.id)}>{t('task.actions.retry')}</Button>
                             <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
                             <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
                           </>
                         )}
                         {task.status === 'failed' && (
                           <>
+                            {/* 失败：提供查看详情、重试、编辑、删除 */}
+                            <Button variant="outline" size="sm" onClick={() => handleViewTask(task.id)}>{t('task.actions.viewDetail')}</Button>
                             <Button size="sm" onClick={() => openTaskConfirm('retry', task.id)}>{t('task.actions.retry')}</Button>
+                            <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
                             <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
                           </>
                         )}
                         {task.status === 'success' && (
                           <>
+                            {/* 已完成：提供查看详情、删除 */}
                             <Button variant="outline" size="sm" onClick={() => handleViewTask(task.id)}>{t('task.actions.viewDetail')}</Button>
+                            <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
                           </>
                         )}
                       </div>
@@ -2124,7 +2138,7 @@ export function DataManagement({
           <DialogHeader>
             <DialogTitle>{t('task.actions.cancelQueue')}</DialogTitle>
             <DialogDescription>
-              {t('task.dialog.cancelQueue.description')}
+              {tt('task.dialog.cancelQueue.description', '确认取消排队吗？取消后任务将回到未开始状态，可以重试或编辑。')}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 mt-4">

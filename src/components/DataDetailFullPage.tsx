@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Input } from "./ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { 
   ArrowLeft,
   Download,
@@ -192,6 +193,81 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
       description: version.description ?? prev.description,
     }));
     setActiveTab("overview");
+  };
+  
+  /**
+   * 失败日志弹窗开关状态
+   * 用途：当数据状态为“失败”时，允许用户查看模拟的失败日志详情。
+   */
+  const [isFailureLogOpen, setIsFailureLogOpen] = useState<boolean>(false);
+  /**
+   * 失败日志内容（前端模拟）
+   * 用途：展示在弹窗中，同时作为下载的文本内容来源。
+   */
+  const [failureLogContent, setFailureLogContent] = useState<string>("");
+
+  /**
+   * 生成模拟失败日志文本
+   * 描述：结合当前数据的 meta 信息生成一段结构化的文本日志，包含时间戳、数据ID/名称/版本、错误类型与堆栈片段等。
+   * 返回值：string - 可直接用于展示与下载的纯文本内容。
+   */
+  const generateFailureLogText = (): string => {
+    const now = new Date();
+    const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+    return [
+      `# 数据处理失败日志`,
+      `时间: ${ts}`,
+      `数据ID: ${meta.id}`,
+      `数据名称: ${meta.name}`,
+      `版本号: ${meta.version}`,
+      `来源方式: ${meta.source}`,
+      `状态: ${meta.status}`,
+      `——`,
+      `错误类型: DataPreprocessError`,
+      `错误码: DP-4001`,
+      `错误信息: 列 \'Age\' 存在非法值导致归一化失败（发现 NaN / Infinity）`,
+      `重试建议: 请清洗异常值（缺失/无穷大/非数值），并重新运行预处理任务`,
+      `——`,
+      `堆栈片段:`,
+      `  at normalizeColumn (preprocess/normalize.ts:42:17)`,
+      `  at runPipeline (preprocess/pipeline.ts:88:23)`,
+      `  at main (preprocess/index.ts:15:5)`,
+      `——`,
+      `输入摘要:`,
+      `  行数: 7504`,
+      `  列数: 12`,
+      `  触发步骤: 缺失处理 -> 归一化 -> 特征选择`,
+      `——`,
+      `注：以上为前端模拟日志内容，仅用于原型演示。`
+    ].join("\n");
+  };
+
+  /**
+   * 打开失败日志弹窗
+   * 描述：生成最新的模拟日志文本并打开弹窗。
+   * 返回值：void
+   */
+  const handleOpenFailureLog = (): void => {
+    setFailureLogContent(generateFailureLogText());
+    setIsFailureLogOpen(true);
+  };
+
+  /**
+   * 下载失败日志（.txt）
+   * 描述：以 Blob 构建文本文件并触发浏览器下载。
+   * 返回值：void
+   */
+  const handleDownloadFailureLog = (): void => {
+    const content = failureLogContent || generateFailureLogText();
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `failure_log_${meta.id}_${meta.version}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
   const formatDateTime = (v?: string | number | Date) => {
     if (!v) return "—";
@@ -407,6 +483,28 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
               <span>基本信息</span>
             </CardTitle>
             <div className="flex items-center space-x-2">
+              {meta.status === "失败" && (
+                <>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleOpenFailureLog}
+                    aria-label="查看失败日志"
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    查看失败日志
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadFailureLog}
+                    aria-label="下载失败日志"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    下载失败日志
+                  </Button>
+                </>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -949,6 +1047,26 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
           <div className="fade-in">{renderDataOverview()}</div>
         )}
       </div>
+      {/* 失败日志弹窗 */}
+      <Dialog open={isFailureLogOpen} onOpenChange={setIsFailureLogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>失败日志</DialogTitle>
+          </DialogHeader>
+          <div className="bg-slate-950 text-slate-200 rounded-md p-4 overflow-auto max-h-[60vh] font-mono text-xs whitespace-pre-wrap">
+            {failureLogContent || generateFailureLogText()}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={handleDownloadFailureLog} aria-label="下载失败日志">
+              <Download className="h-4 w-4 mr-2" />
+              下载失败日志
+            </Button>
+            <Button size="sm" onClick={() => setIsFailureLogOpen(false)} aria-label="关闭失败日志">
+              关闭
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

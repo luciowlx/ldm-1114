@@ -224,37 +224,7 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
               </div>
             </div>
 
-            {/* 功能管理卡片 - 改为3列布局 */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">功能管理</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {subTabs.slice(1).map((tab) => {
-                  const IconComponent = tab.icon;
-                  return (
-                    <Card 
-                      key={tab.id} 
-                      className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105 bg-white border border-gray-200"
-                      onClick={() => setActiveSubTab(tab.id)}
-                    >
-                      <CardHeader className="pb-4">
-                        <div className="flex items-center justify-center mb-4">
-                          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center">
-                            <IconComponent className="h-8 w-8 text-blue-600" />
-                          </div>
-                        </div>
-                        <CardTitle className="text-center text-lg">{tab.name}</CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <p className="text-sm text-gray-600 text-center mb-4">{tab.description}</p>
-                        <Button variant="outline" size="sm" className="w-full">
-                          进入管理
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
+            {/* 功能管理卡片区域已按需求移除 */}
           </div>
         );
     }

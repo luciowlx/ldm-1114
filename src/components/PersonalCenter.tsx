@@ -307,6 +307,14 @@ export function PersonalCenter() {
                     />
                   </div>
                 </div>
+                <div>
+                  <Label htmlFor="role">{t("personal.center.form.role")}</Label>
+                  <Input
+                    id="role"
+                    value={userProfile.role}
+                    disabled
+                  />
+                </div>
               </div>
 
               {/* 个人简介块按需求移除 */}

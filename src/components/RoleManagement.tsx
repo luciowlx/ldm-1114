@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -6,9 +6,14 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
+import { Switch } from "./ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Plus, Edit, Trash2, Shield, Users, Settings, Search, Eye } from "lucide-react";
+import type { User } from "../types/user";
+import { registeredUsers } from "../mock/users";
+import { ScrollArea } from "./ui/scroll-area";
+import { Separator } from "./ui/separator";
 
 interface Permission {
   id: string;
@@ -26,6 +31,137 @@ interface Role {
   status: "active" | "inactive";
   createdAt: string;
 }
+
+// 三层权限结构：一级菜单 -> 二级菜单 -> 三级按钮
+interface ActionItem { id: string; name: string; }
+interface SubModule { id: string; name: string; actions: ActionItem[]; }
+interface PermissionGroup { id: string; name: string; submodules: SubModule[]; }
+
+const permissionTree: PermissionGroup[] = [
+  {
+    id: "dashboard",
+    name: "首页/统计",
+    submodules: [
+      { id: "dashboard_overview", name: "查看全局统计看板", actions: [{ id: "dashboard_view", name: "查看统计" }] },
+      {
+        id: "dashboard_quick",
+        name: "快速操作",
+        actions: [
+          { id: "quick_project_create", name: "创建新项目" },
+          { id: "quick_data_upload", name: "上传数据" },
+          { id: "quick_task_create", name: "创建任务" }
+        ]
+      }
+    ]
+  },
+  {
+    id: "project_mgmt",
+    name: "项目管理",
+    submodules: [
+      {
+        id: "project_basic",
+        name: "项目管理",
+        actions: [
+          { id: "project_create", name: "创建项目" },
+          { id: "project_view", name: "查看详情" },
+          { id: "project_edit", name: "编辑项目" },
+          { id: "project_config", name: "配置项目" }
+        ]
+      }
+    ]
+  },
+  {
+    id: "data_mgmt",
+    name: "数据管理",
+    submodules: [
+      {
+        id: "dataset_basic",
+        name: "数据集管理",
+        actions: [
+          { id: "data_upload", name: "上传数据集" },
+          { id: "data_edit", name: "编辑数据集" },
+          { id: "data_copy", name: "复制数据集" },
+          { id: "data_delete", name: "删除数据集" },
+          { id: "data_detail", name: "查看数据集详情" },
+          { id: "data_archive", name: "归档" },
+          { id: "data_download", name: "下载数据集" },
+          { id: "data_history", name: "历史版本" }
+        ]
+      },
+      {
+        id: "preprocess_task",
+        name: "数据预处理",
+        actions: [
+          { id: "preprocess_view", name: "查看任务" },
+          { id: "preprocess_edit", name: "编辑" },
+          { id: "preprocess_delete", name: "删除" },
+          { id: "preprocess_start", name: "开始执行" },
+          { id: "preprocess_stop", name: "停止" },
+          { id: "preprocess_retry", name: "重试" }
+        ]
+      }
+    ]
+  },
+  {
+    id: "task_mgmt",
+    name: "任务管理",
+    submodules: [
+      {
+        id: "task_basic",
+        name: "任务管理",
+        actions: [
+          { id: "task_create", name: "创建任务" },
+          { id: "task_detail", name: "详情" },
+          { id: "task_start", name: "开始任务" },
+          { id: "task_rerun", name: "重新运行" },
+          { id: "task_stop", name: "停止" },
+          { id: "task_edit", name: "编辑" },
+          { id: "task_export", name: "导出" },
+          { id: "task_archive", name: "归档" }
+        ]
+      }
+    ]
+  },
+  {
+    id: "assistant",
+    name: "智能助手",
+    submodules: [
+      { id: "assistant_chat", name: "多轮对话", actions: [{ id: "assistant_access", name: "访问助手" }] }
+    ]
+  },
+  {
+    id: "system",
+    name: "系统管理",
+    submodules: [
+      {
+        id: "system_users",
+        name: "部门与用户管理",
+        actions: [
+          { id: "system_users_view", name: "查看" },
+          { id: "system_users_edit", name: "编辑" }
+        ]
+      },
+      {
+        id: "system_roles",
+        name: "角色管理",
+        actions: [
+          { id: "system_roles_view", name: "查看" },
+          { id: "system_roles_edit", name: "编辑" }
+        ]
+      },
+      {
+        id: "system_task_types",
+        name: "任务类型管理",
+        actions: [
+          { id: "system_task_types_view", name: "查看" },
+          { id: "system_task_types_edit", name: "编辑" }
+        ]
+      },
+      { id: "system_personal_center", name: "个人中心", actions: [{ id: "system_personal_view", name: "查看" }] },
+      { id: "system_personal_settings", name: "个性化设置", actions: [{ id: "system_personal_settings_edit", name: "编辑" }] }
+    ]
+  }
+];
 
 const allPermissions: Permission[] = [
   { id: "project_view", name: "查看项目", description: "可以查看项目列表和详情", module: "项目管理" },
@@ -63,7 +199,7 @@ export function RoleManagement() {
       name: "超级管理员",
       description: "拥有系统所有权限",
       permissions: allPermissions.map(p => p.id),
-      userCount: 2,
+      userCount: 0,
       status: "active",
       createdAt: "2024-01-01"
     },
@@ -72,7 +208,7 @@ export function RoleManagement() {
       name: "项目经理",
       description: "负责项目管理相关工作",
       permissions: ["project_view", "project_create", "project_edit", "task_view", "task_create", "task_edit"],
-      userCount: 5,
+      userCount: 0,
       status: "active",
       createdAt: "2024-01-02"
     },
@@ -81,7 +217,7 @@ export function RoleManagement() {
       name: "数据分析师", 
       description: "负责数据分析和模型训练",
       permissions: ["data_view", "data_upload", "data_edit", "model_view", "model_train"],
-      userCount: 8,
+      userCount: 0,
       status: "active",
       createdAt: "2024-01-03"
     }
@@ -94,6 +230,9 @@ export function RoleManagement() {
   const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false);
   const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
+  const [isUserListDialogOpen, setIsUserListDialogOpen] = useState(false);
+  const [userListRole, setUserListRole] = useState<Role | null>(null);
+  const [userSearch, setUserSearch] = useState("");
   const [newRole, setNewRole] = useState({
     name: "",
     description: "",
@@ -123,6 +262,24 @@ export function RoleManagement() {
     role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     role.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  /**
+   * 获取指定角色的用户列表（从 mock 数据中过滤）
+   * @param roleName 角色名称
+   * @returns 该角色下的用户数组
+   */
+  const getUsersByRole = (roleName: string): User[] => {
+    return registeredUsers.filter(u => u.role === roleName);
+  };
+
+  /**
+   * 计算角色的用户数量（动态与列表一致）
+   * @param roleName 角色名称
+   * @returns 用户数量
+   */
+  const getUserCount = (roleName: string): number => {
+    return getUsersByRole(roleName).length;
+  };
 
   const handleCreateRole = () => {
     if (newRole.name.trim()) {
@@ -158,6 +315,15 @@ export function RoleManagement() {
     setRoles(roles.filter(role => role.id !== roleId));
   };
 
+  /**
+   * 切换角色状态（启用/禁用）
+   * @param roleId 角色ID
+   * @param enabled 是否启用
+   */
+  const handleToggleRoleStatus = (roleId: string, enabled: boolean) => {
+    setRoles(roles.map(role => role.id === roleId ? { ...role, status: enabled ? "active" : "inactive" } : role));
+  };
+
   const handleBatchDelete = () => {
     setRoles(roles.filter(role => !selectedRoles.includes(role.id)));
     setSelectedRoles([]);
@@ -181,6 +347,16 @@ export function RoleManagement() {
       permissions: [...role.permissions]
     });
     setIsPermissionDialogOpen(true);
+  };
+
+  /**
+   * 打开用户列表对话框
+   * @param role 角色对象
+   */
+  const openUserListDialog = (role: Role) => {
+    setUserListRole(role);
+    setUserSearch("");
+    setIsUserListDialogOpen(true);
   };
 
   const handlePermissionChange = (permissionId: string, checked: boolean) => {
@@ -208,6 +384,49 @@ export function RoleManagement() {
       setCurrentRole(null);
     }
   };
+
+  // 辅助：从三级动作扁平化出ID集合
+  const flattenGroupActionIds = (group: PermissionGroup) => group.submodules.flatMap(sm => sm.actions.map(a => a.id));
+  const flattenSubActionIds = (sub: SubModule) => sub.actions.map(a => a.id);
+
+  const isActionChecked = (id: string) => newRole.permissions.includes(id);
+  const isSubChecked = (sub: SubModule) => sub.actions.every(a => isActionChecked(a.id));
+  const isGroupChecked = (group: PermissionGroup) => group.submodules.every(isSubChecked);
+
+  const toggleAction = (id: string, checked: boolean) => {
+    setNewRole(prev => ({
+      ...prev,
+      permissions: checked ? [...prev.permissions, id] : prev.permissions.filter(pid => pid !== id)
+    }));
+  };
+
+  const toggleSub = (sub: SubModule, checked: boolean) => {
+    const ids = flattenSubActionIds(sub);
+    setNewRole(prev => ({
+      ...prev,
+      permissions: checked
+        ? Array.from(new Set([...prev.permissions, ...ids]))
+        : prev.permissions.filter(pid => !ids.includes(pid))
+    }));
+  };
+
+  const toggleGroup = (group: PermissionGroup, checked: boolean) => {
+    const ids = flattenGroupActionIds(group);
+    setNewRole(prev => ({
+      ...prev,
+      permissions: checked
+        ? Array.from(new Set([...prev.permissions, ...ids]))
+        : prev.permissions.filter(pid => !ids.includes(pid))
+    }));
+  };
+
+  // UI：权限弹窗左侧菜单选择状态
+  const [selectedPermissionGroupId, setSelectedPermissionGroupId] = useState<string>(permissionTree[0]?.id ?? "");
+  const getGroupById = (id: string) => permissionTree.find(g => g.id === id) || permissionTree[0];
+  const selectedGroup = getGroupById(selectedPermissionGroupId);
+  const groupActionIds = (group: PermissionGroup) => group.submodules.flatMap(sm => sm.actions.map(a => a.id));
+  const countSelectedInGroup = (group: PermissionGroup) => groupActionIds(group).filter(id => newRole.permissions.includes(id)).length;
+  const totalActionsInGroup = (group: PermissionGroup) => groupActionIds(group).length;
 
   const getPermissionsByModule = () => {
     const modules: { [key: string]: Permission[] } = {};
@@ -327,10 +546,10 @@ export function RoleManagement() {
                 <TableHead>角色名称</TableHead>
                 <TableHead>描述</TableHead>
                 <TableHead>权限数量</TableHead>
-                <TableHead>用户数量</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>创建时间</TableHead>
-                <TableHead>操作</TableHead>
+              <TableHead>用户数量</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead>创建时间</TableHead>
+              <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -354,15 +573,22 @@ export function RoleManagement() {
                     <Badge variant="outline">{role.permissions.length} 个权限</Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4 text-gray-400" />
-                      {role.userCount}
-                    </div>
+                    <Button variant="link" className="px-0" onClick={() => openUserListDialog(role)}>
+                      <div className="flex items-center gap-1">
+                        <Users className="w-4 h-4 text-gray-400" />
+                        {getUserCount(role.name)}
+                      </div>
+                    </Button>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={role.status === "active" ? "default" : "secondary"}>
-                      {role.status === "active" ? "启用" : "禁用"}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={role.status === "active"}
+                        onCheckedChange={(checked: boolean) => handleToggleRoleStatus(role.id, checked)}
+                        aria-label={`切换角色 ${role.name} 状态`}
+                      />
+                      <span className="text-sm text-gray-600">{role.status === "active" ? "启用" : "禁用"}</span>
+                    </div>
                   </TableCell>
                   <TableCell className="text-gray-600">{role.createdAt}</TableCell>
                   <TableCell>
@@ -434,40 +660,92 @@ export function RoleManagement() {
       </Dialog>
 
       <Dialog open={isPermissionDialogOpen} onOpenChange={setIsPermissionDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl p-0">
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>权限配置 - {currentRole?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-6">
-            {Object.entries(getPermissionsByModule()).map(([module, permissions]) => (
-              <div key={module} className="space-y-3">
-                <h4 className="font-medium text-lg border-b pb-2">{module}</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  {permissions.map((permission) => (
-                    <div key={permission.id} className="flex items-start space-x-3 p-3 border rounded-lg">
-                      <Checkbox
-                        id={permission.id}
-                        checked={newRole.permissions.includes(permission.id)}
-                        onCheckedChange={(checked: boolean) => handlePermissionChange(permission.id, checked)}
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor={permission.id} className="font-medium cursor-pointer">
-                          {permission.name}
-                        </Label>
-                        <p className="text-sm text-gray-600 mt-1">{permission.description}</p>
+          <div className="grid grid-cols-[240px_1fr] gap-0 h-[70vh]">
+            {/* 左侧：一级菜单导航列表 */}
+            <div className="border-r">
+              <ScrollArea className="h-[70vh] px-2 py-3">
+                <div className="space-y-1">
+                  {permissionTree.map((group) => {
+                    const selectedCount = countSelectedInGroup(group);
+                    const total = totalActionsInGroup(group);
+                    const active = selectedPermissionGroupId === group.id;
+                    return (
+                      <div
+                        key={group.id}
+                        className={`flex items-center justify-between rounded-md px-3 py-2 cursor-pointer ${active ? "bg-muted" : "hover:bg-muted"}`}
+                        onClick={() => setSelectedPermissionGroupId(group.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={isGroupChecked(group)}
+                            onCheckedChange={(checked: boolean) => toggleGroup(group, checked)}
+                            aria-label={`全选 ${group.name}`}
+                          />
+                          <span className="text-sm font-medium">{group.name}</span>
+                        </div>
+                        <Badge variant="secondary" className="ml-2">
+                          {selectedCount}/{total}
+                        </Badge>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+
+            {/* 右侧：二级菜单 + 三级按钮 */}
+            <div className="h-[70vh] overflow-y-auto px-6 py-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <h4 className="text-lg font-semibold">{selectedGroup.name}</h4>
+                  <Badge variant="outline">{countSelectedInGroup(selectedGroup)}/{totalActionsInGroup(selectedGroup)}</Badge>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={isGroupChecked(selectedGroup)}
+                    onCheckedChange={(checked: boolean) => toggleGroup(selectedGroup, checked)}
+                    aria-label="当前菜单全选"
+                  />
+                  <span className="text-sm text-gray-600">当前菜单全选</span>
                 </div>
               </div>
-            ))}
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsPermissionDialogOpen(false)}>
-                取消
-              </Button>
-              <Button onClick={savePermissions}>
-                保存权限
-              </Button>
+              <Separator className="mb-4" />
+              <div className="space-y-4">
+                {selectedGroup.submodules.map((sub) => (
+                  <div key={sub.id} className="space-y-2 p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={isSubChecked(sub)}
+                        onCheckedChange={(checked: boolean) => toggleSub(sub, checked)}
+                      />
+                      <Label className="font-medium">{sub.name}</Label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-2">
+                      {sub.actions.map((action) => (
+                        <div key={action.id} className="flex items-center gap-3 p-2 border rounded-md">
+                          <Checkbox
+                            checked={isActionChecked(action.id)}
+                            onCheckedChange={(checked: boolean) => toggleAction(action.id, checked)}
+                          />
+                          <Label className="cursor-pointer">{action.name}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2 pt-4 mt-6 border-t">
+                <Button variant="outline" onClick={() => setIsPermissionDialogOpen(false)}>
+                  取消
+                </Button>
+                <Button onClick={savePermissions}>
+                  保存权限
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -501,6 +779,62 @@ export function RoleManagement() {
                     <TableCell className="text-sm text-gray-600">{log.details}</TableCell>
                   </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 角色用户列表对话框 */}
+      <Dialog open={isUserListDialogOpen} onOpenChange={setIsUserListDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {userListRole ? `用户列表 - ${userListRole.name}` : "用户列表"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="搜索姓名、用户名、邮箱..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>姓名</TableHead>
+                  <TableHead>用户名</TableHead>
+                  <TableHead>部门</TableHead>
+                  <TableHead>邮箱</TableHead>
+                  <TableHead>状态</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {useMemo(() => {
+                  const list = userListRole ? getUsersByRole(userListRole.name) : [];
+                  const filtered = list.filter(u =>
+                    u.realName.toLowerCase().includes(userSearch.toLowerCase()) ||
+                    u.username.toLowerCase().includes(userSearch.toLowerCase()) ||
+                    u.email.toLowerCase().includes(userSearch.toLowerCase())
+                  );
+                  return filtered.map((u) => (
+                    <TableRow key={u.id}>
+                      <TableCell className="font-medium">{u.realName}</TableCell>
+                      <TableCell className="text-gray-600">@{u.username}</TableCell>
+                      <TableCell>{u.department}</TableCell>
+                      <TableCell>{u.email}</TableCell>
+                      <TableCell>
+                        <Badge variant={u.status === "active" ? "default" : u.status === "inactive" ? "secondary" : "outline"}>
+                          {u.status === "active" ? "正常" : u.status === "inactive" ? "停用" : "锁定"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ));
+                }, [userListRole, userSearch])}
               </TableBody>
             </Table>
           </div>
