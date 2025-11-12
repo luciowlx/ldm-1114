@@ -329,6 +329,32 @@ export function DataManagement({
     toast.success(t('data.toast.taskRetry'));
   };
 
+  // 任务操作二次确认（停止/重试/删除）
+  const [taskActionConfirm, setTaskActionConfirm] = useState<{ open: boolean; action: 'stop' | 'retry' | 'delete' | null; taskId: number | null }>({ open: false, action: null, taskId: null });
+  /** 打开任务操作确认弹窗 */
+  const openTaskConfirm = (action: 'stop' | 'retry' | 'delete', id: number) => {
+    setTaskActionConfirm({ open: true, action, taskId: id });
+  };
+  /** 确认执行任务操作 */
+  const confirmTaskAction = () => {
+    const { action, taskId } = taskActionConfirm;
+    if (!action || taskId == null) return;
+    if (action === 'stop') {
+      handleStopTask(taskId);
+    } else if (action === 'retry') {
+      handleRetryTask(taskId);
+    } else if (action === 'delete') {
+      handleDeleteTask(taskId);
+    }
+    setTaskActionConfirm({ open: false, action: null, taskId: null });
+  };
+
+  // i18n 兜底：若 t 返回原始键值，则使用提供的中文文案
+  const tt = (key: string, fallback: string): string => {
+    const val = t(key);
+    return (!val || val === key) ? fallback : val;
+  };
+
   // 取消排队相关：二次确认对话框状态
   const [cancelQueueDialog, setCancelQueueDialog] = useState<{ open: boolean; taskId: number | null }>({ open: false, taskId: null });
 
@@ -2050,31 +2076,31 @@ export function DataManagement({
                         {task.status === 'running' && (
                           <>
                             <Button variant="outline" size="sm" onClick={() => handleViewTask(task.id)}>{t('task.actions.viewDetail')}</Button>
-                            <Button variant="destructive" size="sm" onClick={() => handleStopTask(task.id)}>{t('task.actions.stop')}</Button>
+                            <Button variant="destructive" size="sm" onClick={() => openTaskConfirm('stop', task.id)}>{t('task.actions.stop')}</Button>
                           </>
                         )}
                         {task.status === 'pending' && (
                           <>
                             <Button size="sm" onClick={() => openCancelQueueConfirm(task.id)}>{t('task.actions.cancelQueue')}</Button>
                             <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteTask(task.id)}>{t('task.actions.delete')}</Button>
+                            <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
                           </>
                         )}
                         {task.status === 'not_started' && (
                           <>
                             {task.hasQueuedBefore ? (
-                              <Button size="sm" onClick={() => handleRetryTask(task.id)}>{t('task.actions.retry')}</Button>
+                              <Button size="sm" onClick={() => openTaskConfirm('retry', task.id)}>{t('task.actions.retry')}</Button>
                             ) : (
                               <Button size="sm" onClick={() => handleStartTask(task.id)}>{t('task.actions.start')}</Button>
                             )}
                             <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteTask(task.id)}>{t('task.actions.delete')}</Button>
+                            <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
                           </>
                         )}
                         {task.status === 'failed' && (
                           <>
-                            <Button size="sm" onClick={() => handleRetryTask(task.id)}>{t('task.actions.retry')}</Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteTask(task.id)}>{t('task.actions.delete')}</Button>
+                            <Button size="sm" onClick={() => openTaskConfirm('retry', task.id)}>{t('task.actions.retry')}</Button>
+                            <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
                           </>
                         )}
                         {task.status === 'success' && (
@@ -2104,6 +2130,33 @@ export function DataManagement({
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setCancelQueueDialog({ open: false, taskId: null })}>{t('common.cancel')}</Button>
             <Button onClick={confirmCancelQueue}>{t('common.confirm')}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 任务操作二次确认弹窗：停止/重试/删除 */}
+      <Dialog open={taskActionConfirm.open} onOpenChange={(open) => setTaskActionConfirm(prev => ({ ...prev, open }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {taskActionConfirm.action === 'stop' && t('task.actions.stop')}
+              {taskActionConfirm.action === 'retry' && t('task.actions.retry')}
+              {taskActionConfirm.action === 'delete' && t('task.actions.delete')}
+            </DialogTitle>
+            <DialogDescription>
+              {taskActionConfirm.action === 'stop' && tt('task.confirm.stop', '确认停止该任务吗？停止后任务将立即中断。')}
+              {taskActionConfirm.action === 'retry' && tt('task.confirm.retry', '确认重试该任务吗？将按当前配置重新执行。')}
+              {taskActionConfirm.action === 'delete' && tt('task.confirm.delete', '确认删除该任务吗？此操作不可撤销。')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setTaskActionConfirm({ open: false, action: null, taskId: null })}>{t('common.cancel')}</Button>
+            <Button
+              variant={taskActionConfirm.action === 'stop' || taskActionConfirm.action === 'delete' ? 'destructive' : 'default'}
+              onClick={confirmTaskAction}
+            >
+              {t('common.confirm')}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

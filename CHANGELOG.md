@@ -22,6 +22,19 @@
 
 ## 变更历史
 
+### 2025-11-11
+- [Feat/DataPreprocessing/DataMerge] 简化数据合并面板：移除主/从展示与红色校验规则提示，仅保留“公共字段”“合并方式”控件与禁用逻辑。
+  - 涉及文件：`src/components/DataPreprocessing.tsx`
+  - 说明/验证：本地预览 `http://localhost:3000/`；公共字段选择与合并方式选择正常；无公共字段时禁用提交并显示控件级提示。
+
+- [Fix/TypeCheck] 统一字段类型兼容判断：公共字段候选仅在类型严格一致时可选，移除 `text/category` 特判，修复 TS 联合类型比较错误。
+  - 涉及文件：`src/components/DataPreprocessing.tsx`
+  - 说明/验证：编译通过，IDE 诊断错误消失。
+
+- [Docs] 同步更新数据合并规则文档：ALIGNMENT/CONSENSUS/DESIGN 明确不在面板展示主/从信息，仅用于计算公共字段候选与类型校验。
+  - 涉及文件：`docs/数据合并规则/ALIGNMENT_数据合并规则.md`、`docs/数据合并规则/CONSENSUS_数据合并规则.md`、`docs/数据合并规则/DESIGN_数据合并规则.md`
+  - 说明/验证：文档已与 UI 行为对齐。
+
 ### 2025-11-07
 - [Chore/Git] 更新 Git 远端地址：将 `origin` 由 `git@github.com:luciowlx/limix.git` 更新为 `git@github.com:luciowlx/ldm-mvp.git`。
   - 涉及文件：N/A（仓库配置变更）

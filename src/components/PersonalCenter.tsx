@@ -296,44 +296,20 @@ export function PersonalCenter() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="position">{t("personal.center.form.position")}</Label>
+                  <Label htmlFor="lastLogin">{t("personal.center.account.lastLogin")}</Label>
                   <div className="relative">
-                    <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      id="position"
-                      value={isEditing ? editForm.position : userProfile.position}
-                      onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
-                      disabled={!isEditing}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="location">{t("personal.center.form.location")}</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      id="location"
-                      value={isEditing ? editForm.location : userProfile.location}
-                      onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                      disabled={!isEditing}
+                      id="lastLogin"
+                      value={userProfile.lastLogin}
+                      disabled
                       className="pl-10"
                     />
                   </div>
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="bio">{t("personal.center.form.bio")}</Label>
-                <Textarea
-                  id="bio"
-                  value={isEditing ? editForm.bio : userProfile.bio}
-                  onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                  disabled={!isEditing}
-                  rows={3}
-                  placeholder={t("personal.center.form.bio.placeholder")}
-                />
-              </div>
+              {/* 个人简介块按需求移除 */}
 
               <div className="flex justify-end space-x-2">
                 {isEditing ? (
@@ -355,37 +331,7 @@ export function PersonalCenter() {
             </CardContent>
           </Card>
 
-          {/* 账户信息 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Shield className="h-5 w-5 mr-2" />
-                {t("personal.center.section.accountInfo")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <div>
-                    <span className="font-medium">{t("personal.center.account.hireDate")}</span>
-                    <p className="text-sm text-gray-600 flex items-center mt-1">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {userProfile.joinDate}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <div>
-                    <span className="font-medium">{t("personal.center.account.lastLogin")}</span>
-                    <p className="text-sm text-gray-600 flex items-center mt-1">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {userProfile.lastLogin}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* 账户信息块按需求移除；“最后登录时间”已移动到基本信息区域展示 */}
         </TabsContent>
 
         {/* 安全设置 */}
