@@ -108,6 +108,30 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
     { PassengerId: 890, Survived: 1, Pclass: 1, Name: "Behr, Mr. Karl Howell", Sex: "male", Age: 26.0, SibSp: 0, Parch: 0, Ticket: "111369", Fare: 30.0000, Cabin: "C148", Embarked: "C" },
     { PassengerId: 891, Survived: 0, Pclass: 3, Name: "Dooley, Mr. Patrick", Sex: "male", Age: 32.0, SibSp: 0, Parch: 0, Ticket: "370376", Fare: 7.7500, Cabin: null, Embarked: "Q" }
   ];
+  // 多数据子集（前端原型用）：基于同一 schema 的不同变体，模拟“单次上传包含多个文件/子数据集”的场景
+  // 子数据集选项（前端原型模拟）：展示完整文件/数据名称，便于选择
+  // 注意：真实项目中应由后端提供文件名/数据来源，这里仅用于演示
+  const subDatasetOptions = [
+    { id: 'main', label: '主文件（示例主表.csv）' },
+    { id: 'file2', label: '客户信息（示例-文件-2.csv）' },
+    { id: 'file3', label: '交易记录（示例-文件-3.csv）' },
+  ];
+  const subDatasetRows: Record<string, DataRow[]> = {
+    main: mockData,
+    file2: mockData.map((r, i) => ({
+      ...r,
+      Fare: Number((r.Fare * 1.15).toFixed(4)),
+      Embarked: i % 3 === 0 ? 'C' : r.Embarked,
+      Cabin: i % 2 === 0 ? null : r.Cabin,
+    })),
+    file3: mockData.map((r, i) => ({
+      ...r,
+      Age: i % 3 === 0 ? null : r.Age,
+      Parch: r.Parch + (i % 2 === 0 ? 1 : 0),
+    })),
+  };
+  const [activeSubDatasetId, setActiveSubDatasetId] = useState<string>('main');
+  const [previewRows, setPreviewRows] = useState<DataRow[]>(subDatasetRows['main']);
 
   // 所有变量
   const allVariables = ["PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"];
@@ -117,12 +141,12 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
   
   // 缺失率与唯一值比例（按列）计算：用于表头上方展示
   const calcColumnStats = () => {
-    const totalRows = mockData.length;
+    const totalRows = previewRows.length;
     const stats: Record<string, { missingRate: number; uniqueRate: number; missingCount: number; uniqueCount: number }> = {};
     allVariables.forEach((field) => {
       let missingCount = 0;
       const values: string[] = [];
-      mockData.forEach((row) => {
+      previewRows.forEach((row) => {
         const raw = row[field as keyof DataRow];
         const isMissing = raw === null || raw === undefined || (typeof raw === 'number' && Number.isNaN(raw)) || (typeof raw === 'string' && raw.trim() === '');
         if (isMissing) {
@@ -141,12 +165,12 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
   
   // 计算“唯一值占比（字段平均）”：对每个字段计算非空值的唯一比例并取平均
   const getUniqueValueRatioPercent = () => {
-    if (!mockData || mockData.length === 0) return 0;
+    if (!previewRows || previewRows.length === 0) return 0;
     const fields = allVariables;
     let sumRatio = 0;
     let counted = 0;
     fields.forEach((field) => {
-      const rawValues = mockData.map((row) => row[field as keyof DataRow]);
+      const rawValues = previewRows.map((row) => row[field as keyof DataRow]);
       const validValues = rawValues.filter((v) => v !== null && v !== undefined);
       if (validValues.length === 0) {
         sumRatio += 0; // 全为空，唯一占比记为 0
@@ -341,7 +365,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
   };
 
   const getFilteredData = () => {
-    let data = [...mockData];
+    let data = [...previewRows];
     if (missingOnly) {
       // 若指定了具体字段，则只过滤该字段缺失的行；否则过滤任意字段缺失的行
       data = data.filter((row) => {
@@ -353,7 +377,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
     }
     if (uniqueOnly && uniqueField) {
       const counts = new Map<string, number>();
-      mockData.forEach((row) => {
+      previewRows.forEach((row) => {
         const raw = row[uniqueField];
         const val = raw === null || raw === undefined ? "" : typeof raw === "string" ? raw.trim() : String(raw);
         if (val !== "" && !(typeof raw === "number" && Number.isNaN(raw))) {
@@ -373,7 +397,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
   
   // 新增：缺失分析 mock 指标计算
   const getMissingAnalysisMock = () => {
-    const totalRows = mockData.length;
+    const totalRows = previewRows.length;
     const totalFields = allVariables.length;
   
     let missingCells = 0;
@@ -384,7 +408,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
     const fieldMissingCounts: Record<string, number> = {};
     allVariables.forEach((f) => { fieldMissingCounts[f] = 0; });
   
-    mockData.forEach((row) => {
+    previewRows.forEach((row) => {
       let missingInRow = 0;
       allVariables.forEach((f) => {
         const v = row[f as keyof DataRow];
@@ -410,7 +434,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
     // 计算缺失特征相关性（Jaccard 相似度）
     const indicators: Record<string, boolean[]> = {};
     allVariables.forEach((f) => {
-      indicators[f] = mockData.map((row) => isMissingValue(row[f as keyof DataRow]));
+      indicators[f] = previewRows.map((row) => isMissingValue(row[f as keyof DataRow]));
     });
   
     let bestPair: [string, string] | null = null;
@@ -468,6 +492,26 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
       topPairs,
     };
   };
+
+  /**
+   * 子数据集切换处理函数
+   * 功能：根据传入的子数据集 ID 切换当前预览数据源，重置过滤状态，并同步总记录数到 meta.stats。
+   * 参数：
+   * - id: string — 子数据集标识（例如 'main' | 'file2' | 'file3'）
+   * 返回：void — 无返回值，直接更新组件内部状态。
+   */
+  const handleSwitchSubDataset = (id: string): void => {
+    const next = subDatasetRows[id] || subDatasetRows['main'];
+    setActiveSubDatasetId(id);
+    setPreviewRows(next);
+    setMissingField(null);
+    setMissingOnly(false);
+    setUniqueOnly(false);
+    setMeta((prev) => ({
+      ...prev,
+      stats: { ...prev.stats, totalRows: next.length },
+    }));
+  };
   
   // 数据交互分析功能已移除以简化界面
   const renderDataOverview = () => (
@@ -519,7 +563,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
           </div>
         </CardHeader>
         <CardContent className="pt-0 pb-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {/* 左侧：基本信息网格（更紧凑） */}
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
               {/* 置顶：数据名称 + 数据ID（左对齐垂直堆叠） */}
@@ -566,6 +610,11 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
               <div>
                 <div className="text-sm text-gray-600">数据大小</div>
                 <div className="text-base">{formatBytes(meta.sizeBytes)}</div>
+              </div>
+              {/* 新增：文件数量（取自下方数据子集数量） */}
+              <div>
+                <div className="text-sm text-gray-600">文件数量</div>
+                <div className="text-base">{subDatasetOptions.length}</div>
               </div>
               <div>
                 <div className="text-sm text-gray-600">状态</div>
@@ -619,33 +668,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
               </div>
             </div>
 
-            {/* 右侧：统计信息（2 x 2 紧凑排版） */}
-            <div>
-              <div className="flex items-center mb-3">
-                <BarChart3 className="h-5 w-5 text-gray-700 mr-2" />
-                <div className="text-base font-semibold">统计信息</div>
-              </div>
-              {(() => {
-                const totalRows = meta.stats.totalRows;
-                const tiles = [
-                  { label: "总记录数", value: totalRows, icon: Database, cls: "bg-blue-50 text-blue-700 border-blue-200" },
-                  { label: "字段数量", value: allVariables.length, icon: Layers, cls: "bg-green-50 text-green-700 border-green-200" },
-                ];
-                return (
-                  <div className="grid grid-cols-2 gap-4">
-                    {tiles.map((t, idx) => (
-                      <div key={idx} className={`rounded-lg border px-3 py-3 flex items-center ${t.cls}`}>
-                        <t.icon className="h-5 w-5 mr-2" />
-                        <div>
-                          <div className="text-xs">{t.label}</div>
-                          <div className="text-xl font-bold leading-tight">{t.value}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
+            
           </div>
         </CardContent>
       </Card>
@@ -659,7 +682,19 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                 <FileText className="h-5 w-5" />
                 <span>数据表预览</span>
               </CardTitle>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-wrap">
+                <span className="text-sm text-gray-600">数据子集:</span>
+                {/* 下拉选择子数据集，选项展示完整的数据名称 */}
+                <Select value={activeSubDatasetId} onValueChange={(value: string) => handleSwitchSubDataset(value)}>
+                  <SelectTrigger className="w-56">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subDatasetOptions.map((opt) => (
+                      <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <span className="text-sm text-gray-600">选择要查看的记录数:</span>
                 <Select value={selectedRows.toString()} onValueChange={(value: string) => setSelectedRows(Number(value))}>
                   <SelectTrigger className="w-20">
@@ -715,8 +750,14 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                 </Button>
               </div>
             </div>
-            <div className="text-sm text-gray-600">
-              共计 <span className="font-semibold">7504</span> 行
+            <div className="text-sm text-gray-600 flex items-center gap-3">
+              <span>
+                总条数 <span className="font-semibold">{previewRows.length}</span>
+              </span>
+              <span className="text-gray-400">|</span>
+              <span>
+                总字段数 <span className="font-semibold">{allVariables.length}</span>
+              </span>
             </div>
           </CardHeader>
           <CardContent>
@@ -763,7 +804,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <div className="text-xs">{String(field)} 缺失 {s.missingCount} / {mockData.length} 行（{s.missingRate.toFixed(1)}%）</div>
+                                <div className="text-xs">{String(field)} 缺失 {s.missingCount} / {previewRows.length} 行（{s.missingRate.toFixed(1)}%）</div>
                               </TooltipContent>
                             </Tooltip>
                           )}
@@ -794,7 +835,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <div className="text-xs">{String(field)} 唯一值 {s.uniqueCount} / {mockData.length} 行（{s.uniqueRate.toFixed(1)}%）</div>
+                                <div className="text-xs">{String(field)} 唯一值 {s.uniqueCount} / {previewRows.length} 行（{s.uniqueRate.toFixed(1)}%）</div>
                               </TooltipContent>
                             </Tooltip>
                           )}

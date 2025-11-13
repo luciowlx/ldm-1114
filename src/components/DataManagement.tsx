@@ -94,6 +94,10 @@ interface Dataset {
   completeness: number;
   source: string;
   version: string;
+  // 数据版本数量（用于在列表中展示）
+  versionCount?: number;
+  // 文件数量（用于在列表中展示与排序）
+  fileCount?: number;
   updateTime: string;
   status: 'success' | 'processing' | 'failed';
   color: string;
@@ -165,7 +169,7 @@ export function DataManagement({
     format: true,
     size: true,
     rows: true,
-    columns: true,
+    columns: false,
     source: true,
     version: true,
     updateTime: true,
@@ -437,6 +441,8 @@ export function DataManagement({
       completeness: 95,
       source: "文件上传",
       version: "v1.2",
+      versionCount: 3,
+      fileCount: 3,
       updateTime: "2024-01-15 14:30",
       status: 'success',
       color: "border-l-blue-500"
@@ -460,6 +466,8 @@ export function DataManagement({
       completeness: 88,
       source: "API接口",
       version: "v2.1",
+      versionCount: 5,
+      fileCount: 12,
       updateTime: "2024-01-14 09:15",
       status: 'processing',
       color: "border-l-purple-500"
@@ -483,6 +491,8 @@ export function DataManagement({
       completeness: 72,
       source: "数据库同步",
       version: "v1.0",
+      versionCount: 2,
+      fileCount: 6,
       updateTime: "2024-01-13 16:45",
       status: 'failed',
       color: "border-l-green-500"
@@ -566,8 +576,9 @@ export function DataManagement({
           bValue = b.title;
           break;
         case 'size':
-          aValue = parseFloat(a.size.replace('MB', ''));
-          bValue = parseFloat(b.size.replace('MB', ''));
+          // 改为按文件数量排序
+          aValue = Number(a.fileCount ?? 0);
+          bValue = Number(b.fileCount ?? 0);
           break;
         case 'rows':
           aValue = parseInt(a.rows.replace(/,/g, ''));
@@ -1336,11 +1347,13 @@ export function DataManagement({
                     </div>
                   )
                 } : undefined,
-                columnSettings.size ? { key: 'size', label: t('data.columns.size'), sortable: true } : undefined,
+                // 将“大小”列改为“文件数量”，并展示 fileCount
+                columnSettings.size ? { key: 'size', label: '文件数量', sortable: true, render: (_v: any, row: any) => (<span>{row.fileCount ?? 0}</span>) } : undefined,
                 columnSettings.rows ? { key: 'rows', label: t('data.columns.rows'), sortable: true } : undefined,
                 columnSettings.columns ? { key: 'columns', label: t('data.columns.columns'), sortable: true } : undefined,
                 columnSettings.source ? { key: 'source', label: t('data.columns.source') } : undefined,
-                columnSettings.version ? { key: 'version', label: t('data.columns.version') } : undefined,
+                // 将“版本”列改为“数据版本数量”，并展示 versionCount
+                columnSettings.version ? { key: 'version', label: '数据版本数量', render: (_v: any, row: any) => (<span>{row.versionCount ?? 0}</span>) } : undefined,
                 columnSettings.updateTime ? { key: 'updateTime', label: t('data.columns.updateTime'), sortable: true, render: (v: any) => formatYYYYMMDD(v) } : undefined,
                 columnSettings.status ? {
                   key: 'status',
