@@ -36,9 +36,10 @@ interface VersionHistoryProps {
   datasetName: string;
   onBack: () => void;
   onSwitchVersion: (version: Version) => void;
+  compact?: boolean;
 }
 
-const VersionHistory: React.FC<VersionHistoryProps> = ({ datasetId, datasetName, onBack, onSwitchVersion }) => {
+const VersionHistory: React.FC<VersionHistoryProps> = ({ datasetId, datasetName, onBack, onSwitchVersion, compact = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
@@ -355,20 +356,17 @@ const filteredVersions = versions
   };
 
   return (
-    <div className="space-y-6">
-      {/* 页面头部 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <Button variant="ghost" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回
-          </Button>
+    <div className={compact ? "space-y-4" : "space-y-6"}>
+      {!compact && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Button variant="ghost" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回
+            </Button>
+          </div>
         </div>
-        <Button onClick={handleCompare} disabled={selectedVersions.length !== 2}>
-          <GitCompare className="h-4 w-4 mr-2" />
-          版本对比
-        </Button>
-      </div>
+      )}
 
       {/* 版本树（新增：可视化 + 保留文本描述） */}
       <Card>
@@ -376,7 +374,7 @@ const filteredVersions = versions
           <CardTitle>版本树</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6">
             <div>
               {/* 可视化演进图 */}
               <VersionGraph
@@ -392,259 +390,157 @@ const filteredVersions = versions
             </div>
 
             <div>
-              {/* 文本描述（保留原有样式） */}
-              <div className="space-y-3">
-                <div className="flex items-center text-sm text-gray-700">
-                  <GitBranch className="h-4 w-4 mr-2 text-blue-600" /> 主干 main
-                </div>
-                <div className="ml-6 space-y-3">
-                  <div className="relative pl-4">
-                    <div className="absolute left-0 top-2 bottom-2 border-l-2 border-gray-200" />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="secondary">v1.0</Badge>
-                        <span className="text-xs text-gray-500">上传 · 张三 · 2024-01-15</span>
-                      </div>
-                      <Button size="sm" variant="outline" onClick={() => onSwitchVersion(versions[0])}>切换查看</Button>
-                    </div>
-                  </div>
-                  <div className="relative pl-4">
-                    <div className="absolute left-0 top-2 bottom-2 border-l-2 border-gray-200" />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="secondary">v1.1</Badge>
-                        <span className="text-xs text-gray-500">清洗 · 李四 · 2024-01-16</span>
-                      </div>
-                      <Button size="sm" variant="outline" onClick={() => onSwitchVersion(versions[1])}>切换查看</Button>
-                    </div>
-                    <div className="mt-2 ml-6 flex items-center text-xs text-gray-600">
-                      <GitBranch className="h-3 w-3 mr-1 text-green-600" /> 分支 feature/clean
-                    </div>
-                  </div>
-                  <div className="relative pl-4">
-                    <div className="absolute left-0 top-2 bottom-2 border-l-2 border-gray-200" />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="secondary">v1.2</Badge>
-                        <span className="text-xs text-gray-500">订阅 · 王五 · 2024-01-17</span>
-                        <GitMerge className="h-4 w-4 ml-2 text-purple-600" />
-                        <span className="text-xs text-gray-500">合并自 main 与 feature/clean</span>
-                      </div>
-                      <Button size="sm" variant="outline" onClick={() => onSwitchVersion(versions[2])}>切换查看</Button>
-                    </div>
-                  </div>
-                  <div className="relative pl-4">
-                    <div className="absolute left-0 top-2 bottom-2 border-l-2 border-gray-200" />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="destructive">v1.3</Badge>
-                        <span className="text-xs text-gray-500">清洗 · 赵六 · 2024-01-18 · 失败</span>
-                      </div>
-                      {/* 允许失败版本切换查看，用于查看失败日志与详情 */}
-                      <Button size="sm" variant="outline" onClick={() => onSwitchVersion(versions[3])}>切换查看</Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 筛选工具栏（仅保留搜索输入）*/}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="搜索版本号或创建人..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 版本列表 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>版本列表 ({filteredVersions.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <input
-                    type="checkbox"
-                    checked={selectedVersions.length === filteredVersions.length}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedVersions(filteredVersions.map(v => v.id));
-                      } else {
-                        setSelectedVersions([]);
-                      }
-                    }}
-                  />
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer"
-                  onClick={() => handleSort('versionNumber')}
-                >
-                  版本号 <ArrowUpDown className="inline h-4 w-4" />
-                </TableHead>
-                <TableHead>
-                  <div className="flex items-center gap-1">
-                    <span>来源方式</span>
-                    <Popover open={isSourceColFilterOpen} onOpenChange={(open: boolean) => { setIsSourceColFilterOpen(open); if (open) setTempSourceFilter(sourceFilter); }}>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                          <Filter className="h-3.5 w-3.5" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56" align="start">
-                        <div className="space-y-2">
-                          <div className="text-sm font-medium">筛选来源</div>
-                          <RadioGroup value={tempSourceFilter} onValueChange={(v: string) => setTempSourceFilter(v)}>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem id="src_all" value="all" />
-                              <Label htmlFor="src_all">全部来源</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem id="src_upload" value="上传" />
-                              <Label htmlFor="src_upload">上传</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem id="src_sub" value="订阅" />
-                              <Label htmlFor="src_sub">订阅</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem id="src_clean" value="清洗" />
-                              <Label htmlFor="src_clean">清洗</Label>
-                            </div>
-                          </RadioGroup>
-                          <div className="flex justify-between gap-2 pt-2">
-                            <Button variant="outline" size="sm" onClick={() => setTempSourceFilter('all')}>重置</Button>
-                            <Button size="sm" onClick={() => { setSourceFilter(tempSourceFilter); setIsSourceColFilterOpen(false); }}>确认</Button>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer"
-                  onClick={() => handleSort('createTime')}
-                >
-                  创建时间 <ArrowUpDown className="inline h-4 w-4" />
-                </TableHead>
-                <TableHead>创建人</TableHead>
-                <TableHead 
-                  className="cursor-pointer"
-                  onClick={() => handleSort('size')}
-                >
-                  数据大小 <ArrowUpDown className="inline h-4 w-4" />
-                </TableHead>
-                <TableHead>
-                  <div className="flex items-center gap-1">
-                    <span>状态</span>
-                    <Popover open={isStatusColFilterOpen} onOpenChange={(open: boolean) => { setIsStatusColFilterOpen(open); if (open) setTempStatusFilter(statusFilter); }}>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                          <Filter className="h-3.5 w-3.5" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56" align="end">
-                        <div className="space-y-2">
-                          <div className="text-sm font-medium">筛选状态</div>
-                          <RadioGroup value={tempStatusFilter} onValueChange={(v: string) => setTempStatusFilter(v)}>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem id="st_all" value="all" />
-                              <Label htmlFor="st_all">全部状态</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem id="st_success" value="成功" />
-                              <Label htmlFor="st_success">成功</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem id="st_failed" value="失败" />
-                              <Label htmlFor="st_failed">失败</Label>
-                            </div>
-                          </RadioGroup>
-                          <div className="flex justify-between gap-2 pt-2">
-                            <Button variant="outline" size="sm" onClick={() => setTempStatusFilter('all')}>重置</Button>
-                            <Button size="sm" onClick={() => { setStatusFilter(tempStatusFilter); setIsStatusColFilterOpen(false); }}>确认</Button>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </TableHead>
-                <TableHead>规则摘要</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredVersions.map((version) => (
-                <TableRow key={version.id}>
-                  <TableCell>
-                    <input
-                      type="checkbox"
-                      checked={selectedVersions.includes(version.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedVersions([...selectedVersions, version.id]);
-                        } else {
-                          setSelectedVersions(selectedVersions.filter(id => id !== version.id));
-                        }
-                      }}
+              {/* 右侧区域展示版本列表（取代原文本描述） */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-semibold text-sm">版本列表 ({filteredVersions.length})</h3>
+                  <div className="relative w-64 max-w-[50vw]">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
+                    <Input
+                      placeholder="搜索版本号或创建人..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-7 h-8 text-sm"
                     />
-                  </TableCell>
-                  <TableCell className="font-medium">{version.versionNumber}</TableCell>
-                  <TableCell>{getSourceBadge(version.source)}</TableCell>
-                  <TableCell>{version.createTime}</TableCell>
-                  <TableCell>{version.creator}</TableCell>
-                  <TableCell>{version.size}</TableCell>
-                  <TableCell>{getStatusBadge(version.status)}</TableCell>
-                  <TableCell>
-                    <div className="text-xs text-gray-600 truncate max-w-[220px]">
-                      {(version.rules && version.rules.length > 0) ? version.rules.join('、') : '—'}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      {/* 恢复回滚图标按钮 */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRollback(version)}
-                        disabled={version.status === '失败'}
-                        aria-label={`回退到${version.versionNumber}`}
-                        title="回退到该版本"
+                  </div>
+                </div>
+                <Button onClick={handleCompare} disabled={selectedVersions.length !== 2}>
+                  <GitCompare className="h-4 w-4 mr-2" />
+                  版本对比
+                </Button>
+              </div>
+              <div className="border rounded-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <input
+                          type="checkbox"
+                          checked={selectedVersions.length === filteredVersions.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedVersions(filteredVersions.map(v => v.id));
+                            } else {
+                              setSelectedVersions([]);
+                            }
+                          }}
+                        />
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer"
+                        onClick={() => handleSort('versionNumber')}
                       >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                      {/* 移除图标按钮，仅保留文字按钮 */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onSwitchVersion(version)}
+                        版本号 <ArrowUpDown className="inline h-4 w-4" />
+                      </TableHead>
+                      
+                      <TableHead 
+                        className="cursor-pointer"
+                        onClick={() => handleSort('createTime')}
                       >
-                        切换查看
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                        创建时间 <ArrowUpDown className="inline h-4 w-4" />
+                      </TableHead>
+                      <TableHead>创建人</TableHead>
+                      <TableHead 
+                        className="cursor-pointer"
+                        onClick={() => handleSort('size')}
+                      >
+                        数据大小 <ArrowUpDown className="inline h-4 w-4" />
+                      </TableHead>
+                      <TableHead>
+                        <div className="flex items-center gap-1">
+                          <span>状态</span>
+                          <Popover open={isStatusColFilterOpen} onOpenChange={(open: boolean) => { setIsStatusColFilterOpen(open); if (open) setTempStatusFilter(statusFilter); }}>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                <Filter className="h-3.5 w-3.5" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56" align="end">
+                              <div className="space-y-2">
+                                <div className="text-sm font-medium">筛选状态</div>
+                                <RadioGroup value={tempStatusFilter} onValueChange={(v: string) => setTempStatusFilter(v)}>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem id="st_all" value="all" />
+                                    <Label htmlFor="st_all">全部状态</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem id="st_success" value="成功" />
+                                    <Label htmlFor="st_success">成功</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem id="st_failed" value="失败" />
+                                    <Label htmlFor="st_failed">失败</Label>
+                                  </div>
+                                </RadioGroup>
+                                <div className="flex justify-between gap-2 pt-2">
+                                  <Button variant="outline" size="sm" onClick={() => setTempStatusFilter('all')}>重置</Button>
+                                  <Button size="sm" onClick={() => { setStatusFilter(tempStatusFilter); setIsStatusColFilterOpen(false); }}>确认</Button>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </TableHead>
+                      <TableHead>规则摘要</TableHead>
+                      <TableHead>操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredVersions.map((version) => (
+                      <TableRow key={version.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedVersions.includes(version.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedVersions([...selectedVersions, version.id]);
+                              } else {
+                                setSelectedVersions(selectedVersions.filter(id => id !== version.id));
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{version.versionNumber}</TableCell>
+                        
+                        <TableCell>{version.createTime}</TableCell>
+                        <TableCell>{version.creator}</TableCell>
+                        <TableCell>{version.size}</TableCell>
+                        <TableCell>{getStatusBadge(version.status)}</TableCell>
+                        <TableCell>
+                          <div className="text-xs text-gray-600 truncate max-w-[220px]">
+                            {(version.rules && version.rules.length > 0) ? version.rules.join('、') : '—'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRollback(version)}
+                              disabled={version.status === '失败'}
+                              aria-label={`回退到${version.versionNumber}`}
+                              title="回退到该版本"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                            {/* 切换查看按钮按需求移除 */}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
+
+
+      {/* 原底部版本列表已移除，版本列表现已在右侧区域展示 */}
+            {/* 底部版本列表的表格内容已删除 */}
+ 
 
       {/* 版本对比弹窗 */}
       <Dialog open={isCompareDialogOpen} onOpenChange={setIsCompareDialogOpen}>

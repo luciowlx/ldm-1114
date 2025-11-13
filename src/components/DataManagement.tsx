@@ -11,8 +11,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { Calendar } from "./ui/calendar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { buildDataDetailUrl } from "../utils/deeplink";
+import { mockDatasets } from "../mock/datasets";
 import type { DateRange } from "react-day-picker";
 import { formatYYYYMMDD, parseDateFlexible, toDateOnly, toEndOfDay, isDateWithinRange } from "../utils/date";
 
@@ -41,7 +44,6 @@ import {
   Trash2,
   Edit,
   Copy,
-  History,
   Filter,
   Search,
   MoreHorizontal,
@@ -50,7 +52,6 @@ import {
   Calendar as CalendarIcon
 } from "lucide-react";
 import { toast } from "sonner";
-import VersionHistory from "./VersionHistory";
 import { DataUpload } from "./DataUpload";
 import { DataSubscription } from "./DataSubscription";
 import { SubscriptionList } from "./SubscriptionList";
@@ -87,7 +88,7 @@ interface Dataset {
   description: string;
   categories: Array<{ name: string; color: string }>;
   tags: Array<{ name: string; color: string }>;
-  format: string;
+  formats: string[];
   size: string;
   rows: string;
   columns: string;
@@ -105,6 +106,7 @@ interface Dataset {
   type?: string;
   fieldCount?: number;
   sampleCount?: number;
+  previousUploadItems?: Array<{ name: string; size: string; status: 'success' | 'failed'; error?: string }>;
 }
 // 统一来源类型，覆盖上传/订阅/API/数据库/未知，避免后续筛选 includes 比较的联合类型不兼容
 type SourceType = 'upload' | 'subscription' | 'api' | 'database' | 'unknown';
@@ -115,6 +117,38 @@ export function DataManagement({
   onUploadDialogClose,
   onOpenDataDetailFullPage
 }: DataManagementProps = {}) {
+  /**
+   * 渲染统一灰色样式的标签列表，默认最多展示三个。
+   * 超出部分以“+N”徽标展示，悬停时显示剩余标签名称。
+   * 参数 items 为包含 name 字段的对象数组，返回用于展示的 JSX 元素。
+   * 返回值：React.ReactNode — 包含灰色徽标和可选的悬停提示。
+   */
+  const renderGrayLabels = (items: Array<{ name: string }>): React.ReactNode => {
+    const max = 3;
+    const visible = items.slice(0, max);
+    const extra = items.slice(max);
+    return (
+      <div className="flex flex-wrap gap-1">
+        {visible.map((it, idx) => (
+          <Badge key={idx} variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200">
+            {it.name}
+          </Badge>
+        ))}
+        {extra.length > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200 cursor-help">+{extra.length}</Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-sm text-gray-800 max-w-xs">
+                {extra.map(e => e.name).join('、')}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    );
+  };
   const { lang, t } = useLanguage();
   // 视图模式：默认优先列表
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
@@ -421,6 +455,7 @@ export function DataManagement({
   }, [isUploadDialogOpen]);
 
   // 模拟数据
+  // 统一从共享数据源初始化，保证新标签页与列表数据一致
   const [datasets, setDatasets] = useState<Dataset[]>([
     {
       id: 1,
@@ -431,10 +466,10 @@ export function DataManagement({
         { name: "财务", color: "bg-green-100 text-green-800" }
       ],
       tags: [
-        { name: "CSV", color: "bg-gray-100 text-gray-800" },
-        { name: "已清洗", color: "bg-green-100 text-green-800" }
+        { name: "交易数据", color: "bg-gray-100 text-gray-800" },
+        { name: "客户数据", color: "bg-green-100 text-green-800" }
       ],
-      format: "CSV",
+      formats: ["CSV", "Parquet", "JSONL"],
       size: "2.5MB",
       rows: "10,234",
       columns: "15",
@@ -456,10 +491,10 @@ export function DataManagement({
         { name: "网站分析", color: "bg-orange-100 text-orange-800" }
       ],
       tags: [
-        { name: "JSON", color: "bg-gray-100 text-gray-800" },
-        { name: "实时", color: "bg-blue-100 text-blue-800" }
+        { name: "客户数据", color: "bg-gray-100 text-gray-800" },
+        { name: "交易数据", color: "bg-blue-100 text-blue-800" }
       ],
-      format: "JSON",
+      formats: ["JSON", "JSONL"],
       size: "15.8MB",
       rows: "45,678",
       columns: "12",
@@ -481,10 +516,10 @@ export function DataManagement({
         { name: "供应链", color: "bg-yellow-100 text-yellow-800" }
       ],
       tags: [
-        { name: "Excel", color: "bg-gray-100 text-gray-800" },
-        { name: "需清洗", color: "bg-red-100 text-red-800" }
+        { name: "供应商数据", color: "bg-gray-100 text-gray-800" },
+        { name: "库存数据", color: "bg-red-100 text-red-800" }
       ],
-      format: "Excel",
+      formats: ["Excel", "CSV"],
       size: "8.2MB",
       rows: "23,456",
       columns: "18",
@@ -495,13 +530,18 @@ export function DataManagement({
       fileCount: 6,
       updateTime: "2024-01-13 16:45",
       status: 'failed',
-      color: "border-l-green-500"
+      color: "border-l-green-500",
+      previousUploadItems: [
+        { name: 'inventory_2024_q4_part1.csv', size: '3.1MB', status: 'success' },
+        { name: 'inventory_2024_q4_part2.csv', size: '2.7MB', status: 'failed', error: '列数不一致：第 243 行' },
+        { name: 'inventory_locations.xlsx', size: '2.4MB', status: 'success' }
+      ]
     }
   ]);
 
   // 获取所有可用的标签和格式选项
   const availableTags = Array.from(new Set(datasets.flatMap(d => d.tags.map(t => t.name))));
-  const availableFormats = Array.from(new Set(datasets.map(d => d.format)));
+  const availableFormats = Array.from(new Set(datasets.flatMap(d => d.formats || [])));
 
   const stats = [
     {
@@ -554,15 +594,15 @@ export function DataManagement({
         }
       }
 
-      const matchesFormatColumn = columnFilterFormat.length === 0 || columnFilterFormat.map(s => s.toLowerCase()).includes((dataset.format || '').toLowerCase());
+  const matchesFormatColumn = columnFilterFormat.length === 0 || (dataset.formats || []).some(f => columnFilterFormat.map(s => s.toLowerCase()).includes((f || '').toLowerCase()));
       // 列头标签筛选：与高级筛选的 tagQuery 可组合
       const matchesTagsColumn = columnFilterTags.length === 0 || dataset.tags.some(t => columnFilterTags.includes(t.name));
       const matchesAdvanced = 
         columnsCount >= advancedFilters.columnsRange[0] && columnsCount <= advancedFilters.columnsRange[1] &&
         rowsCount >= advancedFilters.rowsRange[0] && rowsCount <= advancedFilters.rowsRange[1] &&
         (!advancedFilters.tagQuery || dataset.tags.some(t => t.name.toLowerCase().includes(advancedFilters.tagQuery.toLowerCase()))) &&
-        (advancedFilters.formats.length === 0 || advancedFilters.formats.map(s => s.toLowerCase()).includes((dataset.format || '').toLowerCase())) &&
-        matchesFormatColumn &&
+    (advancedFilters.formats.length === 0 || (dataset.formats || []).some(f => advancedFilters.formats.map(s => s.toLowerCase()).includes((f || '').toLowerCase()))) &&
+    matchesFormatColumn &&
         matchesDateRange;
 
       return matchesSearch && matchesAdvanced && matchesTagsColumn;
@@ -753,19 +793,15 @@ export function DataManagement({
     });
   };
 
-  const handleViewVersionHistory = (id: number) => {
-    const dataset = datasets.find(d => d.id === id);
-    if (dataset && onOpenDataDetailFullPage) {
-      // 改为打开全屏数据详情，并指定初始Tab为“版本历史”
-      onOpenDataDetailFullPage(dataset, 'versions');
-    }
-  };
 
+  /**
+   * 点击“查看详情”：在新标签页打开数据详情，初始页签为 overview。
+   * @param id 数据集唯一标识
+   * @returns void
+   */
   const handleViewDataDetail = (id: number) => {
-    const dataset = datasets.find(d => d.id === id);
-    if (dataset && onOpenDataDetailFullPage) {
-      onOpenDataDetailFullPage(dataset);
-    }
+    const url = buildDataDetailUrl(id, 'overview');
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownload = (id: number) => {
@@ -1089,47 +1125,35 @@ export function DataManagement({
               <CardContent className="space-y-4">
                 <p className="text-sm text-gray-600 line-clamp-2">{dataset.description}</p>
                 
-                <div className="flex flex-wrap gap-1">
-                  {dataset.categories.map((category, index) => (
-                    <Badge key={index} className={category.color}>
-                      {category.name}
-                    </Badge>
-                  ))}
-                </div>
-                
-                <div className="flex flex-wrap gap-1">
-                  {dataset.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200">
-                      {tag.name}
-                    </Badge>
-                  ))}
-                </div>
+                {/* 类别与标签统一改为灰色，默认最多展示三个，更多悬停显示 */}
+                {renderGrayLabels(dataset.categories)}
+                {renderGrayLabels(dataset.tags)}
                 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-  <span className="text-gray-500">{t('data.grid.format')}</span>
-                    <span className="ml-1 font-medium">{dataset.format}</span>
+                    <span className="text-gray-500">{t('data.grid.versionCount')}</span>
+                    <span className="ml-1 font-medium">{dataset.versionCount ?? 0}</span>
                   </div>
                   <div>
-  <span className="text-gray-500">{t('data.grid.size')}</span>
+                    <span className="text-gray-500">{t('data.grid.fileCount')}</span>
+                    <span className="ml-1 font-medium">{dataset.fileCount ?? 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">{t('data.grid.size')}</span>
                     <span className="ml-1 font-medium">{dataset.size}</span>
                   </div>
                   <div>
-  <span className="text-gray-500">{t('data.grid.rows')}</span>
+                    <span className="text-gray-500">{t('data.grid.rows')}</span>
                     <span className="ml-1 font-medium">{dataset.rows}</span>
-                  </div>
-                  <div>
-  <span className="text-gray-500">{t('data.grid.columns')}</span>
-                    <span className="ml-1 font-medium">{dataset.columns}</span>
                   </div>
                 </div>
                 
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-500">{t('data.grid.completeness')}</span>
-                    <span className="font-medium">{dataset.completeness}%</span>
+                    <span className="text-gray-500">{t('data.upload.progress')}</span>
+                    <span className="font-medium">{dataset.status === 'success' ? 100 : dataset.status === 'failed' ? 0 : 88}%</span>
                   </div>
-                  <Progress value={dataset.completeness} className="h-2" />
+                  <Progress value={dataset.status === 'success' ? 100 : dataset.status === 'failed' ? 0 : 88} className="h-2" />
                 </div>
                 
                 <div className="flex justify-between items-center pt-2">
@@ -1138,9 +1162,6 @@ export function DataManagement({
                       <>
                         <Button variant="outline" size="sm" onClick={() => handleViewDataDetail(dataset.id)}>
                           <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleViewVersionHistory(dataset.id)}>
-                          <History className="h-4 w-4" />
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleQuickPreprocess(dataset.id)}>
                           <Zap className="h-4 w-4" />
@@ -1292,13 +1313,7 @@ export function DataManagement({
                       </Popover>
                     </div>
                   ),
-                  render: (_v: any, row: any) => (
-                    <div className="flex flex-wrap gap-1">
-                      {row.tags.map((tag: any, index: number) => (
-                        <Badge key={index} variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200">{tag.name}</Badge>
-                      ))}
-                    </div>
-                  )
+                  render: (_v: any, row: any) => renderGrayLabels(row.tags)
                 } : undefined,
                 columnSettings.format ? { 
                   key: 'format', 
@@ -1313,7 +1328,7 @@ export function DataManagement({
                         </PopoverTrigger>
                         <PopoverContent align="end" className="w-40 p-2">
                           <div className="space-y-1">
-                            {['CSV','Excel','xls','xlsx','json'].map((fmt) => (
+                            {availableFormats.map((fmt) => (
                               <label key={fmt} className="flex items-center gap-2 text-sm">
                                 <input
                                   type="checkbox"
@@ -1345,6 +1360,14 @@ export function DataManagement({
                         </PopoverContent>
                       </Popover>
                     </div>
+                  ),
+                  render: (_v: any, row: any) => (
+  <span
+    className="text-black"
+    title={`全部格式：${(row.formats || []).join(' · ')}`}
+  >
+    {(row.formats || []).join(' · ')}（{row.formats?.length ?? 0}）
+  </span>
                   )
                 } : undefined,
                 // 将“大小”列改为“文件数量”，并展示 fileCount
@@ -1375,9 +1398,6 @@ export function DataManagement({
                         <>
                           <Button variant="ghost" size="sm" onClick={() => handleViewDataDetail(row.id)}>
                             <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleViewVersionHistory(row.id)}>
-                            <History className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleQuickPreprocess(row.id)}>
                             <Zap className="h-4 w-4" />
@@ -1622,6 +1642,8 @@ export function DataManagement({
       {/* 数据上传对话框 */}
       <DataUpload
         isOpen={isLocalUploadDialogOpen}
+        isReupload={reuploadTargetId !== null}
+        previousUploadItems={reuploadTargetId !== null ? datasets.find(d => d.id === reuploadTargetId)?.previousUploadItems : undefined}
         onClose={() => {
           setIsLocalUploadDialogOpen(false);
           setReuploadTargetId(null);

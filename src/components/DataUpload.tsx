@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -19,7 +19,8 @@ import {
   Eye,
   Download,
   Mic,
-  Square
+  Square,
+  Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -28,6 +29,8 @@ interface DataUploadProps {
   isOpen: boolean;
   onClose: () => void;
   onUploadSuccess?: (datasetId: string) => void;
+  isReupload?: boolean;
+  previousUploadItems?: Array<{ name: string; size: string; status: 'success' | 'failed'; error?: string }>;
 }
 
 interface UploadFile {
@@ -58,10 +61,11 @@ interface FormData {
   tags: Array<{ name: string; color: string }>;
 }
 
-export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps) {
+export function DataUpload({ isOpen, onClose, onUploadSuccess, isReupload = false, previousUploadItems }: DataUploadProps) {
   const { t } = useLanguage();
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [previousItems, setPreviousItems] = useState<Array<{ name: string; size: string; status: 'success' | 'failed'; error?: string }>>(previousUploadItems || []);
   // 上传限制常量
   const MAX_SINGLE_SIZE = 100 * 1024 * 1024; // 100MB
   const MAX_BATCH_SIZE = 1024 * 1024 * 1024; // 1GB
@@ -84,6 +88,15 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
   const [llmProcessing, setLlmProcessing] = useState(false);
   const [llmResult, setLlmResult] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPreviousItems(previousUploadItems || []);
+  }, [previousUploadItems, isReupload]);
+
+  const removePreviousItem = useCallback((name: string) => {
+    setPreviousItems(prev => prev.filter(i => i.name !== name));
+    toast.success(t('common.deleted'));
+  }, [t]);
 
   // 语音指令输入相关状态与引用（自动模式）
   const [isListening, setIsListening] = useState(false);
@@ -703,7 +716,36 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
         </DialogHeader>
 
         <div className="space-y-6">
+          {isReupload && previousItems && previousItems.length > 0 && (
+            <div className="space-y-3">
+              <Label>上次上传结果</Label>
+              <div className="space-y-2">
+                {previousItems.map((item, idx) => (
+                  <div key={`${item.name}-${idx}`} className="flex items-center justify-between px-3 py-2 rounded-md border">
+                    <div className="flex items-center gap-3">
+                      <FileText className={`h-4 w-4 ${item.status === 'failed' ? 'text-red-500' : 'text-gray-500'}`} />
+                      <div>
+                        <p className={`text-sm ${item.status === 'failed' ? 'text-red-600' : 'text-gray-900'}`}>{item.name}</p>
+                        <p className="text-xs text-gray-500">{item.size}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {item.status === 'failed' ? (
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      )}
+                      <Button variant="ghost" size="icon" onClick={() => removePreviousItem(item.name)}>
+                        <Trash2 className="h-4 w-4 text-gray-500" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {/* 基本信息表单 */}
+          {!isReupload && (
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">{t('data.form.name')} *</Label>
@@ -748,8 +790,10 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
               </Select>
             </div>
           </div>
+          )}
 
           {/* 可见性预览与说明（移除“注意”说明文案，仅保留标签与提示行） */}
+          {!isReupload && (
           <div className="rounded-md border p-3 bg-gray-50">
             <div className="flex items-center gap-2 mb-2">
               {formData.permission === 'public' ? (
@@ -765,7 +809,9 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
             </div>
             {/* 根据需求去掉“注意”说明文案行 */}
           </div>
+          )}
 
+          {!isReupload && (
           <div className="space-y-2">
             <Label htmlFor="description">{t('data.form.description')}</Label>
             <Textarea
@@ -776,8 +822,10 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
               rows={3}
             />
           </div>
+          )}
 
           {/* 数据标签 */}
+          {!isReupload && (
           <div className="space-y-2">
             <Label>{t('data.form.tags')}</Label>
             <div className="space-y-3">
@@ -826,10 +874,11 @@ export function DataUpload({ isOpen, onClose, onUploadSuccess }: DataUploadProps
               )}
             </div>
           </div>
+          )}
 
 
           {/* 自动模式：原型图示例 + 语音指令输入模块 */}
-          {formData.mode === 'auto' && (
+          {!isReupload && formData.mode === 'auto' && (
             <div className="space-y-4">
               {/* 原型图示例区块 */}
               <Card>

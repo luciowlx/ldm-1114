@@ -37,6 +37,8 @@ import { registeredUsers } from "./mock/users";
 import { Popover, PopoverTrigger, PopoverContent } from "./components/ui/popover";
 import { Calendar as DateRangeCalendar } from "./components/ui/calendar";
 import { useLanguage } from "./i18n/LanguageContext";
+import { parseHashParams, clearHash } from "./utils/deeplink";
+import { getDatasetById } from "./mock/datasets";
 
 /**
  * App 根组件
@@ -581,6 +583,8 @@ export default function App() {
     setDataDetailInitialTab(null);
     // 重置通知中心初始页签
     setNotificationCenterInitialTab(null);
+    // 清理哈希，回到基础地址
+    clearHash();
   };
 
   // 数据详情全页面处理函数
@@ -630,6 +634,47 @@ export default function App() {
   const handleOpenAIAssistant = () => {
     setFullPageViewType('ai-assistant');
   };
+
+  // 路由加载状态（用于过渡与加载提示）
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
+
+  /**
+   * 在应用加载与 hash 变化时，解析哈希参数并打开对应的全屏详情页。
+   * 支持：#data-detail?id=123&tab=versions
+   */
+  useEffect(() => {
+    const applyHashRoute = () => {
+      const { view, id, tab } = parseHashParams();
+      if (view === 'data-detail' && id) {
+        const dataset = getDatasetById(id) || {
+          id,
+          title: `数据集 ${id}`,
+          description: '原型演示：未在共享数据源中找到该数据集，使用占位信息展示。',
+          categories: [],
+          tags: [],
+          formats: [],
+          size: '-',
+          rows: '-',
+          columns: '-',
+          completeness: 0,
+          source: '文件上传',
+          version: 'v1.0',
+          updateTime: '',
+          status: 'success',
+          color: 'border-l-blue-500'
+        };
+        setIsRouteLoading(true);
+        // 轻微延时以展示加载过渡（模拟大数据加载的启动反馈）
+        setTimeout(() => {
+          setIsRouteLoading(false);
+          handleOpenDataDetailFullPage(dataset, tab ?? 'overview');
+        }, 150);
+      }
+    };
+    applyHashRoute();
+    window.addEventListener('hashchange', applyHashRoute);
+    return () => window.removeEventListener('hashchange', applyHashRoute);
+  }, []);
 
   const renderContent = () => {
     console.log("当前活动标签:", activeTab); // 添加调试日志
@@ -1468,7 +1513,7 @@ export default function App() {
         );
       case "数据管理":
         return (
-          <div>
+          <div className="relative">
             <DataManagement 
               onNavigateToPreprocessing={() => {
                 // 这里可以添加额外的跳转逻辑，比如显示通知等
@@ -1478,6 +1523,14 @@ export default function App() {
               onUploadDialogClose={() => setIsUploadDialogOpen(false)}
               onOpenDataDetailFullPage={handleOpenDataDetailFullPage}
             />
+            {isRouteLoading && (
+              <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center transition-opacity">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-6 w-6 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
+                  <div className="text-sm text-gray-600">正在加载页面…</div>
+                </div>
+              </div>
+            )}
           </div>
         );
       case "任务管理":

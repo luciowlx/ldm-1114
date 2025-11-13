@@ -23,7 +23,6 @@ import {
   Eye,
   FileText,
   Layers,
-  Copy,
   Pencil
 } from "lucide-react";
 import VersionHistory from "./VersionHistory";
@@ -51,18 +50,46 @@ interface DataRow {
 }
 
 export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailFullPageProps) {
-  // 统一使用 mock 元数据，禁止显示空值或占位符
+  /**
+   * 渲染统一灰色样式的字符串标签，默认最多展示三个；
+   * 超出部分以“+N”徽标显示，悬停展示全部剩余标签。
+   * @param tags 字符串标签数组
+   * @returns React.ReactNode 灰色徽标与可选悬停提示的组合
+   */
+  const renderGrayTextLabels = (tags: string[]): React.ReactNode => {
+    const max = 3;
+    const visible = tags.slice(0, max);
+    const extra = tags.slice(max);
+    return (
+      <div className="flex flex-wrap gap-2">
+        {visible.map((tag, idx) => (
+          <Badge key={idx} variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200 px-2 py-0.5 rounded-full">{tag}</Badge>
+        ))}
+        {extra.length > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200 px-2 py-0.5 rounded-full cursor-help">+{extra.length}</Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-sm text-gray-800 max-w-xs">{extra.join('、')}</div>
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    );
+  };
+  // 统一使用 mock 元数据，初始化时优先采用列表传入的真实数据名称/ID/版本
   const initialMeta = {
-    name: "示例数据集",
-    id: "1",
-    version: "v1.2",
-    source: "上传",
+    name: dataset?.title ?? "示例数据集",
+    id: dataset?.id != null ? String(dataset.id) : "1",
+    version: dataset?.version ?? "v1.2",
+    source: dataset?.source ?? "上传",
     createdAt: "2024-01-17T09:15:00",
     updatedAt: "2024-01-15T14:30:00",
     creator: "王五",
     sizeBytes: Math.round(2.8 * 1024 * 1024),
     status: "成功",
-    description: "包含2023年客户营销记录，涵盖产品信息、客户数据、交易数据等关键信息",
+    description: dataset?.description ?? "包含2023年客户营销记录，涵盖产品信息、客户数据、交易数据等关键信息",
     tags: ["订阅更新版本", "客户", "营销", "交易", "安全"],
     stats: { totalRows: 891 },
     permissions: { canEditDescription: true, canDownload: true },
@@ -81,7 +108,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
   // 新增：基本信息与权限控制
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [editableDesc, setEditableDesc] = useState<string>(meta.description);
-  const [copyTip, setCopyTip] = useState("");
+  // 复制ID提示逻辑移除
   const canEditDesc = meta.permissions.canEditDescription;
   const canDownload = meta.permissions.canDownload;
   // 新增：缺失分析交互状态
@@ -108,30 +135,94 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
     { PassengerId: 890, Survived: 1, Pclass: 1, Name: "Behr, Mr. Karl Howell", Sex: "male", Age: 26.0, SibSp: 0, Parch: 0, Ticket: "111369", Fare: 30.0000, Cabin: "C148", Embarked: "C" },
     { PassengerId: 891, Survived: 0, Pclass: 3, Name: "Dooley, Mr. Patrick", Sex: "male", Age: 32.0, SibSp: 0, Parch: 0, Ticket: "370376", Fare: 7.7500, Cabin: null, Embarked: "Q" }
   ];
-  // 多数据子集（前端原型用）：基于同一 schema 的不同变体，模拟“单次上传包含多个文件/子数据集”的场景
-  // 子数据集选项（前端原型模拟）：展示完整文件/数据名称，便于选择
-  // 注意：真实项目中应由后端提供文件名/数据来源，这里仅用于演示
-  const subDatasetOptions = [
-    { id: 'main', label: '主文件（示例主表.csv）' },
-    { id: 'file2', label: '客户信息（示例-文件-2.csv）' },
-    { id: 'file3', label: '交易记录（示例-文件-3.csv）' },
-  ];
-  const subDatasetRows: Record<string, DataRow[]> = {
-    main: mockData,
-    file2: mockData.map((r, i) => ({
-      ...r,
-      Fare: Number((r.Fare * 1.15).toFixed(4)),
-      Embarked: i % 3 === 0 ? 'C' : r.Embarked,
-      Cabin: i % 2 === 0 ? null : r.Cabin,
-    })),
-    file3: mockData.map((r, i) => ({
-      ...r,
-      Age: i % 3 === 0 ? null : r.Age,
-      Parch: r.Parch + (i % 2 === 0 ? 1 : 0),
-    })),
+  // 版本化子数据集（前端原型用）：根据版本切换子数据集选项与数据
+  // 说明：默认展示最新版本 v1.3；切换版本后，子数据集联动变化
+  const versionConfig: Record<string, { options: { id: string; label: string }[]; rows: Record<string, DataRow[]> }> = {
+    'v1.3': {
+      options: [
+        { id: 'main', label: '主文件（示例主表.csv）' },
+        { id: 'file2', label: '客户信息（v1.3-文件-2.csv）' },
+        { id: 'file3', label: '交易记录（v1.3-文件-3.csv）' },
+      ],
+      rows: {
+        main: mockData.map((r, i) => ({
+          ...r,
+          // v1.3：示例调整—提高部分票价与更换登船港
+          Fare: Number((r.Fare * (i % 4 === 0 ? 1.2 : 1)).toFixed(4)),
+          Embarked: i % 5 === 0 ? 'C' : r.Embarked,
+        })),
+        file2: mockData.map((r, i) => ({
+          ...r,
+          Fare: Number((r.Fare * 1.25).toFixed(4)),
+          Cabin: i % 3 === 0 ? null : r.Cabin,
+        })),
+        file3: mockData.map((r, i) => ({
+          ...r,
+          Age: i % 2 === 0 ? r.Age : (r.Age ? Number((r.Age * 0.95).toFixed(1)) : r.Age),
+          Parch: r.Parch + (i % 3 === 0 ? 1 : 0),
+        })),
+      },
+    },
+    'v1.2': {
+      options: [
+        { id: 'main', label: '主文件（示例主表.csv）' },
+        { id: 'file2', label: '客户信息（示例-文件-2.csv）' },
+        { id: 'file3', label: '交易记录（示例-文件-3.csv）' },
+      ],
+      rows: {
+        main: mockData,
+        file2: mockData.map((r, i) => ({
+          ...r,
+          Fare: Number((r.Fare * 1.15).toFixed(4)),
+          Embarked: i % 3 === 0 ? 'C' : r.Embarked,
+          Cabin: i % 2 === 0 ? null : r.Cabin,
+        })),
+        file3: mockData.map((r, i) => ({
+          ...r,
+          Age: i % 3 === 0 ? null : r.Age,
+          Parch: r.Parch + (i % 2 === 0 ? 1 : 0),
+        })),
+      },
+    },
+    'v1.1': {
+      options: [
+        { id: 'main', label: '主文件（v1.1-主表.csv）' },
+        { id: 'file2', label: '客户信息（v1.1-文件-2.csv）' },
+      ],
+      rows: {
+        main: mockData.map((r, i) => ({
+          ...r,
+          // v1.1：示例调整—部分年龄为空
+          Age: i % 4 === 0 ? null : r.Age,
+        })),
+        file2: mockData.map((r, i) => ({
+          ...r,
+          Fare: Number((r.Fare * 0.9).toFixed(4)),
+          Embarked: i % 2 === 0 ? 'Q' : r.Embarked,
+        })),
+      },
+    },
   };
+
+  const [activeVersionId, setActiveVersionId] = useState<string>('v1.3');
   const [activeSubDatasetId, setActiveSubDatasetId] = useState<string>('main');
-  const [previewRows, setPreviewRows] = useState<DataRow[]>(subDatasetRows['main']);
+  const [previewRows, setPreviewRows] = useState<DataRow[]>(versionConfig['v1.3'].rows['main']);
+
+  /**
+   * 获取当前版本的子数据集选项
+   * 返回值：当前版本的子数据集选项数组
+   */
+  const getCurrentSubDatasetOptions = (): { id: string; label: string }[] => {
+    return versionConfig[activeVersionId]?.options ?? versionConfig['v1.2'].options;
+  };
+
+  /**
+   * 获取当前版本的子数据集数据字典
+   * 返回值：Record<string, DataRow[]>
+   */
+  const getCurrentSubDatasetRows = (): Record<string, DataRow[]> => {
+    return versionConfig[activeVersionId]?.rows ?? versionConfig['v1.2'].rows;
+  };
 
   // 所有变量
   const allVariables = ["PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"];
@@ -336,17 +427,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
 
   // 已移除：LimiX质量评分样式分类函数
 
-  const handleCopyId = async () => {
-    const id = meta.id;
-    try {
-      await navigator.clipboard.writeText(String(id));
-      setCopyTip("已复制");
-      setTimeout(() => setCopyTip(""), 2000);
-    } catch (e) {
-      setCopyTip("复制失败");
-      setTimeout(() => setCopyTip(""), 2000);
-    }
-  };
+  // 复制ID功能已移除
 
   const handleDownload = () => {
     const url = meta.downloadUrl;
@@ -501,7 +582,8 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
    * 返回：void — 无返回值，直接更新组件内部状态。
    */
   const handleSwitchSubDataset = (id: string): void => {
-    const next = subDatasetRows[id] || subDatasetRows['main'];
+    const rowsMap = getCurrentSubDatasetRows();
+    const next = rowsMap[id] || rowsMap['main'];
     setActiveSubDatasetId(id);
     setPreviewRows(next);
     setMissingField(null);
@@ -511,6 +593,27 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
       ...prev,
       stats: { ...prev.stats, totalRows: next.length },
     }));
+  };
+
+  /**
+   * 版本切换处理函数（下拉选择）
+   * 功能：切换数据版本后，联动子数据集选项与预览数据；默认保持当前子集，如不存在则回退到 'main'
+   * 参数：verId — 目标版本号，例如 'v1.3' | 'v1.2' | 'v1.1'
+   * 返回：void
+   */
+  const handleSwitchVersionSelect = (verId: string): void => {
+    setActiveVersionId(verId);
+    setMeta((prev) => ({ ...prev, version: verId }));
+    const opts = versionConfig[verId]?.options ?? versionConfig['v1.2'].options;
+    const targetSubId = opts.some((o) => o.id === activeSubDatasetId) ? activeSubDatasetId : 'main';
+    const rowsMap = versionConfig[verId]?.rows ?? versionConfig['v1.2'].rows;
+    const next = rowsMap[targetSubId] || rowsMap['main'];
+    setActiveSubDatasetId(targetSubId);
+    setPreviewRows(next);
+    setMissingField(null);
+    setMissingOnly(false);
+    setUniqueOnly(false);
+    setMeta((prev) => ({ ...prev, stats: { ...prev.stats, totalRows: next.length } }));
   };
   
   // 数据交互分析功能已移除以简化界面
@@ -526,69 +629,26 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
               <FileText className="h-5 w-5" />
               <span>基本信息</span>
             </CardTitle>
-            <div className="flex items-center space-x-2">
-              {meta.status === "失败" && (
-                <>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleOpenFailureLog}
-                    aria-label="查看失败日志"
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    查看失败日志
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownloadFailureLog}
-                    aria-label="下载失败日志"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    下载失败日志
-                  </Button>
-                </>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownload}
-                disabled={!canDownload}
-                className={!canDownload ? "opacity-50 cursor-not-allowed" : ""}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                下载当前版本
-              </Button>
-            </div>
+            {/* 操作按钮已迁移至“数据表预览”工具栏，强调针对当前预览版本执行 */}
           </div>
         </CardHeader>
         <CardContent className="pt-0 pb-4">
           <div className="grid grid-cols-1 gap-6">
             {/* 左侧：基本信息网格（更紧凑） */}
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-              {/* 置顶：数据名称 + 数据ID（左对齐垂直堆叠） */}
+              {/* 置顶：数据ID（左对齐垂直堆叠；按需移除数据名称字段） */}
               <div className="col-span-2">
                 <div className="flex flex-col items-start space-y-1">
-                  <div className="flex items-baseline space-x-2">
-                    <div className="text-sm text-gray-600">数据名称</div>
-                    <div className="text-base font-semibold">{meta.name}</div>
-                  </div>
                   <div className="flex items-center space-x-2">
                     <div className="text-sm text-gray-600">数据ID</div>
                     <span className="text-base font-mono">{meta.id}</span>
-                    <Button variant="ghost" size="sm" onClick={handleCopyId} className="h-7 px-2">
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    {copyTip && <span className="text-xs text-green-600">{copyTip}</span>}
+                    {/* 复制ID按钮与提示已移除 */}
                   </div>
                 </div>
               </div>
 
               {/* 其它基础字段 */}
-              <div>
-                <div className="text-sm text-gray-600">版本号</div>
-                <div className="text-base font-medium">{meta.version}</div>
-              </div>
+              {/* 版本号展示已移除 */}
               <div>
                 <div className="text-sm text-gray-600">来源方式</div>
                 <div>
@@ -614,7 +674,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
               {/* 新增：文件数量（取自下方数据子集数量） */}
               <div>
                 <div className="text-sm text-gray-600">文件数量</div>
-                <div className="text-base">{subDatasetOptions.length}</div>
+                <div className="text-base">{getCurrentSubDatasetOptions().length}</div>
               </div>
               <div>
                 <div className="text-sm text-gray-600">状态</div>
@@ -659,19 +719,25 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                 {/* 数据标签 */}
                 <div className="mt-3">
                   <div className="text-sm text-gray-600 mb-1">数据标签</div>
-                  <div className="flex flex-wrap gap-2">
-                    {meta.tags.map((tag, idx) => (
-                      <Badge key={idx} variant="secondary" className="px-2 py-0.5 rounded-full">{tag}</Badge>
-                    ))}
-                  </div>
+                  {renderGrayTextLabels(meta.tags)}
                 </div>
               </div>
             </div>
 
             
           </div>
-        </CardContent>
+      </CardContent>
       </Card>
+
+      <div>
+        <VersionHistory
+          datasetId={meta.id}
+          datasetName={meta.name}
+          onBack={() => {}}
+          onSwitchVersion={handleSwitchVersion}
+          compact
+        />
+      </div>
 
       {/* 数据表预览/缺失分析可视化 切换卡片 */}
       {previewVisualMode === 'table' ? (
@@ -683,6 +749,19 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                 <span>数据表预览</span>
               </CardTitle>
               <div className="flex items-center space-x-2 flex-wrap">
+                {/* 版本选择（默认最新 v1.3） */}
+                <span className="text-sm text-gray-600">数据版本:</span>
+                <Select value={activeVersionId} onValueChange={(value: string) => handleSwitchVersionSelect(value)}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(versionConfig).map((vid) => (
+                      <SelectItem key={vid} value={vid}>{vid}{vid === 'v1.3' ? '（最新）' : ''}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 <span className="text-sm text-gray-600">数据子集:</span>
                 {/* 下拉选择子数据集，选项展示完整的数据名称 */}
                 <Select value={activeSubDatasetId} onValueChange={(value: string) => handleSwitchSubDataset(value)}>
@@ -690,7 +769,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {subDatasetOptions.map((opt) => (
+                    {getCurrentSubDatasetOptions().map((opt) => (
                       <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -748,7 +827,44 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                   <BarChart3 className="h-4 w-4 mr-2" />
                   缺失分析可视化
                 </Button>
+                {/* 将与当前版本相关的操作按钮放置在此，明确作用对象为当前预览版本 */}
+                {/* 操作按钮已移至下方第二行，避免与筛选控件拥挤 */}
               </div>
+            </div>
+            {/* 第二行：当前版本相关操作按钮，支持响应式换行 */}
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              {meta.status === "失败" && (
+                <>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleOpenFailureLog}
+                    aria-label="查看失败日志"
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    查看失败日志
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadFailureLog}
+                    aria-label="下载失败日志"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    下载失败日志
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+                disabled={!canDownload}
+                className={!canDownload ? "opacity-50 cursor-not-allowed" : ""}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                下载当前版本
+              </Button>
             </div>
             <div className="text-sm text-gray-600 flex items-center gap-3">
               <span>
@@ -1022,7 +1138,8 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
   // 缺失分析标签页入口已移除
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    // 以全屏固定层覆盖基础页面，避免在新标签页出现顶部首页内容
+    <div className="fixed inset-0 bg-white z-[100] overflow-hidden flex flex-col">
       {/* 顶部导航 */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -1035,58 +1152,32 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
               <h1 className="text-xl font-semibold">{meta.name}</h1>
               <div className="flex items-center text-sm text-gray-600 mt-1">
                 <span className="mr-2">数据ID: {meta.id}</span>
-                <Button variant="ghost" size="sm" onClick={handleCopyId} className="h-7 px-2">
-                  <Copy className="h-3.5 w-3.5 mr-1" />
-                  复制ID
-                </Button>
+                {/* 复制ID按钮已移除 */}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 标签页导航（新增“版本历史”在最前） */}
-      <div className="bg-white border-b border-gray-200 px-6">
-        <div className="flex space-x-8">
-          <button
-            className={`py-4 px-2 border-b-2 font-medium text-sm ${
-              activeTab === "versions"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveTab("versions")}
-          >
-            版本树 / 版本历史
-          </button>
-          <button
-            className={`py-4 px-2 border-b-2 font-medium text-sm ${
-              activeTab === "overview"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveTab("overview")}
-          >
-            数据概览及变量
-          </button>
-          {/* 缺失分析入口已移除，改由“数据表预览”卡片内的按钮触发 */}
-        </div>
-      </div>
+      
 
-      {/* 主要内容区域 */}
-      <div className="p-6">
-        {activeTab === "versions" && (
-          <div className="fade-in">
-            <VersionHistory
-              datasetId={meta.id}
-              datasetName={meta.name}
-              onBack={() => setActiveTab("overview")}
-              onSwitchVersion={handleSwitchVersion}
-            />
-          </div>
-        )}
-        {activeTab === "overview" && (
-          <div className="fade-in">{renderDataOverview()}</div>
-        )}
+      {/* 主要内容区域（可滚动） */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+        <div className="p-6">
+          {activeTab === "versions" && (
+            <div className="fade-in">
+              <VersionHistory
+                datasetId={meta.id}
+                datasetName={meta.name}
+                onBack={() => setActiveTab("overview")}
+                onSwitchVersion={handleSwitchVersion}
+              />
+            </div>
+          )}
+          {activeTab === "overview" && (
+            <div className="fade-in">{renderDataOverview()}</div>
+          )}
+        </div>
       </div>
       {/* 失败日志弹窗 */}
       <Dialog open={isFailureLogOpen} onOpenChange={setIsFailureLogOpen}>

@@ -22,6 +22,19 @@
 
 ## 变更历史
 
+### 2025-11-13
+- [Tweak/DataManagement/List] 列含义调整：将“版本”列改为“数据版本数量”，将“大小”列改为“文件数量”，并按文件数量进行排序。
+  - 涉及文件：`src/components/DataManagement.tsx`
+  - 说明/验证：本地预览 `http://localhost:3000/`，列头与数值显示正确，排序按数量生效。
+
+- [Remove/DataDetail/UI] 移除数据详情页右侧“统计信息”模块，顶栏栅格改为单列使“基本信息”占满宽度。
+  - 涉及文件：`src/components/DataDetailFullPage.tsx`
+  - 说明/验证：本地预览 `http://localhost:3000/`，统计信息不再显示，页面无报错。
+
+- [Remove/DataManagement/List] 隐藏数据集列表“列数”列（可通过设置弹窗恢复）。
+  - 涉及文件：`src/components/DataManagement.tsx`
+  - 说明/验证：本地预览 `http://localhost:3000/`，列表不再显示“列数”。
+
 ### 2025-11-12
 - [Fix/DataManagement/Preprocessing] 操作二次确认弹窗文案兜底：为“停止/重试/删除”确认弹窗增加本地化兜底逻辑，缺失 i18n 键时仍显示中文提示，避免出现键名。
   - 涉及文件：`src/components/DataManagement.tsx`
