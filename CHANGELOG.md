@@ -23,6 +23,10 @@
 ## 变更历史
 
 ### 2025-11-14
+- [Feat/SystemManagement/TaskEngine] 在“系统管理”增加“任务引擎”子菜单，集成任务模板管理（使用 HtmlConfigManagement 页面作为引擎模板与三分栏编辑器）。
+  - 涉及文件：`src/components/SystemManagement.tsx`、`src/components/HtmlConfigManagement.tsx`
+  - 说明/验证：本地预览“系统管理 → 任务引擎”显示任务模板管理列表与编辑器；交互正常、构建通过。
+
 - [Chore/Navigation/RemoveConfigMenu] 移除顶部导航“配置管理”一级菜单，并取消对应路由分支。
   - 涉及文件：`src/components/Header.tsx`、`src/App.tsx`
   - 说明/验证：运行 `npm run build` 构建通过；本地预览 `http://localhost:3000/` 顶部导航不再显示“配置管理”。
