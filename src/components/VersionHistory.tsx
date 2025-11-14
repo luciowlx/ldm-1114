@@ -27,6 +27,7 @@ interface Version {
   sampleCount: number;
   missingRate: number;
   anomalyRate: number;
+  uniqueRate?: number;
   rules?: string[];
   tags?: string[]; // 新增：数据标签（可选）
 }
@@ -82,6 +83,7 @@ const [versions] = useState<Version[]>([
     sampleCount: 10000,
     missingRate: 5.2,
     anomalyRate: 2.1,
+    uniqueRate: 2.1,
     rules: ['缺失值填充', '异常值处理']
   },
   {
@@ -97,6 +99,7 @@ const [versions] = useState<Version[]>([
     sampleCount: 9800,
     missingRate: 0.8,
     anomalyRate: 0.5,
+    uniqueRate: 0.5,
     rules: ['缺失值填充', '异常值处理', '数据标准化'],
     tags: ['清洗后', '低缺失', '标准化']
   },
@@ -113,6 +116,7 @@ const [versions] = useState<Version[]>([
     sampleCount: 11200,
     missingRate: 3.1,
     anomalyRate: 1.8,
+    uniqueRate: 1.8,
     rules: ['自动同步']
   },
   {
@@ -128,6 +132,7 @@ const [versions] = useState<Version[]>([
     sampleCount: 0,
     missingRate: 0,
     anomalyRate: 0,
+    uniqueRate: 0,
     rules: [],
     tags: ['清洗失败']
   }

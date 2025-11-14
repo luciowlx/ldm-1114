@@ -6,6 +6,7 @@ import { TaskManagement } from "./components/TaskManagement";
 import { ModelManagement } from "./components/ModelManagement";
 import { ModelTuning } from "./components/ModelTuning";
 import { SystemManagement } from "./components/SystemManagement";
+import HtmlConfigManagement from "./components/HtmlConfigManagement";
 import { PersonalCenterDialog } from "./components/PersonalCenterDialog";
 import { PersonalizationSettings } from "./components/PersonalizationSettings";
 import { SoloMode } from "./components/SoloMode";
@@ -1561,15 +1562,9 @@ export default function App() {
           <ModelManagement onOpenModelTuning={() => setShowModelTuning(true)} />
         );
       case "系统管理":
-        return (
-          <div>
-            <div className="mb-6">
-              <h1 className="text-2xl font-semibold text-gray-900 mb-2">系统管理</h1>
-              <p className="text-gray-600">管理系统用户、角色权限和组织架构，配置个人账户信息</p>
-            </div>
-            <SystemManagement defaultSubTab={systemManagementSubTab} />
-          </div>
-        );
+        return <SystemManagement defaultSubTab={systemManagementSubTab} />;
+      case "配置管理":
+        return <HtmlConfigManagement />;
       default:
         return (
           <div className="text-center py-12">

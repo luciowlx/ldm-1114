@@ -28,6 +28,7 @@ interface Version {
   sampleCount: number;
   missingRate: number;
   anomalyRate: number;
+  uniqueRate?: number;
   rules?: string[];
   tags?: string[]; // 新增：数据标签（可选）
   fields?: FieldInfo[]; // 新增：字段列表（可选）
@@ -159,6 +160,14 @@ const VersionCompare: React.FC<VersionCompareProps> = ({ version1, version2, dat
   const getLeftTagClass = (tag: string) => (tags2.includes(tag) ? "border-gray-300 text-gray-600" : "border-red-300 text-red-600");
   const getRightTagClass = (tag: string) => (tags1.includes(tag) ? "border-gray-300 text-gray-600" : "border-green-300 text-green-600");
 
+  const avgUniqueRate = (arr: FieldInfo[]) => {
+    if (!arr || arr.length === 0) return 0;
+    const sum = arr.reduce((s, f) => s + (f.uniqueRate ?? 0), 0);
+    return Math.round((sum / arr.length) * 10) / 10;
+  };
+  const uniqueRate1 = (typeof version1.uniqueRate === 'number') ? version1.uniqueRate : avgUniqueRate(fields1);
+  const uniqueRate2 = (typeof version2.uniqueRate === 'number') ? version2.uniqueRate : avgUniqueRate(fields2);
+
   return (
     <div className="space-y-6">
       {/* 页面头部 */}
@@ -179,12 +188,8 @@ const VersionCompare: React.FC<VersionCompareProps> = ({ version1, version2, dat
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle>
               <span>{version1.versionNumber}</span>
-              <div className="flex space-x-2">
-                {getStatusBadge(version1.status)}
-                {getSourceBadge(version1.source)}
-              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -200,35 +205,14 @@ const VersionCompare: React.FC<VersionCompareProps> = ({ version1, version2, dat
               <span className="text-gray-600">文件大小:</span>
               <span>{version1.size}</span>
             </div>
-            {version1.description && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">描述:</span>
-                <span className="text-right">{version1.description}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-start">
-              <span className="text-gray-600">数据标签:</span>
-              <div className="flex flex-wrap gap-2 justify-end">
-                {tags1.length === 0 ? (
-                  <span className="text-gray-400">暂无标签</span>
-                ) : (
-                  tags1.map((t, idx) => (
-                    <Badge key={idx} className={getLeftTagClass(t)} variant="outline">{t}</Badge>
-                  ))
-                )}
-              </div>
-            </div>
+            
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle>
               <span>{version2.versionNumber}</span>
-              <div className="flex space-x-2">
-                {getStatusBadge(version2.status)}
-                {getSourceBadge(version2.source)}
-              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -244,24 +228,7 @@ const VersionCompare: React.FC<VersionCompareProps> = ({ version1, version2, dat
               <span className="text-gray-600">文件大小:</span>
               <span>{version2.size}</span>
             </div>
-            {version2.description && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">描述:</span>
-                <span className="text-right">{version2.description}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-start">
-              <span className="text-gray-600">数据标签:</span>
-              <div className="flex flex-wrap gap-2 justify-end">
-                {tags2.length === 0 ? (
-                  <span className="text-gray-400">暂无标签</span>
-                ) : (
-                  tags2.map((t, idx) => (
-                    <Badge key={idx} className={getRightTagClass(t)} variant="outline">{t}</Badge>
-                  ))
-                )}
-              </div>
-            </div>
+            
           </CardContent>
         </Card>
       </div>
@@ -354,27 +321,27 @@ const VersionCompare: React.FC<VersionCompareProps> = ({ version1, version2, dat
               </div>
             </div>
 
-            {/* 异常比例对比 */}
+            {/* 唯一值比例对比 */}
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center space-x-3">
-                <div className="text-lg font-semibold">异常比例</div>
-                {getChangeIcon(version1.anomalyRate, version2.anomalyRate)}
+                <div className="text-lg font-semibold">唯一值比例</div>
+                {getChangeIcon(uniqueRate1, uniqueRate2)}
               </div>
               <div className="flex items-center space-x-6">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{version1.anomalyRate}%</div>
+                  <div className="text-2xl font-bold text-blue-600">{uniqueRate1}%</div>
                   <div className="text-sm text-gray-600">{version1.versionNumber}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg text-gray-400">→</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{version2.anomalyRate}%</div>
+                  <div className="text-2xl font-bold text-purple-600">{uniqueRate2}%</div>
                   <div className="text-sm text-gray-600">{version2.versionNumber}</div>
                 </div>
-                <div className={`text-center ${getChangeColor(version1.anomalyRate, version2.anomalyRate, false)}`}>
+                <div className={`text-center ${getChangeColor(uniqueRate1, uniqueRate2, true)}`}>
                   <div className="text-lg font-semibold">
-                    {formatChange(calculateChange(version1.anomalyRate, version2.anomalyRate))}
+                    {formatChange(calculateChange(uniqueRate1, uniqueRate2))}
                   </div>
                   <div className="text-sm">变化</div>
                 </div>
@@ -490,54 +457,7 @@ const VersionCompare: React.FC<VersionCompareProps> = ({ version1, version2, dat
         </CardContent>
       </Card>
 
-      {/* 处理规则对比 */}
-      {(version1.rules || version2.rules) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>处理规则对比</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-semibold mb-3 text-blue-600">{version1.versionNumber}</h4>
-                {version1.rules && version1.rules.length > 0 ? (
-                  <div className="space-y-2">
-                    {version1.rules.map((rule, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span className="text-sm">{rule}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2 text-gray-500">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span className="text-sm">无处理规则</span>
-                  </div>
-                )}
-              </div>
-              <div>
-                <h4 className="font-semibold mb-3 text-purple-600">{version2.versionNumber}</h4>
-                {version2.rules && version2.rules.length > 0 ? (
-                  <div className="space-y-2">
-                    {version2.rules.map((rule, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span className="text-sm">{rule}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2 text-gray-500">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span className="text-sm">无处理规则</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      
 
     </div>
   );

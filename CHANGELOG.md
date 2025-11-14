@@ -27,6 +27,10 @@
   - 涉及文件：`src/components/HtmlConfigManagement.tsx`
   - 说明/验证：运行 `npm run build` 构建通过；本地预览交互正常，左/右面板可拖拽调整，中间画布自适应；原有标签切换、组件选中与属性编辑逻辑保持不变。
 
+- [Feat/TaskEngine/UI] 任务引擎相关页面与配置改造：统一筛选入口（列头 Popover）、优化工具栏交互、调整状态与操作按钮、精简部分面板。
+  - 涉及文件：`src/components/TaskManagement.tsx`、`src/components/SystemManagement.tsx`、`src/components/VersionHistory.tsx`、`src/components/ConfigurationManagement.tsx`、`src/components/DataManagement.tsx`、`src/components/Dashboard.tsx`、`src/mock/taskTypeTemplates.ts`、`src/components/Header.tsx`
+  - 说明/验证：本地构建通过；在“任务管理/系统管理/版本历史”等页面预览交互与筛选逻辑正常；移除 `TaskTypeManagement.tsx` 后功能不受影响；i18n 文案完整，控制台无错误。
+
 ### 2025-11-13
 - [Tweak/DataManagement/List] 列含义调整：将“版本”列改为“数据版本数量”，将“大小”列改为“文件数量”，并按文件数量进行排序。
   - 涉及文件：`src/components/DataManagement.tsx`

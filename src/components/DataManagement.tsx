@@ -1735,7 +1735,7 @@ export function DataManagement({
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <Label htmlFor="edit-title">{t('data.form.name')}</Label>
                   <Input
@@ -1746,26 +1746,6 @@ export function DataManagement({
                       title: e.target.value
                     })}
                   />
-                </div>
-                <div>
-                  <Label htmlFor="edit-source">{t('data.form.source')}</Label>
-                  <Select
-                    value={editingDataset.source}
-                    onValueChange={(value: string) => setEditingDataset({
-                      ...editingDataset,
-                      source: value
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="上传">{t('data.source.upload')}</SelectItem>
-                      <SelectItem value="订阅">{t('data.source.subscription')}</SelectItem>
-                      <SelectItem value="API">{t('data.source.api')}</SelectItem>
-                      <SelectItem value="数据库">{t('data.source.database')}</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
               

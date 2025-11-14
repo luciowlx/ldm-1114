@@ -28,19 +28,35 @@ export const taskTypeTemplates: TaskTypeTemplate[] = [
         { id: "XGBoost_TS", name: "XGBoost", source: "第三方", version: "1.6.0" }
       ],
       parameters: [
-        { name: "context_length", label: "上下文长度", type: "number", required: true, default: 30 },
-        // 改为非必填，类型使用字符串以符合 JSON Schema 定义
+        { name: "context_length", label: "上下文长度", type: "number", required: true, default: 24 },
+        { name: "predict_length", label: "预测长度", type: "number", required: true, default: 12 },
+        { name: "predict_step", label: "预测步长", type: "number", required: true, default: 1 },
+        { name: "time_column", label: "时间列", type: "enum", required: true, options: ["time", "timestamp"] },
+        { name: "target_column", label: "预测目标列", type: "enum", required: true, options: ["target"] },
         { name: "forecast_start_time", label: "预测开始时间", type: "string", required: false },
-        { name: "primary_dataset", label: "主变量文件", type: "enum", optionsSource: "datasets", required: true }
-      ]
+        { name: "primary_dataset", label: "主变量文件", type: "enum", optionsSource: "datasets", required: false }
+      ],
+      tsFields: {
+        timeColumn: "time",
+        targetColumn: "target",
+        contextLength: 24,
+        predictLength: 12,
+        step: 1,
+        startTime: "",
+        primaryFile: "dataset_v1.csv",
+        covariateFile: "none"
+      }
     },
     output: {
       metrics: [
-        { name: "MSE" },
-        { name: "RMSE" },
-        { name: "R2" }
+        { name: "MSE", default: true },
+        { name: "RMSE", default: true },
+        { name: "MAE", default: true },
+        { name: "MAPE", default: true },
+        { name: "R2", default: true }
       ],
-      charts: ["forecast_curve", "residual_plot", "model_comparison"],
+      thresholds: { relativeBiasPct: 10, absoluteBias: 10 },
+      charts: ["line_chart", "residual_plot", "scatter_pred_vs_actual", "error_histogram"],
       enableCausalAnalysis: true
     }
   },
@@ -63,12 +79,22 @@ export const taskTypeTemplates: TaskTypeTemplate[] = [
       ],
       parameters: [
         { name: "train_ratio", label: "训练集比例(%)", type: "number", required: true, default: 80 },
+        { name: "test_ratio", label: "测试集比例(%)", type: "number", required: true, default: 20 },
         { name: "shuffle_data", label: "数据随机打散", type: "boolean", required: false, default: false }
-      ]
+      ],
+      split: { trainRatio: 80, testRatio: 20, shuffle: false }
     },
     output: {
-      metrics: [{ name: "Accuracy" }, { name: "F1" }, { name: "AUC" }],
-      charts: ["roc_curve", "confusion_matrix"],
+      metrics: [
+        { name: "Accuracy", default: true },
+        { name: "Precision", default: true },
+        { name: "Recall", default: true },
+        { name: "F1", default: true },
+        { name: "ROC-AUC", default: true }
+      ],
+      averagingMethod: "binary",
+      customMetricCode: "",
+      charts: ["roc_curve", "pr_curve", "confusion_matrix"],
       enableCausalAnalysis: false
     }
   },
@@ -91,12 +117,21 @@ export const taskTypeTemplates: TaskTypeTemplate[] = [
       ],
       parameters: [
         { name: "train_ratio", label: "训练集比例(%)", type: "number", required: true, default: 80 },
+        { name: "test_ratio", label: "测试集比例(%)", type: "number", required: true, default: 20 },
         { name: "shuffle_data", label: "数据随机打散", type: "boolean", required: false, default: false }
-      ]
+      ],
+      split: { trainRatio: 80, testRatio: 20, shuffle: false }
     },
     output: {
-      metrics: [{ name: "MAE" }, { name: "RMSE" }, { name: "R2" }],
-      charts: ["residual_plot", "error_histogram", "scatter_plot"],
+      metrics: [
+        { name: "MSE", default: true },
+        { name: "RMSE", default: true },
+        { name: "MAE", default: true },
+        { name: "MAPE", default: true },
+        { name: "R2", default: true }
+      ],
+      thresholds: { relativeBiasPct: 10, absoluteBias: 10 },
+      charts: ["line_chart", "residual_plot", "scatter_pred_vs_actual", "error_histogram"],
       enableCausalAnalysis: false
     }
   }
@@ -120,12 +155,22 @@ export const blankTemplate: TaskTypeTemplate = {
       { id: "LightGBM", name: "LightGBM", source: "第三方", version: "3.3.2", default: true }
     ],
     parameters: [
-      { name: "train_ratio", label: "训练集比例(%)", type: "number", required: true, default: 80 }
-    ]
+      { name: "train_ratio", label: "训练集比例(%)", type: "number", required: true, default: 80 },
+      { name: "test_ratio", label: "测试集比例(%)", type: "number", required: true, default: 20 },
+      { name: "shuffle_data", label: "数据随机打散", type: "boolean", required: false, default: false }
+    ],
+    split: { trainRatio: 80, testRatio: 20, shuffle: false }
   },
   output: {
-    metrics: [{ name: "MAE" }, { name: "RMSE" }],
-    charts: ["residual_plot"],
+    metrics: [
+      { name: "MSE", default: true },
+      { name: "RMSE", default: true },
+      { name: "MAE", default: true },
+      { name: "MAPE", default: true },
+      { name: "R2", default: true }
+    ],
+    thresholds: { relativeBiasPct: 10, absoluteBias: 10 },
+    charts: ["line_chart", "residual_plot", "scatter_pred_vs_actual", "error_histogram"],
     enableCausalAnalysis: false
   }
 };

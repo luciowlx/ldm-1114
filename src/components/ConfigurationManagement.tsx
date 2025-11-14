@@ -276,8 +276,8 @@ export function ConfigurationManagement() {
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">配置管理</h2>
-          <p className="text-gray-600 mt-1">统一管理系统内所有业务字段的配置</p>
+          <h2 className="text-2xl font-bold text-gray-900">数据字典</h2>
+          <p className="text-gray-600 mt-1">统一维护系统数据字典与业务字段</p>
         </div>
         <div className="flex items-center space-x-3">
           <Button 

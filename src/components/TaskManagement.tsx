@@ -30,8 +30,6 @@ import {
   ArrowDown,
   User,
   GitCompare,
-  Maximize2,
-  Minimize2,
   X,
   BarChart3,
   Circle,
@@ -2474,21 +2472,7 @@ interface FormData {
                       );
                     })}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsFullScreen(prev => !prev)}
-                      className="ml-1"
-                      title={isFullScreen ? '退出全屏' : '全屏'}
-                    >
-                      {isFullScreen ? (
-                        <span className="inline-flex items-center gap-1"><Minimize2 className="h-4 w-4" /> 退出全屏</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1"><Maximize2 className="h-4 w-4" /> 全屏</span>
-                      )}
-                    </Button>
-                  </div>
+                  <div className="flex items-center gap-2"></div>
                 </div>
               </div>
               

@@ -266,7 +266,7 @@ export function Dashboard({
       title: "数据统计",
       items: [
         { label: "数据集", value: 87 },
-        { label: "字段数", value: 156 },
+        { label: "文件数量", value: 156 },
         { label: "总大小", value: "456GB" },
         { label: "来源", value: "多源融合" },
       ],
@@ -317,17 +317,6 @@ export function Dashboard({
 
   return (
     <div className="space-y-6">
-      {/* 顶部标题栏（高保真） */}
-      <Card className="bg-white">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-start">
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-semibold">LimiX机器学习平台 — 智能数据分析工作台</span>
-              <Badge variant="secondary" className="bg-gray-100 text-gray-700">{t("common.welcomeBack")}</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
       {/* 全局统计看板（高保真） — 置于页面上方 */}
       <Card className="bg-white">
         <CardHeader>

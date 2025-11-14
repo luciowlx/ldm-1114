@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Splitter, Typography } from "antd";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -6,6 +7,7 @@ import { DepartmentManagement } from "./DepartmentManagement";
 import { RoleManagement } from "./RoleManagement";
 import { PersonalCenter } from "./PersonalCenter";
 import { ConfigurationManagement } from "./ConfigurationManagement";
+import HtmlConfigManagement from "./HtmlConfigManagement";
 import { 
   Users, 
   Shield, 
@@ -18,9 +20,8 @@ import {
   Plus,
   UserPlus,
   Settings2,
-  ListChecks
+  Cpu
 } from "lucide-react";
-import TaskTypeManagement from "./TaskTypeManagement";
 
 interface SystemManagementProps {
   defaultSubTab?: string;
@@ -50,15 +51,15 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
     },
     { 
       id: "config", 
-      name: "配置管理", 
+      name: "数据字典", 
       icon: Settings2,
-      description: "业务字段配置管理"
+      description: "统一维护系统数据字典"
     },
     {
-      id: "tasktype",
-      name: "任务类型管理",
-      icon: ListChecks,
-      description: "基于 JSON 的任务类型配置（管理员）"
+      id: "taskengine",
+      name: "任务引擎",
+      icon: Cpu,
+      description: "迁移自顶部配置管理的任务引擎功能"
     },
     { 
       id: "personal", 
@@ -80,8 +81,8 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
     <ConfigurationManagement />
   );
 
-  const renderTaskTypeManagement = () => (
-    <TaskTypeManagement isAdmin={true} />
+  const renderTaskEngine = () => (
+    <HtmlConfigManagement />
   );
 
   const renderPersonalCenter = () => (
@@ -96,15 +97,18 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
         return renderRoleManagement();
       case "config":
         return renderConfigurationManagement();
-      case "tasktype":
-        return renderTaskTypeManagement();
+      case "taskengine":
+        return renderTaskEngine();
       case "personal":
         return renderPersonalCenter();
       case "overview":
       default:
         return (
           <div className="space-y-8">
-            {/* 系统统计信息 - 移到顶部 */}
+            <div className="mb-2">
+              <h1 className="text-2xl font-semibold text-gray-900 mb-2">系统管理</h1>
+              <p className="text-gray-600">管理系统用户、角色权限和组织架构，配置个人账户信息</p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="w-[200px] bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
                 <CardHeader className="pb-3">
@@ -232,31 +236,38 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
 
   return (
     <div className="space-y-6">
-      {/* 子功能导航 */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-8">
-          {subTabs.map((tab) => {
-            const IconComponent = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveSubTab(tab.id)}
-                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeSubTab === tab.id
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                <IconComponent className="h-4 w-4" />
-                <span>{tab.name}</span>
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* 内容区域 */}
-      {renderContent()}
+      <Splitter style={{ height: 640, boxShadow: "0 0 10px rgba(0,0,0,0.05)" }}>
+        <Splitter.Panel defaultSize="22%" min="16%" max="30%">
+          <div className="h-full border-r border-gray-200 bg-white">
+            <div className="p-4">
+              <Typography.Title level={5}>系统子菜单</Typography.Title>
+            </div>
+            <div className="px-2 space-y-1">
+              {subTabs.map((tab) => {
+                const IconComponent = tab.icon;
+                const active = activeSubTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveSubTab(tab.id)}
+                    className={`w-full flex items-center space-x-2 px-3 py-2 rounded-md text-sm ${
+                      active ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <IconComponent className="h-4 w-4" />
+                    <span>{tab.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Splitter.Panel>
+        <Splitter.Panel>
+          <div className="h-full p-2">
+            {renderContent()}
+          </div>
+        </Splitter.Panel>
+      </Splitter>
     </div>
   );
 }
