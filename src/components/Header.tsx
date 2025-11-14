@@ -27,6 +27,7 @@ export function Header({ activeTab, onTabChange, onOpenPersonalCenter, onOpenPer
     { id: "data", zh: "数据管理", label: t("nav.data") },
     { id: "task", zh: "任务管理", label: t("nav.task") },
     { id: "model", zh: "模型管理", label: t("nav.model") },
+    { id: "config", zh: "配置管理", label: t("nav.config") },
     { id: "system", zh: "系统管理", label: t("nav.system") },
   ];
 
@@ -147,7 +148,7 @@ export function Header({ activeTab, onTabChange, onOpenPersonalCenter, onOpenPer
               className="flex items-center space-x-2 cursor-default"
             >
               <Info className="h-4 w-4" />
-              <span>v1.0</span>
+              <span>v1.1-任务引擎</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 

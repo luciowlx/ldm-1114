@@ -23,6 +23,14 @@
 ## 变更历史
 
 ### 2025-11-14
+- [Feat/Navigation/ConfigMenu] 顶部导航新增“配置管理”一级菜单，并接入页面路由（点击进入 `ConfigurationManagement` 页面）。
+  - 涉及文件：`src/components/Header.tsx`、`src/App.tsx`、`src/i18n/LanguageContext.tsx`
+  - 说明/验证：运行 `npm run build` 构建通过；本地预览 `http://localhost:3000/` 顶部导航显示“配置管理”，点击后正常渲染配置管理页面；英文环境显示为 “Configuration”。
+
+- [Chore/Header/Version] 头像菜单中的版本标识更新为 `v1.1-任务引擎`，与本次任务引擎能力对齐。
+  - 涉及文件：`src/components/Header.tsx`
+  - 说明/验证：打开右上角头像菜单可见版本号，页面与控制台无报错。
+
 - [Feat/HtmlConfigManagement/Layout] 编辑器主区域改为可拖拽分割面板（Ant Design Splitter），默认左侧 26%、右侧 32%，设置了最小/最大宽度限制以保证可用性。
   - 涉及文件：`src/components/HtmlConfigManagement.tsx`
   - 说明/验证：运行 `npm run build` 构建通过；本地预览交互正常，左/右面板可拖拽调整，中间画布自适应；原有标签切换、组件选中与属性编辑逻辑保持不变。
