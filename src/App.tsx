@@ -6,7 +6,6 @@ import { TaskManagement } from "./components/TaskManagement";
 import { ModelManagement } from "./components/ModelManagement";
 import { ModelTuning } from "./components/ModelTuning";
 import { SystemManagement } from "./components/SystemManagement";
-import { ConfigurationManagement } from "./components/ConfigurationManagement";
 import { PersonalCenterDialog } from "./components/PersonalCenterDialog";
 import { PersonalizationSettings } from "./components/PersonalizationSettings";
 import { SoloMode } from "./components/SoloMode";
@@ -1569,12 +1568,6 @@ export default function App() {
               <p className="text-gray-600">管理系统用户、角色权限和组织架构，配置个人账户信息</p>
             </div>
             <SystemManagement defaultSubTab={systemManagementSubTab} />
-          </div>
-        );
-      case "配置管理":
-        return (
-          <div>
-            <ConfigurationManagement />
           </div>
         );
       default:

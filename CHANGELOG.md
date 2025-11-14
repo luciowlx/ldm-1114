@@ -23,6 +23,10 @@
 ## 变更历史
 
 ### 2025-11-14
+- [Chore/Navigation/RemoveConfigMenu] 移除顶部导航“配置管理”一级菜单，并取消对应路由分支。
+  - 涉及文件：`src/components/Header.tsx`、`src/App.tsx`
+  - 说明/验证：运行 `npm run build` 构建通过；本地预览 `http://localhost:3000/` 顶部导航不再显示“配置管理”。
+
 - [Feat/Navigation/ConfigMenu] 顶部导航新增“配置管理”一级菜单，并接入页面路由（点击进入 `ConfigurationManagement` 页面）。
   - 涉及文件：`src/components/Header.tsx`、`src/App.tsx`、`src/i18n/LanguageContext.tsx`
   - 说明/验证：运行 `npm run build` 构建通过；本地预览 `http://localhost:3000/` 顶部导航显示“配置管理”，点击后正常渲染配置管理页面；英文环境显示为 “Configuration”。
