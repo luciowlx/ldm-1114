@@ -22,6 +22,11 @@
 
 ## 变更历史
 
+### 2025-11-14
+- [Feat/HtmlConfigManagement/Layout] 编辑器主区域改为可拖拽分割面板（Ant Design Splitter），默认左侧 26%、右侧 32%，设置了最小/最大宽度限制以保证可用性。
+  - 涉及文件：`src/components/HtmlConfigManagement.tsx`
+  - 说明/验证：运行 `npm run build` 构建通过；本地预览交互正常，左/右面板可拖拽调整，中间画布自适应；原有标签切换、组件选中与属性编辑逻辑保持不变。
+
 ### 2025-11-13
 - [Tweak/DataManagement/List] 列含义调整：将“版本”列改为“数据版本数量”，将“大小”列改为“文件数量”，并按文件数量进行排序。
   - 涉及文件：`src/components/DataManagement.tsx`
