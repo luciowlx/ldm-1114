@@ -1379,6 +1379,29 @@ output:
     }, 300);
   };
 
+  const handleExportCausalCSV = () => {
+    const factorLabels = ['温度_均值','压力_方差','设备功率','环境湿度','质量评分','历史缺陷率','维护间隔','设备老化指数','能耗比','设备震动','生产节拍','人员工时'];
+    const rows = 20;
+    const val = (r: number, c: number) => Math.sin(r * 0.25) + Math.cos(c * 0.45);
+    const scores = factorLabels.map((_, c) => {
+      let s = 0;
+      for (let r = 0; r < rows; r++) s += Math.abs(val(r, c));
+      return s;
+    });
+    const max = Math.max(...scores) || 1;
+    const normalized = scores.map((s) => (s / max));
+    const header = factorLabels.join(',');
+    const row = normalized.map((x) => x.toFixed(6)).join(',');
+    const csv = `${header}\n${row}\n`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `feature_attention_score_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // 与任务列表统一的操作执行与确认逻辑
   const performNetworkAction = async (action: string, taskId: string) => {
     await new Promise((resolve) => setTimeout(resolve, 600));
@@ -2928,6 +2951,10 @@ output:
                     <CardDescription>展示影响强度热图与因子贡献对比</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={handleExportCausalCSV}>
+                      <Download className="h-4 w-4 mr-2" />
+                      导出解释数据
+                    </Button>
                     <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setDeepSeekOpen(true)}>
                       <Brain className="h-4 w-4 mr-2" />
                       大模型预测过程

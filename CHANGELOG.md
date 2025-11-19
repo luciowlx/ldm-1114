@@ -63,6 +63,10 @@
   - 涉及文件：`src/components/TaskDetailFullPage.tsx`
   - 说明/验证：打开预测过程弹窗，不再显示特征权重区域；剩余内容正常渲染。
 
+- [Feature/Causal/Export] 因果解释增加“导出解释数据”按钮，生成 CSV（表头为因子标签、数据为归一化注意力得分），文件名 `feature_attention_score_<timestamp>.csv`。
+  - 涉及文件：`src/components/TaskDetailFullPage.tsx`
+  - 说明/验证：进入“任务详情 → 因果解释”，点击右上角“导出解释数据”后浏览器下载 CSV；可在表头看到当前因子标签，数据行为 0~1 的得分。
+
 ### 2025-11-14
 - [Feat/SystemManagement/TaskEngine] 在“系统管理”增加“任务引擎”子菜单，集成任务模板管理（使用 HtmlConfigManagement 页面作为引擎模板与三分栏编辑器）。
   - 涉及文件：`src/components/SystemManagement.tsx`、`src/components/HtmlConfigManagement.tsx`
