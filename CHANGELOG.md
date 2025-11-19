@@ -22,6 +22,23 @@
 
 ## 变更历史
 
+### 2025-11-19
+- [Feat/DataPreprocessing/UI] 底部新增“预览版本/文件”选择器，支持在多数据集、版本、文件间快速切换预览。
+  - 涉及文件：`src/components/DataPreprocessing.tsx`
+  - 说明/验证：运行 `npm run dev`，在“数据预处理 → 字段选择/预览区”底部可切换“预览版本/文件”，切换时预览随之更新；控制台无报错。
+
+- [Feat/DataPreprocessing/UX] 第二步增加“上一步”按钮，支持返回“选择数据集”。
+  - 涉及文件：`src/components/DataPreprocessing.tsx`
+  - 说明/验证：进入“数据预处理 → 字段选择（Step 1）”，底部左侧显示“上一步”，点击返回 Step 0；流程顺滑。
+
+- [Tweak/DataPreprocessing/TreeView] 字段选择区改为树形结构，支持展开/折叠与级联选择。
+  - 涉及文件：`src/components/DataPreprocessing.tsx`
+  - 说明/验证：在字段选择区域可展开数据集→版本→文件三级结构，选择联动正确。
+
+- [Remove/DataPreprocessing/UI] 底部预览去重：移除重复展示模块，仅保留一个预览区。
+  - 涉及文件：`src/components/DataPreprocessing.tsx`
+  - 说明/验证：底部仅显示单一预览区域，页面布局稳定。
+
 ### 2025-11-14
 - [Feat/SystemManagement/TaskEngine] 在“系统管理”增加“任务引擎”子菜单，集成任务模板管理（使用 HtmlConfigManagement 页面作为引擎模板与三分栏编辑器）。
   - 涉及文件：`src/components/SystemManagement.tsx`、`src/components/HtmlConfigManagement.tsx`

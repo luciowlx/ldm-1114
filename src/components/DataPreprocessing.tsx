@@ -36,7 +36,9 @@ import {
   RefreshCw,
   Edit,
   X,
-  Search
+  Search,
+  ChevronRight,
+  ChevronDown
 } from "lucide-react";
 import { toast } from "sonner";
 import { SoloDataCleaning } from "./SoloDataCleaning";
@@ -118,6 +120,8 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
   const [datasetFieldsMap, setDatasetFieldsMap] = useState<Record<string, FieldInfo[]>>({});
   // 缓存失效触发器（用于强制刷新聚合计算）
   const [cacheBuster, setCacheBuster] = useState(0);
+  const [expandedDatasets, setExpandedDatasets] = useState<Record<string, boolean>>({});
+  const [expandedVersionKeys, setExpandedVersionKeys] = useState<Record<string, boolean>>({});
   // 记录上一次的去重规则签名，用于比对变化以清理缓存
   const prevDedupSignatureRef = useRef<string | null>(null);
   
@@ -344,29 +348,73 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
   const [selectedDatasetVersions, setSelectedDatasetVersions] = useState<Record<string, string[]>>({});
   // 当前预览版本：按数据集记录一个“活动版本”，用于底部信息与进入下一步字段加载
   const [activeVersionByDataset, setActiveVersionByDataset] = useState<Record<string, string | undefined>>({});
+  const [selectedFilesByVersion, setSelectedFilesByVersion] = useState<Record<string, string[]>>({});
+  const [activeFileByVersion, setActiveFileByVersion] = useState<Record<string, string | undefined>>({});
   // Step1 主表版本选择（与主表数据集联动）
   const [primaryVersionId, setPrimaryVersionId] = useState<string | undefined>(undefined);
   const datasetOptions = [
     { id: '1', name: '生产线传感器数据集', type: 'IoT传感器', size: '120MB', rows: '125,000', columns: '32', completeness: 92,
       versions: [
-        { id: 'v1.2', label: 'v1.2（稳定）', rows: '125,000', columns: '32', size: '120MB', createdAt: '2024-12-12', note: '修正温湿度单位与缺失值填充', tags: ['stable'] , isDefault: true },
-        { id: 'v1.1', label: 'v1.1', rows: '120,000', columns: '31', size: '115MB', createdAt: '2024-10-02', note: '新增 vibration 字段', tags: ['archived'] },
-        { id: 'v1.0', label: 'v1.0', rows: '100,500', columns: '30', size: '98MB', createdAt: '2024-06-18', note: '初始采集版本', tags: ['archived'] }
+        { id: 'v1.2', label: 'v1.2（稳定）', rows: '125,000', columns: '32', size: '120MB', createdAt: '2024-12-12', note: '修正温湿度单位与缺失值填充', tags: ['stable'] , isDefault: true,
+          files: [
+            { id: '1-v1.2-a', name: 'line_a_2024Q4.csv', format: 'csv', size: '32MB' },
+            { id: '1-v1.2-b', name: 'line_b_2024Q4.csv', format: 'csv', size: '30MB' },
+            { id: '1-v1.2-env', name: 'env_sensors.xlsx', format: 'xlsx', size: '58MB' }
+          ]
+        },
+        { id: 'v1.1', label: 'v1.1', rows: '120,000', columns: '31', size: '115MB', createdAt: '2024-10-02', note: '新增 vibration 字段', tags: ['archived'],
+          files: [
+            { id: '1-v1.1-a', name: 'line_a_2024Q3.csv', format: 'csv', size: '28MB' },
+            { id: '1-v1.1-b', name: 'line_b_2024Q3.csv', format: 'csv', size: '27MB' }
+          ]
+        },
+        { id: 'v1.0', label: 'v1.0', rows: '100,500', columns: '30', size: '98MB', createdAt: '2024-06-18', note: '初始采集版本', tags: ['archived'],
+          files: [
+            { id: '1-v1.0-init', name: 'initial_dump.xlsx', format: 'xlsx', size: '98MB' }
+          ]
+        }
       ] },
     { id: '2', name: 'ERP系统数据集', type: '业务记录', size: '85MB', rows: '98,500', columns: '24', completeness: 88,
       versions: [
-        { id: 'v2.0', label: 'v2.0（最新）', rows: '98,500', columns: '24', size: '85MB', createdAt: '2025-03-31', note: '对账完成；新增渠道字段', tags: ['latest'], isDefault: true },
-        { id: 'v1.0', label: 'v1.0（稳定）', rows: '92,300', columns: '23', size: '80MB', createdAt: '2024-12-31', note: '清洗订单异常记录', tags: ['stable'] }
+        { id: 'v2.0', label: 'v2.0（最新）', rows: '98,500', columns: '24', size: '85MB', createdAt: '2025-03-31', note: '对账完成；新增渠道字段', tags: ['latest'], isDefault: true,
+          files: [
+            { id: '2-v2.0-orders', name: 'orders_2025Q1.csv', format: 'csv', size: '44MB' },
+            { id: '2-v2.0-customers', name: 'customers_2025Q1.xlsx', format: 'xlsx', size: '41MB' }
+          ]
+        },
+        { id: 'v1.0', label: 'v1.0（稳定）', rows: '92,300', columns: '23', size: '80MB', createdAt: '2024-12-31', note: '清洗订单异常记录', tags: ['stable'],
+          files: [
+            { id: '2-v1.0-orders', name: 'orders_2024Q4.csv', format: 'csv', size: '42MB' },
+            { id: '2-v1.0-customers', name: 'customers_2024Q4.xlsx', format: 'xlsx', size: '38MB' }
+          ]
+        }
       ] },
     { id: '3', name: '设备维保日志', type: '日志数据', size: '40MB', rows: '250,000', columns: '12', completeness: 76,
       versions: [
-        { id: 'v2.0', label: 'v2.0', rows: '250,000', columns: '12', size: '40MB', createdAt: '2025-02-15', note: '统一 error_code 与 module 枚举', tags: ['stable'], isDefault: true },
-        { id: 'v1.0', label: 'v1.0', rows: '210,000', columns: '12', size: '35MB', createdAt: '2024-11-20', note: '补充 stack 字段', tags: ['archived'] }
+        { id: 'v2.0', label: 'v2.0', rows: '250,000', columns: '12', size: '40MB', createdAt: '2025-02-15', note: '统一 error_code 与 module 枚举', tags: ['stable'], isDefault: true,
+          files: [
+            { id: '3-v2.0-maint', name: 'maintenance_2025.csv', format: 'csv', size: '22MB' },
+            { id: '3-v2.0-errors', name: 'errors_2025.xlsx', format: 'xlsx', size: '18MB' }
+          ]
+        },
+        { id: 'v1.0', label: 'v1.0', rows: '210,000', columns: '12', size: '35MB', createdAt: '2024-11-20', note: '补充 stack 字段', tags: ['archived'],
+          files: [
+            { id: '3-v1.0-maint', name: 'maintenance_2024.csv', format: 'csv', size: '20MB' }
+          ]
+        }
       ] },
     { id: '4', name: '质量检测结果集', type: '检测记录', size: '65MB', rows: '45,200', columns: '16', completeness: 81,
       versions: [
-        { id: 'v2.0', label: 'v2.0', rows: '45,200', columns: '16', size: '65MB', createdAt: '2025-01-28', note: '新增 image_url 字段', tags: ['stable'], isDefault: true },
-        { id: 'v1.0', label: 'v1.0', rows: '41,000', columns: '15', size: '58MB', createdAt: '2024-09-02', note: '修订判定规则', tags: ['archived'] }
+        { id: 'v2.0', label: 'v2.0', rows: '45,200', columns: '16', size: '65MB', createdAt: '2025-01-28', note: '新增 image_url 字段', tags: ['stable'], isDefault: true,
+          files: [
+            { id: '4-v2.0-results', name: 'inspection_results_2025.xlsx', format: 'xlsx', size: '65MB' }
+          ]
+        },
+        { id: 'v1.0', label: 'v1.0', rows: '41,000', columns: '15', size: '58MB', createdAt: '2024-09-02', note: '修订判定规则', tags: ['archived'],
+          files: [
+            { id: '4-v1.0-results', name: 'inspection_results_2024.xlsx', format: 'xlsx', size: '58MB' }
+          ]
+        }
       ] }
   ];
 
@@ -1173,8 +1221,8 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
     setSelectedDatasetVersions(prev => {
       const next = { ...prev };
       if (checked) {
-        const defVer = ds?.versions?.find(v => v.isDefault) || ds?.versions?.[0];
-        if (defVer) next[id] = [defVer.id];
+        const allVers = ds?.versions?.map(v => v.id) || [];
+        if (allVers.length) next[id] = allVers;
       } else {
         delete next[id];
       }
@@ -1183,10 +1231,42 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
     if (checked) {
       const defVerId = (ds?.versions?.find(v => v.isDefault) || ds?.versions?.[0])?.id;
       if (defVerId) setActiveVersionByDataset(prev => ({ ...prev, [id]: defVerId }));
+      setSelectedFilesByVersion(prev => {
+        const next = { ...prev };
+        (ds?.versions || []).forEach(v => {
+          const files = (v as any).files?.map((f: any) => f.id) || [];
+          next[`${id}::${v.id}`] = files;
+        });
+        return next;
+      });
+      setActiveFileByVersion(prev => {
+        const next = { ...prev };
+        (ds?.versions || []).forEach(v => {
+          const f0 = (v as any).files?.[0]?.id;
+          if (f0) next[`${id}::${v.id}`] = f0;
+        });
+        return next;
+      });
     } else {
       setActiveVersionByDataset(prev => {
         const { [id]: _removed, ...rest } = prev;
         return rest;
+      });
+      setSelectedFilesByVersion(prev => {
+        const next = { ...prev };
+        (ds?.versions || []).forEach(v => {
+          const key = `${id}::${v.id}`;
+          if (key in next) delete next[key];
+        });
+        return next;
+      });
+      setActiveFileByVersion(prev => {
+        const next = { ...prev };
+        (ds?.versions || []).forEach(v => {
+          const key = `${id}::${v.id}`;
+          if (key in next) delete next[key];
+        });
+        return next;
       });
     }
   };
@@ -1206,6 +1286,29 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
       });
       return next;
     });
+    const ds = datasetOptions.find(d => d.id === datasetId);
+    const ver = ds?.versions?.find(v => v.id === versionId);
+    if (checked) {
+      const files = (ver as any)?.files?.map((f: any) => f.id) || [];
+      setSelectedFilesByVersion(prev => ({ ...prev, [`${datasetId}::${versionId}`]: files }));
+      setActiveFileByVersion(prev => {
+        const f0 = (ver as any)?.files?.[0]?.id;
+        return f0 ? { ...prev, [`${datasetId}::${versionId}`]: f0 } : prev;
+      });
+    } else {
+      setSelectedFilesByVersion(prev => {
+        const next = { ...prev };
+        const key = `${datasetId}::${versionId}`;
+        if (key in next) delete next[key];
+        return next;
+      });
+      setActiveFileByVersion(prev => {
+        const next = { ...prev };
+        const key = `${datasetId}::${versionId}`;
+        if (key in next) delete next[key];
+        return next;
+      });
+    }
   };
 
   const selectAllDatasets = () => {
@@ -1217,6 +1320,26 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
   const clearSelectedDatasets = () => {
     setSelectedDatasetIds([]);
     setActiveDatasetId(undefined);
+  };
+
+  const toggleFileSelection = (datasetId: string, versionId: string, fileId: string, checked: boolean) => {
+    const key = `${datasetId}::${versionId}`;
+    const curr = selectedFilesByVersion[key] || [];
+    const nextArr = checked ? Array.from(new Set([...curr, fileId])) : curr.filter(f => f !== fileId);
+    setSelectedFilesByVersion(prev => ({ ...prev, [key]: nextArr }));
+    setSelectedDatasetVersions(prev => {
+      const arr = prev[datasetId] || [];
+      if (checked) {
+        if (!arr.includes(versionId)) return { ...prev, [datasetId]: Array.from(new Set([...arr, versionId])) };
+        return prev;
+      }
+      if (nextArr.length > 0) return prev;
+      const newArr = arr.filter(v => v !== versionId);
+      const next = { ...prev };
+      if (newArr.length > 0) next[datasetId] = newArr; else delete next[datasetId];
+      return next;
+    });
+    setActiveVersionByDataset(prev => ({ ...prev, [datasetId]: prev[datasetId] || versionId }));
   };
 
   // 字段选择处理
@@ -1869,54 +1992,63 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                             <Button size="sm" variant="ghost" onClick={clearSelectedDatasets}>清空</Button>
                           </div>
                         </div>
-                        <div className="mt-2 max-h-64 overflow-auto divide-y rounded-sm border bg-background/60">
+                        <div className="mt-2 max-h-80 overflow-y-auto overscroll-contain overflow-x-hidden rounded-sm border bg-background/60 p-2">
                           {filteredDatasets.length === 0 ? (
                             <div className="px-2 py-3 text-xs text-gray-500">未匹配到数据集</div>
                           ) : (
-                            filteredDatasets.map(ds => (
-                              <div key={ds.id} className="flex items-center justify-between px-2 py-2 hover:bg-muted/50 cursor-pointer">
-                                <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    checked={selectedDatasetIds.includes(ds.id)}
-                                    onCheckedChange={(checked: boolean) => toggleDatasetSelection(ds.id, !!checked)}
-                                  />
-                                  <div className="text-sm font-medium">{ds.name}</div>
-                                  {/* 版本多选：仅在该数据集被勾选时显示 */}
-                                  {selectedDatasetIds.includes(ds.id) && (ds.versions?.length ? (
-                                    <div className="ml-2 flex flex-col gap-1 text-xs">
-                                      <div className="text-gray-500">版本：</div>
-                                      <div className="flex flex-col gap-1">
-                                        {ds.versions.map(v => {
-                                          const checked = (selectedDatasetVersions[ds.id] || []).includes(v.id);
+                            <div className="divide-y">
+                              {filteredDatasets.map(ds => {
+                                const dsExpanded = expandedDatasets[ds.id] ?? selectedDatasetIds.includes(ds.id);
+                                const dsChecked = selectedDatasetIds.includes(ds.id);
+                                return (
+                                  <div key={ds.id} className="px-1 py-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setExpandedDatasets(prev => ({ ...prev, [ds.id]: !dsExpanded }))}>
+                                        {dsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                      </Button>
+                                      <Checkbox checked={dsChecked} onCheckedChange={(checked: boolean) => toggleDatasetSelection(ds.id, !!checked)} />
+                                      <div className="text-sm font-medium truncate max-w-[22rem]" title={ds.name}>{ds.name}</div>
+                                    </div>
+                                    {dsExpanded && (
+                                      <div className="mt-2 ml-8 flex flex-col gap-1">
+                                        {ds.versions?.map(v => {
+                                          const vKey = `${ds.id}::${v.id}`;
+                                          const vExpanded = expandedVersionKeys[vKey] ?? ((selectedDatasetVersions[ds.id] || []).includes(v.id));
+                                          const verChecked = (selectedDatasetVersions[ds.id] || []).includes(v.id);
                                           return (
-                                            <label key={v.id} className="flex items-center gap-2">
-                                              <Checkbox
-                                                checked={checked}
-                                                onCheckedChange={(c: boolean) => toggleVersionSelection(ds.id, v.id, !!c)}
-                                              />
-                                              <span>{v.label}</span>
-                                              <span className="text-gray-400">{v.rows} · {v.columns} 字段 · {v.size}</span>
-                                            </label>
+                                            <div key={v.id}>
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setExpandedVersionKeys(prev => ({ ...prev, [vKey]: !vExpanded }))}>
+                                                  {vExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                </Button>
+                                                <Checkbox checked={verChecked} onCheckedChange={(c: boolean) => toggleVersionSelection(ds.id, v.id, !!c)} />
+                                                <span className="text-xs truncate max-w-[18rem]" title={v.label}>{v.label}</span>
+                                                <span className="text-gray-400 text-[11px]">{v.rows} · {v.columns} 字段 · {v.size}</span>
+                                              </div>
+                                              {vExpanded && (v as any).files?.length ? (
+                                                <div className="mt-1 ml-8 flex flex-col gap-1">
+                                                  {(v as any).files.filter((f: any) => ['csv','xlsx'].includes(f.format)).map((f: any) => {
+                                                    const key = `${ds.id}::${v.id}`;
+                                                    const selected = (selectedFilesByVersion[key] || []).includes(f.id);
+                                                    return (
+                                                      <label key={f.id} className="flex items-center gap-2 min-w-0">
+                                                        <Checkbox checked={selected} onCheckedChange={(c: boolean) => toggleFileSelection(ds.id, v.id, f.id, !!c)} />
+                                                        <span className="text-xs truncate max-w-[18rem]" title={f.name}>{f.name}</span>
+                                                        <span className="text-gray-400 text-[11px]">{f.format.toUpperCase()} · {f.size}</span>
+                                                      </label>
+                                                    );
+                                                  })}
+                                                </div>
+                                              ) : null}
+                                            </div>
                                           );
                                         })}
                                       </div>
-                                    </div>
-                                  ) : null)}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {(() => {
-                                    const sel = selectedDatasetVersions[ds.id] || [];
-                                    const activeVerId = activeVersionByDataset[ds.id] || sel[0];
-                                    const ver = ds.versions?.find(v => v.id === activeVerId) || ds.versions?.find(v => v.isDefault) || ds.versions?.[0];
-                                    const rows = ver?.rows || ds.rows;
-                                    const cols = ver?.columns || ds.columns;
-                                    const size = ver?.size || ds.size;
-                                    const suffix = sel.length > 1 ? ` · 已选 ${sel.length} 个版本` : '';
-                                    return `${rows} · ${cols} 字段 · ${size}${suffix}`;
-                                  })()}
-                                </div>
-                              </div>
-                            ))
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1965,66 +2097,60 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                                 return `${rows} 条记录 · ${(datasetFieldSchemas[activeDatasetId!]?.length ?? Number(cols))} 个字段 · ${size}${ver ? ` · 预览版本：${ver.label}` : ''}${suffix}`;
                               })()}
                             </div>
-                            {selectedDataset.versions?.length ? (
-                              <div className="mt-2 text-xs text-gray-600">
-                                <div className="flex items-start gap-4">
-                                  <div className="flex-1">
-                                    <div className="mb-1">选择版本：</div>
-                                    <div className="flex flex-col gap-1">
-                                      {selectedDataset.versions.map(v => {
-                                        const checked = (selectedDatasetVersions[activeDatasetId!] || []).includes(v.id);
-                                        return (
-                                          <label key={v.id} className="flex items-center gap-2">
-                                            <Checkbox
-                                              checked={checked}
-                                              onCheckedChange={(c: boolean) => toggleVersionSelection(activeDatasetId!, v.id, !!c)}
-                                            />
-                                            <span>{v.label}</span>
-                                            <span className="text-gray-400">{v.rows} · {v.columns} 字段 · {v.size}</span>
-                                          </label>
-                                        );
+                            <div className="mt-2 flex items-center gap-3">
+                              <span className="text-xs">预览版本：</span>
+                              {(() => {
+                                const dsId = activeDatasetId!;
+                                const options = (selectedDatasetVersions[dsId] || []);
+                                const curr = activeVersionByDataset[dsId] || options[0];
+                                const dsObj = datasetOptions.find(d => d.id === dsId);
+                                return (
+                                  <Select value={curr} onValueChange={(v: string) => {
+                                    setActiveVersionByDataset(prev => ({ ...prev, [dsId]: v }));
+                                    const key = `${dsId}::${v}`;
+                                    const files = selectedFilesByVersion[key] || [];
+                                    const vObj = dsObj?.versions?.find(x => x.id === v);
+                                    const f0 = files[0] || (vObj as any)?.files?.[0]?.id;
+                                    setActiveFileByVersion(prev => ({ ...prev, [key]: f0 }));
+                                  }}>
+                                    <SelectTrigger className="h-8 w-44">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {options.map(vid => {
+                                        const vobj = dsObj?.versions?.find(v => v.id === vid);
+                                        return <SelectItem key={vid} value={vid}>{vobj?.label || vid}</SelectItem>;
                                       })}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span>预览版本：</span>
-                                    {(() => {
-                                      const options = (selectedDatasetVersions[activeDatasetId!] || []);
-                                      const curr = activeVersionByDataset[activeDatasetId!] || options[0];
-                                      return (
-                                        <Select value={curr} onValueChange={(v: string) => setActiveVersionByDataset(prev => ({ ...prev, [activeDatasetId!]: v }))}>
-                                          <SelectTrigger className="h-8 w-44">
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {options.length > 0 ? options.map(vid => {
-                                              const vv = selectedDataset.versions?.find(x => x.id === vid);
-                                              return <SelectItem key={vid} value={vid}>{vv?.label || vid}</SelectItem>;
-                                            }) : (
-                                              selectedDataset.versions?.map(v => (
-                                                <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>
-                                              ))
-                                            )}
-                                          </SelectContent>
-                                        </Select>
-                                      );
-                                    })()}
-                                  </div>
-                                </div>
-                                {(() => {
-                                  const selVers = selectedDatasetVersions[activeDatasetId!] || [];
-                                  const activeVerId = activeVersionByDataset[activeDatasetId!] || selVers[0];
-                                  const ver = selectedDataset.versions?.find(v => v.id === activeVerId);
-                                  if (!ver) return null;
-                                  return (
-                                    <div className="mt-2 text-[11px] text-gray-500">
-                                      {ver.createdAt ? `创建时间：${ver.createdAt}；` : ''}
-                                      {ver.note ? `说明：${ver.note}` : ''}
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            ) : null}
+                                    </SelectContent>
+                                  </Select>
+                                );
+                              })()}
+                              <span className="text-xs">预览文件：</span>
+                              {(() => {
+                                const dsId = activeDatasetId!;
+                                const verId = activeVersionByDataset[dsId] || (selectedDatasetVersions[dsId] || [])[0];
+                                if (!verId) return <span className="text-[11px] text-gray-500">请选择版本</span>;
+                                const key = `${dsId}::${verId}`;
+                                const fileIds = selectedFilesByVersion[key] || [];
+                                const dsObj = datasetOptions.find(d => d.id === dsId);
+                                const vObj = dsObj?.versions?.find(v => v.id === verId);
+                                const currFile = activeFileByVersion[key] || fileIds[0];
+                                return (
+                                  <Select value={currFile} onValueChange={(fid: string) => setActiveFileByVersion(prev => ({ ...prev, [key]: fid }))}>
+                                    <SelectTrigger className="h-8 w-56">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {(vObj as any)?.files?.filter((f: any) => fileIds.includes(f.id)).map((f: any) => (
+                                        <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                );
+                              })()}
+                            </div>
+                            {/* 去重：底部不再重复版本与文件选择 */}
+                            {/* 去重：底部不再重复文件选择 */}
                             <div className="mt-3">
                               <div className="text-xs font-medium mb-2">数据表预览（原始结构与数据）</div>
                               <div className="rounded-sm border bg-background/60 overflow-x-auto">
@@ -2431,7 +2557,10 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                     </CardContent>
                   </Card>
 
-                  <div className="flex justify-end">
+                  <div className="flex items-center justify-between">
+                    <Button variant="outline" onClick={() => setCurrentStep(0)}>
+                      上一步
+                    </Button>
                     <Button 
                       onClick={() => setCurrentStep(2)}
                       disabled={(selectedDatasetIds.length > 1
