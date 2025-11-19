@@ -47,6 +47,7 @@ interface SelectedDatasetEntry {
   id: string;
   name: string;
   version: string;
+  files?: string[];
 }
 
 interface Task {
@@ -214,6 +215,7 @@ output:
 
   // 数据预览：多数据集切换 & 行数选择 + 增强功能（排序 / 筛选 / 分页 / 列控制）
   const [datasetPreviewIndex, setDatasetPreviewIndex] = useState(0);
+  const [selectedPreviewFile, setSelectedPreviewFile] = useState<string>('');
   // 兼容旧逻辑：保留 previewRowCount，但分页以 itemsPerPage 为准
   const [previewRowCount, setPreviewRowCount] = useState(10);
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -978,6 +980,13 @@ output:
   }, [pageCount, resultPage]);
 
   // 多数据集：不同数据集的示例预览数据与字段元信息（模拟）
+  const versionFilesRegistry: Record<string, string[]> = {
+    'DATA-2025-001@v3.0': ['生产线_主变量.csv', '生产线_协变量_设备功率.csv', '生产线_协变量_环境温度.csv'],
+    'DATA-2025-001@v2.0': ['生产线_主变量.csv', '生产线_协变量_设备功率.csv'],
+    'DATA-2025-001@v1.0': ['生产线_主变量.csv'],
+    'DATA-2025-002@v2.0': ['客户_主变量.csv', '客户_协变量_画像.csv', '客户_交易明细.csv'],
+    'DATA-2025-002@v1.0': ['客户_主变量.csv', '客户_交易明细.csv'],
+  };
   const mockDatasetSamples: Record<string, Array<Record<string, any>>> = {
     'DATA-2025-001': [
       { id: 1001, temperature: 73.2, pressure: 1.02, defect_rate: 0.015, quality_score: 91 },
@@ -1133,6 +1142,15 @@ output:
     if (columnOrderMode === 'desc') return [...cols].sort((a, b) => b.localeCompare(a));
     return cols;
   };
+
+  // 当切换数据集或版本时，预填当前版本的第一个文件为预览文件
+  useEffect(() => {
+    const curDs = task.datasets?.[datasetPreviewIndex];
+    if (!curDs) { setSelectedPreviewFile(''); return; }
+    const key = `${curDs.id}@${curDs.version}`;
+    const files = versionFilesRegistry[key] || curDs.files || [];
+    setSelectedPreviewFile(files[0] || '');
+  }, [datasetPreviewIndex, task.datasets]);
 
   // 列宽拖拽与列顺序拖拽
   const startResize = (col: string, e: React.MouseEvent) => {
@@ -2712,6 +2730,27 @@ output:
                         </Select>
                       </div>
 
+                      {/* 数据文件选择（基于当前数据集版本） */}
+                      <div className="w-56">
+                        {(() => {
+                          const curDs = task.datasets?.[datasetPreviewIndex];
+                          const key = curDs ? `${curDs.id}@${curDs.version}` : '';
+                          const files = key ? (versionFilesRegistry[key] || curDs?.files || []) : [];
+                          return (
+                            <Select value={selectedPreviewFile} onValueChange={(v: string) => setSelectedPreviewFile(v)} disabled={files.length === 0}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="选择数据文件" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {files.map((f) => (
+                                  <SelectItem key={f} value={f}>{f}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          );
+                        })()}
+                      </div>
+
                       <div className="relative">
                         <Search className="h-4 w-4 absolute left-2 top-2 text-gray-400" />
                         <Input className="pl-8 w-40" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} placeholder="搜索行内容" />
@@ -2885,15 +2924,10 @@ output:
               <Card className="transition-all duration-200 hover:shadow-md border-gray-200">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle>因果链条</CardTitle>
-                    <CardDescription>展示特征之间的因果影响关系</CardDescription>
+                    <CardTitle>因果解释图</CardTitle>
+                    <CardDescription>展示影响强度热图与因子贡献对比</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-600">TopN 边</span>
-                      <Input type="range" min={1} max={10} value={topNEdges} onChange={(e) => setTopNEdges(Number(e.target.value))} className="w-32" />
-                      <span className="text-xs text-gray-800 w-6 text-right">{topNEdges}</span>
-                    </div>
                     <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setDeepSeekOpen(true)}>
                       <Brain className="h-4 w-4 mr-2" />
                       大模型预测过程
@@ -2901,64 +2935,99 @@ output:
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    <div className="text-sm font-medium text-gray-700">因果关系示意图（包含影响强度）</div>
-                    <div className="bg-gray-50 rounded-lg p-2 md:p-3">
-                      <svg viewBox="0 0 500 320" className="w-full h-48 md:h-56 lg:h-56 max-h-[50vh]">
-                        {/* edges */}
-                        {[...causalGraph.edges]
-                          .sort((a,b) => b.strength - a.strength)
-                          .slice(0, topNEdges)
-                          .filter((e) => !selectedCausalNode || e.from === selectedCausalNode || e.to === selectedCausalNode)
-                          .map((e, idx) => {
-                          const from = causalGraph.nodes.find(n => n.id === e.from)!;
-                          const to = causalGraph.nodes.find(n => n.id === e.to)!;
-                          const width = 1 + e.strength * 4;
-                          const color = e.strength > 0.5 ? '#0ea5e9' : '#64748b';
-                          return (
-                            <g key={idx}>
-                              {/* 仅显示连接线，不展示箭头 */}
-                              <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={color} strokeWidth={width} />
-                              <text x={(from.x + to.x) / 2} y={(from.y + to.y) / 2 - 6} fontSize="10" fill="#334155">{e.strength.toFixed(2)}</text>
-                            </g>
-                          );
-                        })}
-                        {/* nodes */}
-                        {causalGraph.nodes.map((n) => (
-                          <g key={n.id} className="cursor-pointer" onClick={() => setSelectedCausalNode(selectedCausalNode === n.id ? null : n.id)}>
-                            <circle cx={n.x} cy={n.y} r={selectedCausalNode === n.id ? 22 : 18} fill={selectedCausalNode === n.id ? '#16a34a' : '#1e40af'} />
-                            <text x={n.x} y={n.y + 4} textAnchor="middle" fontSize="12" fill="#fff">{n.id}</text>
-                          </g>
-                        ))}
-                      </svg>
-                      <div className="text-xs text-gray-500">连线颜色/粗细代表影响强度，数值为强度标注；点击节点可查看该特征的因果贡献度</div>
-                    </div>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    <p className="text-sm text-gray-600">解释结果：</p>
-                    <div className="rounded-md bg-gray-50 p-3 text-sm">
-                      缺陷率升高的主要原因是温度参数偏高和设备老化。
-                    </div>
-                    {selectedCausalNode && (
-                      <div className="mt-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-700">{selectedCausalNode} 的因果贡献度（Top {topNEdges}）</p>
-                          <Button size="sm" variant="outline" onClick={() => setSelectedCausalNode(null)}>清空选择</Button>
-                        </div>
-                        <div className="mt-2 space-y-1">
-                          {[...causalGraph.edges]
-                            .filter(e => e.from === selectedCausalNode || e.to === selectedCausalNode)
-                            .sort((a,b) => b.strength - a.strength)
-                            .slice(0, topNEdges)
-                            .map((e, i) => (
-                              <div key={`${selectedCausalNode}-edge-${i}`} className="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1">
-                                <span className="text-gray-700">{e.from} → {e.to}</span>
-                                <span className="font-mono text-gray-900">{e.strength.toFixed(3)}</span>
-                              </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="bg-white border rounded-lg p-3">
+                      <div className="text-sm font-medium text-gray-700 mb-2">影响强度热图</div>
+                      {(() => {
+                        const factorLabels = ['温度_均值','压力_方差','设备功率','环境湿度','质量评分','历史缺陷率','维护间隔','设备老化指数','能耗比','设备震动','生产节拍','人员工时'];
+                        const times: string[] = Array.from({ length: 20 }).map((_, i) => {
+                          const d = new Date(Date.UTC(2025, 0, 16, i, 0, 0));
+                          const hh = String(d.getUTCHours()).padStart(2, '0');
+                          return `${hh}:00`;
+                        });
+                        const rows = times.length;
+                        const cols = factorLabels.length;
+                        const cellW = 24;
+                        const cellH = 14;
+                        const val = (r: number, c: number) => Math.sin(r * 0.25) + Math.cos(c * 0.45);
+                        const toColor = (x: number) => {
+                          const t = Math.max(-2, Math.min(2, x));
+                          const ratio = (t + 2) / 4;
+                          const rr = Math.round(255 * ratio);
+                          const bb = Math.round(255 * (1 - ratio));
+                          return `rgb(${rr},80,${bb})`;
+                        };
+                        const ml = 64;
+                        const mb = 100;
+                        const width = ml + cols * cellW;
+                        const height = mb + rows * cellH;
+                        const xLabel = '影响因子';
+                        const yLabel = '时间窗口';
+                        return (
+                          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-64">
+                            <line x1={ml - 6} y1={0} x2={ml - 6} y2={rows * cellH} stroke="#9ca3af" strokeWidth={1} />
+                            <line x1={ml} y1={rows * cellH + 1} x2={ml + cols * cellW} y2={rows * cellH + 1} stroke="#9ca3af" strokeWidth={1} />
+                            {Array.from({ length: rows }).map((_, r) => (
+                              Array.from({ length: cols }).map((__, c) => (
+                                <rect key={`${r}-${c}`} x={ml + c * cellW} y={r * cellH} width={cellW} height={cellH} fill={toColor(val(r, c))} />
+                              ))
                             ))}
-                        </div>
-                      </div>
-                    )}
+                            {factorLabels.map((name, i) => {
+                              const x = ml + i * cellW + cellW / 2;
+                              const y = rows * cellH + 40;
+                              return (
+                                <text key={`x-${i}`} x={x} y={y} fontSize={10} fill="#6b7280" textAnchor="end" transform={`rotate(-90 ${x} ${y})`} className="select-none">{name}</text>
+                              );
+                            })}
+                            {times.map((t, r) => (
+                              <g key={`y-${r}`}>
+                                <line x1={ml - 10} y1={r * cellH + cellH / 2} x2={ml - 6} y2={r * cellH + cellH / 2} stroke="#9ca3af" strokeWidth={1} />
+                                <text x={ml - 12} y={r * cellH + cellH / 2 + 3} fontSize={10} fill="#6b7280" textAnchor="end" className="select-none">{t}</text>
+                              </g>
+                            ))}
+                            <text x={ml + (cols * cellW) / 2} y={rows * cellH + mb - 2} fontSize={12} fill="#374151" textAnchor="middle" className="select-none">{xLabel}</text>
+                            <text x={18} y={(rows * cellH) / 2} fontSize={12} fill="#374151" textAnchor="middle" transform={`rotate(-90 18 ${(rows * cellH) / 2})`} className="select-none">{yLabel}</text>
+                          </svg>
+                        );
+                      })()}
+                    </div>
+                    <div className="bg-white border rounded-lg p-3">
+                      <div className="text-sm font-medium text-gray-700 mb-2">影响因子贡献对比</div>
+                      {(() => {
+                        const data = [
+                          { name: '温度_均值', score: -74.4 },
+                          { name: '压力_方差', score: 85.1 },
+                          { name: '设备功率', score: 42.6 },
+                          { name: '环境湿度', score: -12.8 },
+                          { name: '质量评分', score: 61.7 },
+                          { name: '历史缺陷率', score: -51.7 },
+                          { name: '维护间隔', score: 27.9 },
+                        ];
+                        const maxAbs = Math.max(...data.map(d => Math.abs(d.score))) || 1;
+                        const w = 520;
+                        const h = 260;
+                        const x0 = w / 2;
+                        const rowH = 30;
+                        return (
+                          <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-64">
+                            <line x1={x0} y1={10} x2={x0} y2={h - 10} stroke="#9ca3af" strokeWidth={1} />
+                            {data.map((d, i) => {
+                              const len = Math.round((Math.abs(d.score) / maxAbs) * (w / 2 - 40));
+                              const y = 20 + i * rowH;
+                              const color = d.score >= 0 ? '#22c55e' : '#ef4444';
+                              const x = d.score >= 0 ? x0 : x0 - len;
+                              return (
+                                <g key={d.name}>
+                                  <text x={10} y={y + 12} fontSize={12} fill="#374151">{d.name}</text>
+                                  <rect x={x} y={y} width={len} height={18} fill={color} rx={3} />
+                                  <text x={d.score >= 0 ? x + len + 6 : x - 34} y={y + 12} fontSize={12} fill="#374151">{d.score.toFixed(1)}</text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -2977,18 +3046,7 @@ output:
                         ))}
                       </ul>
                     </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-700 mb-2">特征权重分析（Top Features）</div>
-                      <ChartContainer className="h-56" config={{ weight: { label: 'Weight', color: 'hsl(210 90% 55%)' } }}>
-                        <BarChart data={featureWeights} margin={{ left: 12, right: 12 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="feature" tickLine={false} />
-                          <YAxis tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
-                          <Bar dataKey="weight" fill="var(--color-weight)" />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                        </BarChart>
-                      </ChartContainer>
-                    </div>
+                    {/* 特征权重分析已移除 */}
                     <div>
                       <div className="text-sm font-medium text-gray-700 mb-2">决策路径可视化</div>
                       <div className="flex flex-wrap items-center gap-2 bg-gray-50 rounded-lg p-3">

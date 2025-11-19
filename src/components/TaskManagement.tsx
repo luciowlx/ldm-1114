@@ -42,7 +42,8 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Checkbox } from './ui/checkbox';
+  import { Checkbox } from './ui/checkbox';
+  import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
@@ -115,6 +116,7 @@ interface SelectedDatasetEntry {
   id: string;
   name: string;
   version: string;
+  files?: string[];
 }
 
 // 任务接口定义
@@ -191,6 +193,7 @@ interface DatasetVersion {
   size: string;
   fieldCount: number;
   sampleCount: number;
+  files?: string[];
 }
 
 // 输出配置：分类任务平均方式
@@ -272,6 +275,7 @@ interface FormData {
   selectedDataset: DatasetInfo | null; // 新增：选中的数据集详细信息
   // 新增：多数据集（含版本）已选列表
   selectedDatasets: SelectedDatasetEntry[];
+  selectedFiles: string[];
   modelName: string;
   models: string[]; // 支持多模型选择
   modelSelectionMode: 'single' | 'multiple'; // 新增：模型选择模式
@@ -397,9 +401,10 @@ interface FormData {
     taskType: TASK_TYPES.forecasting,
     projectId: '',
     datasetName: '',
-  datasetVersion: '',
-  selectedDataset: null,
-  selectedDatasets: [],
+    datasetVersion: '',
+    selectedDataset: null,
+    selectedDatasets: [],
+    selectedFiles: [],
   modelName: '',
   models: [],
   modelSelectionMode: 'multiple',
@@ -568,7 +573,8 @@ interface FormData {
           description: '修复数据质量问题，增加新特征',
           size: '2.5MB',
           fieldCount: 15,
-          sampleCount: 10000
+          sampleCount: 10000,
+          files: ['生产线_主变量.csv', '生产线_协变量_设备功率.csv', '生产线_协变量_环境温度.csv']
         },
         {
           version: 'v2.0',
@@ -576,7 +582,8 @@ interface FormData {
           description: '数据清洗优化，移除异常值',
           size: '2.3MB',
           fieldCount: 14,
-          sampleCount: 9800
+          sampleCount: 9800,
+          files: ['生产线_主变量.csv', '生产线_协变量_设备功率.csv']
         },
         {
           version: 'v1.0',
@@ -584,7 +591,8 @@ interface FormData {
           description: '初始版本',
           size: '2.1MB',
           fieldCount: 12,
-          sampleCount: 9500
+          sampleCount: 9500,
+          files: ['生产线_主变量.csv']
         }
       ],
       previewData: [
@@ -614,7 +622,8 @@ interface FormData {
           description: '增加用户画像特征',
           size: '5.2MB',
           fieldCount: 20,
-          sampleCount: 25000
+          sampleCount: 25000,
+          files: ['客户_主变量.csv', '客户_协变量_画像.csv', '客户_交易明细.csv']
         },
         {
           version: 'v1.0',
@@ -622,7 +631,8 @@ interface FormData {
           description: '基础行为数据',
           size: '4.8MB',
           fieldCount: 18,
-          sampleCount: 23000
+          sampleCount: 23000,
+          files: ['客户_主变量.csv', '客户_交易明细.csv']
         }
       ],
       previewData: [
@@ -1151,6 +1161,15 @@ interface FormData {
       }
     }
 
+    // 当前选择的数据版本若存在文件列表，则要求至少选择一个文件
+    if (formData.selectedDataset && formData.datasetVersion) {
+      const ver = formData.selectedDataset.versions.find(v => v.version === formData.datasetVersion);
+      const files = (ver?.files && ver.files.length > 0) ? ver.files : (formData.selectedDataset.files || []);
+      if (files.length > 0 && (!formData.selectedFiles || formData.selectedFiles.length === 0)) {
+        errors.datasetFiles = '请选择至少一个数据文件';
+      }
+    }
+
     // 特征字段验证（可选）
     if (formData.targetFields.length > 10) {
       errors.targetFields = '最多只能选择10个特征字段';
@@ -1493,7 +1512,8 @@ interface FormData {
       const newEntry: SelectedDatasetEntry = {
         id: current.id,
         name: current.name,
-        version: formData.datasetVersion
+        version: formData.datasetVersion,
+        files: prev.selectedFiles && prev.selectedFiles.length > 0 ? [...prev.selectedFiles] : undefined
       };
       if (existsIdx >= 0) {
         nextList[existsIdx] = newEntry; // 更新版本
@@ -1544,7 +1564,8 @@ interface FormData {
       ...prev,
       datasetName: ds.id, // 注意：选择器使用的是数据集ID
       selectedDataset: ds,
-      datasetVersion: sd?.version || (ds.versions?.[0]?.version ?? '')
+      datasetVersion: sd?.version || (ds.versions?.[0]?.version ?? ''),
+      selectedFiles: sd?.files || []
     }));
   };
 
@@ -2793,7 +2814,10 @@ interface FormData {
                         </Label>
                         <Select 
                           value={formData.datasetVersion} 
-                          onValueChange={(value: string) => handleInputChange('datasetVersion', value)}
+                          onValueChange={(value: string) => {
+                            handleInputChange('datasetVersion', value);
+                            handleInputChange('selectedFiles', []);
+                          }}
                           disabled={!formData.datasetName}
                         >
                           <SelectTrigger className={formErrors.datasetVersion ? 'border-red-500' : ''}>
@@ -2820,6 +2844,54 @@ interface FormData {
                         </Select>
                         {formErrors.datasetVersion && (
                           <p className="text-sm text-red-500 mt-1">{formErrors.datasetVersion}</p>
+                        )}
+                        {/* 数据文件选择（版本下的文件，支持多选） */}
+                        {formData.selectedDataset && formData.datasetVersion && (
+                          <div className="mt-3">
+                            <Label className="flex items-center space-x-1">
+                              <span>数据文件选择</span>
+                              <span className="text-xs text-gray-500">（可多选）</span>
+                            </Label>
+                            {(() => {
+                              const ver = formData.selectedDataset?.versions?.find(v => v.version === formData.datasetVersion);
+                              const files = (ver?.files && ver.files.length > 0) ? ver.files : (formData.selectedDataset.files || []);
+                              const allChecked = files.length > 0 && files.every(f => formData.selectedFiles.includes(f));
+                              return (
+                                <div className="mt-2 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Button type="button" size="sm" variant="outline" onClick={() => handleInputChange('selectedFiles', files)}>全选</Button>
+                                    <Button type="button" size="sm" variant="ghost" onClick={() => handleInputChange('selectedFiles', [])}>清空</Button>
+                                    <span className="text-xs text-gray-500">{formData.selectedFiles.length} / {files.length} 已选</span>
+                                  </div>
+                                  <ScrollArea className="max-h-40 border rounded-md">
+                                    <div className="p-2 space-y-1">
+                                      {files.map((file) => (
+                                        <label key={file} className="flex items-center gap-2 text-sm">
+                                          <Checkbox
+                                            checked={formData.selectedFiles.includes(file)}
+                                            onCheckedChange={(checked) => {
+                                              const isChecked = Boolean(checked);
+                                              const current = formData.selectedFiles;
+                                              const next = isChecked ? Array.from(new Set([...current, file])) : current.filter(f => f !== file);
+                                              handleInputChange('selectedFiles', next);
+                                            }}
+                                          />
+                                          <span className="truncate" title={file}>{file}</span>
+                                        </label>
+                                      ))}
+                                      {files.length === 0 && (
+                                        <div className="text-xs text-gray-500">当前版本暂无文件</div>
+                                      )}
+                                    </div>
+                                  </ScrollArea>
+                                  {/* 校验提示（可选） */}
+                                  {formErrors.datasetFiles && (
+                                    <p className="text-xs text-red-500">{formErrors.datasetFiles}</p>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
                         )}
                         {/* 添加到已选数据集列表 */}
                         <div className="mt-3">

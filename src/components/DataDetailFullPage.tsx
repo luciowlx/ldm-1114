@@ -5,6 +5,8 @@ import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { ScrollArea } from "./ui/scroll-area";
 import { Input } from "./ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
@@ -101,8 +103,8 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
   const [selectedRows, setSelectedRows] = useState(20);
   // 新增：表格过滤相关状态
   const [missingOnly, setMissingOnly] = useState(false);
-  const [uniqueOnly, setUniqueOnly] = useState(false);
-  const [uniqueField, setUniqueField] = useState<keyof DataRow>("Cabin");
+  const [uniqueOnly, setUniqueOnly] = useState(true);
+  const [uniqueFields, setUniqueFields] = useState<(keyof DataRow)[]>([]);
   // 新增：用于“点击标签快速定位”——选择具体缺失字段
   const [missingField, setMissingField] = useState<keyof DataRow | null>(null);
   // 新增：基本信息与权限控制
@@ -226,6 +228,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
 
   // 所有变量
   const allVariables = ["PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"];
+  useEffect(() => { setUniqueFields(allVariables as (keyof DataRow)[]); }, []);
   
   // 只包含数值型变量
   const numericVariables = ["PassengerId", "Survived", "Pclass", "Age", "SibSp", "Parch", "Fare"];
@@ -456,20 +459,28 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
         return rowHasMissing(row);
       });
     }
-    if (uniqueOnly && uniqueField) {
-      const counts = new Map<string, number>();
+    if (uniqueOnly && uniqueFields && uniqueFields.length > 0) {
+      const countsByField: Record<string, Map<string, number>> = {};
+      uniqueFields.forEach((f) => { countsByField[String(f)] = new Map<string, number>(); });
       previewRows.forEach((row) => {
-        const raw = row[uniqueField];
-        const val = raw === null || raw === undefined ? "" : typeof raw === "string" ? raw.trim() : String(raw);
-        if (val !== "" && !(typeof raw === "number" && Number.isNaN(raw))) {
-          counts.set(val, (counts.get(val) || 0) + 1);
-        }
+        uniqueFields.forEach((f) => {
+          const raw = row[f];
+          const val = raw === null || raw === undefined ? "" : typeof raw === "string" ? raw.trim() : String(raw);
+          if (val !== "" && !(typeof raw === "number" && Number.isNaN(raw))) {
+            const mp = countsByField[String(f)];
+            mp.set(val, (mp.get(val) || 0) + 1);
+          }
+        });
       });
       data = data.filter((row) => {
-        const raw = row[uniqueField];
-        const val = raw === null || raw === undefined ? "" : typeof raw === "string" ? raw.trim() : String(raw);
-        if (val === "" || (typeof raw === "number" && Number.isNaN(raw))) return false;
-        return (counts.get(val) || 0) === 1;
+        // 行满足：在所选任一字段上，其值在全体中唯一（OR 逻辑）
+        return uniqueFields.some((f) => {
+          const raw = row[f];
+          const val = raw === null || raw === undefined ? "" : typeof raw === "string" ? raw.trim() : String(raw);
+          if (val === "" || (typeof raw === "number" && Number.isNaN(raw))) return false;
+          const mp = countsByField[String(f)];
+          return (mp.get(val) || 0) === 1;
+        });
       });
     }
     return data;
@@ -688,19 +699,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
 
               {/* 描述 + 标签 */}
               <div className="col-span-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">描述</div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => canEditDesc ? setIsEditingDesc(true) : null}
-                    disabled={!canEditDesc}
-                    className={!canEditDesc ? "opacity-50 cursor-not-allowed" : ""}
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    编辑
-                  </Button>
-                </div>
+                <div className="text-sm text-gray-600">描述</div>
                 {!isEditingDesc ? (
                   <div className="text-gray-800">{editableDesc}</div>
                 ) : (
@@ -774,19 +773,7 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                     ))}
                   </SelectContent>
                 </Select>
-                <span className="text-sm text-gray-600">选择要查看的记录数:</span>
-                <Select value={selectedRows.toString()} onValueChange={(value: string) => setSelectedRows(Number(value))}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-gray-600">条/页</span>
+                
                 {/* 按钮改为两个：缺失值 与 唯一值（可叠加），并添加字段选择器 */}
                 <Button
                   variant="outline"
@@ -798,27 +785,6 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                   缺失值
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setUniqueOnly((prev) => !prev)}
-                  className={uniqueOnly ? "bg-orange-50 border-orange-500 text-orange-600" : ""}
-                >
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  唯一值
-                </Button>
-                {/* 新增：字段选择（用于唯一值过滤）；缺失值过滤也支持按字段 */}
-                <Select value={uniqueField as string} onValueChange={(value: string) => setUniqueField(value as keyof DataRow)}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="选择字段" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allVariables.map((v) => (
-                      <SelectItem key={v} value={v}>{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {/* 缺失分析可视化切换按钮（显眼位置，保持风格） */}
-                <Button
                   size="sm"
                   onClick={() => setPreviewVisualMode('missing')}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -827,6 +793,52 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
                   <BarChart3 className="h-4 w-4 mr-2" />
                   缺失分析可视化
                 </Button>
+                {/* 唯一值筛选合并组件：默认全选，支持按字段多选 */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={uniqueOnly ? "bg-orange-50 border-orange-500 text-orange-600" : ""}
+                    >
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      唯一值
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuLabel>选择字段（默认全选）</DropdownMenuLabel>
+                    <div className="px-2 py-1.5 text-xs text-gray-500">选中字段中任一字段的值在全体中唯一时保留该行</div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setUniqueFields(allVariables as (keyof DataRow)[]); setUniqueOnly(true); }}>
+                      全选
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setUniqueFields([]); setUniqueOnly(false); }}>
+                      清空
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <ScrollArea className="max-h-48">
+                        {allVariables.map((v) => (
+                          <DropdownMenuCheckboxItem
+                            key={v}
+                            checked={uniqueFields.includes(v as keyof DataRow)}
+                            onCheckedChange={(checked) => {
+                              const isChecked = Boolean(checked);
+                              const k = v as keyof DataRow;
+                              setUniqueFields((prev) => {
+                                const next = isChecked ? Array.from(new Set([...(prev || []), k])) : (prev || []).filter((x) => x !== k);
+                                setUniqueOnly(next.length > 0);
+                                return next;
+                              });
+                            }}
+                          >
+                            {v}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </ScrollArea>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 {/* 将与当前版本相关的操作按钮放置在此，明确作用对象为当前预览版本 */}
                 {/* 操作按钮已移至下方第二行，避免与筛选控件拥挤 */}
               </div>
@@ -1040,6 +1052,24 @@ export function DataDetailFullPage({ dataset, onClose, initialTab }: DataDetailF
               </Table>
             </div>
           </CardContent>
+          {/* 表格下方：记录数选择器 */}
+          <div className="px-6 pb-6">
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-sm text-gray-600">选择要查看的记录数:</span>
+              <Select value={selectedRows.toString()} onValueChange={(value: string) => setSelectedRows(Number(value))}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-gray-600">条/页</span>
+            </div>
+          </div>
         </Card>
       ) : (
         <Card className="fade-in">

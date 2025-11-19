@@ -39,6 +39,30 @@
   - 涉及文件：`src/components/DataPreprocessing.tsx`
   - 说明/验证：底部仅显示单一预览区域，页面布局稳定。
 
+- [Tweak/DataDetail/UI] 移除数据详情页编辑按钮；将“记录数选择器”移动到数据表下方；将“缺失值”和“缺失分析可视化”按钮分组。
+  - 涉及文件：`src/components/DataDetailFullPage.tsx`
+  - 说明/验证：进入“数据管理 → 数据集详情分析”，顶栏不再显示“编辑”；数据表下方显示记录数选择器；按钮分组后交互正常、无报错。
+
+- [Feature/DataDetail/Filter] 合并“唯一值”和“字段选择”为一个多选筛选组件，默认全选并按任一选中字段的唯一值进行过滤；修复复选框溢出展示异常（加入滚动区域）。
+  - 涉及文件：`src/components/DataDetailFullPage.tsx`
+  - 说明/验证：打开“唯一值”筛选下拉，可多选字段；默认全选；长列表出现滚动条；过滤逻辑按 OR 生效，页面渲染正常。
+
+- [Feature/TaskManagement/UI] 任务创建第一步增加“数据文件选择”（在选择数据集与版本后可选该版本下的文件，支持多文件）。
+  - 涉及文件：`src/components/TaskManagement.tsx`
+  - 说明/验证：在“创建任务 → Step 1”选择数据集与版本后出现文件下拉；至少选择一个文件（若该版本存在文件）；切换版本时联动刷新文件列表。
+
+- [Feature/TaskDetail/Preview] 任务详情数据预览顶部在版本选择基础上新增“数据文件选择”，与任务创建保持一致的联动逻辑。
+  - 涉及文件：`src/components/TaskDetailFullPage.tsx`
+  - 说明/验证：在“任务详情 → 数据预览”栏，版本与文件选择联动；切换文件后预览数据随之更新。
+
+- [Feature/TaskDetail/Visualization] 因果关系示意图替换为“因果解释图”，包含左侧影响强度热图与右侧因子贡献对比柱状图；为热图补充 x/y 轴标签与具体因子/时间标签，优化前端 mock 数据；修复因子标签重叠（改为纵向显示）。
+  - 涉及文件：`src/components/TaskDetailFullPage.tsx`
+  - 说明/验证：进入“任务详情 → 因果解释图”，左侧显示 20×N 的热图，x 轴为“影响因子”纵向标签，y 轴为“时间窗口”水平标签；右侧柱状图以红/绿区分负/正贡献；页面无报错。
+
+- [Remove/Modal/UI] 大模型预测过程弹窗移除“特征权重分析”模块，仅保留关键节点与决策路径可视化。
+  - 涉及文件：`src/components/TaskDetailFullPage.tsx`
+  - 说明/验证：打开预测过程弹窗，不再显示特征权重区域；剩余内容正常渲染。
+
 ### 2025-11-14
 - [Feat/SystemManagement/TaskEngine] 在“系统管理”增加“任务引擎”子菜单，集成任务模板管理（使用 HtmlConfigManagement 页面作为引擎模板与三分栏编辑器）。
   - 涉及文件：`src/components/SystemManagement.tsx`、`src/components/HtmlConfigManagement.tsx`
