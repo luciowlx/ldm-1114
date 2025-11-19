@@ -67,6 +67,10 @@
   - 涉及文件：`src/components/TaskDetailFullPage.tsx`
   - 说明/验证：进入“任务详情 → 因果解释”，点击右上角“导出解释数据”后浏览器下载 CSV；可在表头看到当前因子标签，数据行为 0~1 的得分。
 
+- [Feature/DataManagement/QueryDialog] 顶栏“查询”改为弹窗，提供“标签/格式”两个多选筛选项；应用后与列表联动展示。
+  - 涉及文件：`src/components/DataManagement.tsx`
+  - 说明/验证：点击“查询”弹窗可多选标签与格式；点击“应用”后列表按所选标签与格式过滤；“重置”清空选择。
+
 ### 2025-11-14
 - [Feat/SystemManagement/TaskEngine] 在“系统管理”增加“任务引擎”子菜单，集成任务模板管理（使用 HtmlConfigManagement 页面作为引擎模板与三分栏编辑器）。
   - 涉及文件：`src/components/SystemManagement.tsx`、`src/components/HtmlConfigManagement.tsx`

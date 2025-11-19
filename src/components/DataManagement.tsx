@@ -217,7 +217,8 @@ export function DataManagement({
     rowsRange: [0, 1000000] as [number, number],
     dateRange: null as DateRange | null,
     tagQuery: '' as string,
-    formats: [] as string[]
+    formats: [] as string[],
+    tags: [] as string[]
   });
 
   // 已移除高级筛选弹窗开关；保留 advancedFilters 作为顶部控件的即时筛选状态
@@ -226,6 +227,9 @@ export function DataManagement({
   // 状态列头筛选已移除
   const [columnFilterTags, setColumnFilterTags] = useState<string[]>([]);
   const [columnFilterFormat, setColumnFilterFormat] = useState<string[]>([]);
+  const [isQueryDialogOpen, setIsQueryDialogOpen] = useState(false);
+  const [querySelectedTags, setQuerySelectedTags] = useState<string[]>([]);
+  const [querySelectedFormats, setQuerySelectedFormats] = useState<string[]>([]);
   
   const [isTagsColFilterOpen, setIsTagsColFilterOpen] = useState(false);
   const [isFormatColFilterOpen, setIsFormatColFilterOpen] = useState(false);
@@ -602,6 +606,7 @@ export function DataManagement({
         rowsCount >= advancedFilters.rowsRange[0] && rowsCount <= advancedFilters.rowsRange[1] &&
         (!advancedFilters.tagQuery || dataset.tags.some(t => t.name.toLowerCase().includes(advancedFilters.tagQuery.toLowerCase()))) &&
     (advancedFilters.formats.length === 0 || (dataset.formats || []).some(f => advancedFilters.formats.map(s => s.toLowerCase()).includes((f || '').toLowerCase()))) &&
+        (advancedFilters.tags.length === 0 || dataset.tags.some(t => advancedFilters.tags.includes(t.name))) &&
     matchesFormatColumn &&
         matchesDateRange;
 
@@ -855,7 +860,7 @@ export function DataManagement({
    * 为了确保一次渲染触发，这里会对 advancedFilters 进行一次浅拷贝赋值。
    */
   const handleApplyQuery = () => {
-    setAdvancedFilters(prev => ({ ...prev }));
+    setIsQueryDialogOpen(true);
   };
 
   // 新增：按状态的操作函数
@@ -1008,14 +1013,14 @@ export function DataManagement({
           
           {/* 已移除排序字段下拉框（名称/大小/行数），列表统一按更新时间倒序显示 */}
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleApplyQuery}
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            {t('data.filter.query')}
-          </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleApplyQuery}
+        >
+          <Filter className="h-4 w-4 mr-2" />
+          {t('data.filter.query')}
+        </Button>
           
           <Button
             variant="outline"
@@ -1026,6 +1031,53 @@ export function DataManagement({
           </Button>
         </div>
       </div>
+      <Dialog open={isQueryDialogOpen} onOpenChange={setIsQueryDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>查询</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div>
+              <p className="text-sm text-gray-600 mb-2">标签</p>
+              <div className="grid grid-cols-2 gap-2">
+                {availableTags.map((tag) => (
+                  <label key={tag} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={querySelectedTags.includes(tag)}
+                      onChange={(e) => {
+                        setQuerySelectedTags((prev) => e.target.checked ? [...prev, tag] : prev.filter(tg => tg !== tag));
+                      }}
+                    />
+                    <span>{tag}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 mb-2">格式</p>
+              <div className="grid grid-cols-2 gap-2">
+                {availableFormats.map((fmt) => (
+                  <label key={fmt} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={querySelectedFormats.includes(fmt)}
+                      onChange={(e) => {
+                        setQuerySelectedFormats((prev) => e.target.checked ? [...prev, fmt] : prev.filter(f => f !== fmt));
+                      }}
+                    />
+                    <span>{fmt}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setQuerySelectedTags([]); setQuerySelectedFormats([]); }}>重置</Button>
+              <Button onClick={() => { setAdvancedFilters(prev => ({ ...prev, tags: querySelectedTags, formats: querySelectedFormats })); setIsQueryDialogOpen(false); }}>应用</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 操作工具栏 */}
       <div className="flex justify-between items-center">
