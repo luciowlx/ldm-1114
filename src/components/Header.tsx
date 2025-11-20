@@ -46,7 +46,7 @@ export function Header({ activeTab, onTabChange, onOpenPersonalCenter, onOpenPer
             <span className="text-white font-bold text-sm">Q</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-xl font-medium">Limix</span>
+            <span className="text-xl font-medium">LimiX</span>
             <span className="text-xs text-slate-400">{t("app.subtitle")}</span>
           </div>
         </div>

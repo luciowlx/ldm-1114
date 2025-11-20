@@ -22,6 +22,11 @@
 
 ## 变更历史
 
+### 2025-11-20
+- [Chore/Branding] 系统名称与英文统一为“LimiX通用数据分析平台 / LimiX General Data Analytics Platform”，更新浏览器标题与页眉品牌展示。
+  - 涉及文件：`src/i18n/LanguageContext.tsx`、`src/components/Header.tsx`、`src/components/Dashboard.tsx`、`index.html`
+  - 说明/验证：切换语言时标题与副标题一致；首页显示“LimiX通用数据分析平台”；`npm run build` 构建通过。
+
 ### 2025-11-19
 - [Feat/DataPreprocessing/UI] 底部新增“预览版本/文件”选择器，支持在多数据集、版本、文件间快速切换预览。
   - 涉及文件：`src/components/DataPreprocessing.tsx`
@@ -759,3 +764,6 @@
     - `assistant.input.placeholder`（作为 `assistant.placeholder.input` 的别名）
     - `assistant.quick.analysis` 及 `assistant.quick.*.plan`
   - 验证：`npm run dev` 启动 Vite（端口 3002），在助手与通知中心页面切换中英文，文案正常、布局无异常；控制台与终端无报错。
+- [Chore/Branding] 统一系统名称与副标题：中文为“LimiX通用数据分析平台”，英文为“LimiX General Data Analytics Platform”；顶部品牌文字更新为“LimiX”；静态回退标题同步更新。
+  - 涉及文件：`src/i18n/LanguageContext.tsx`、`src/components/Header.tsx`、`src/components/Dashboard.tsx`、`index.html`
+  - 说明/验证：切换中英文时浏览器 Tab 标题与页眉副标题均正确显示；首页标题显示“LimiX通用数据分析平台”；构建通过。

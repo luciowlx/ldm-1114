@@ -4,8 +4,8 @@ export type Lang = "zh" | "en";
 
 const messages: Record<Lang, Record<string, string>> = {
   zh: {
-    "app.title": "LimiX智能平台",
-    "app.subtitle": "大模型机器学习平台",
+    "app.title": "LimiX通用数据分析平台",
+    "app.subtitle": "通用数据分析平台",
     "nav.dashboard": "看板",
     "nav.project": "项目管理",
     "nav.data": "数据管理",
@@ -696,8 +696,8 @@ const messages: Record<Lang, Record<string, string>> = {
     "versionDetail.source.cleaning": "清洗",
   },
   en: {
-    "app.title": "Limix AI-powered ML Platform",
-    "app.subtitle": "AI-powered ML Platform",
+    "app.title": "LimiX General Data Analytics Platform",
+    "app.subtitle": "General Data Analytics Platform",
     "nav.dashboard": "Dashboard",
     "nav.project": "Projects",
     "nav.data": "Data",
