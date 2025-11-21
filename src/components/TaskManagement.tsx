@@ -2195,7 +2195,7 @@ interface FormData {
     <div className="p-6 space-y-6">
       {/* 操作栏 */}
       <div className="flex justify-between items-center gap-4 flex-wrap md:flex-nowrap">
-        {/* 左侧：顶栏快速筛选（搜索 / 数据集名称 / 日期范围） */}
+        {/* 左侧：顶栏快速筛选（搜索 / 任务类型 / 日期范围） */}
         <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
           {/* 搜索 */}
           <Input
@@ -2205,53 +2205,18 @@ interface FormData {
             className="w-[240px] md:w-[280px]"
           />
 
-          {/* 数据集名称（多选） */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-[240px] md:w-[260px] justify-start">
-                {filters.datasetNames.length === 0
-                  ? '筛选数据集'
-                  : `${filters.datasetNames.slice(0, 2).join(', ')}${filters.datasetNames.length > 2 ? ` +${filters.datasetNames.length - 2}` : ''}`}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[300px] p-0">
-              <Command>
-                <CommandInput
-                  placeholder="搜索数据集..."
-                  value={datasetFilterQuery}
-                  onValueChange={setDatasetFilterQuery}
-                />
-                <CommandList>
-                  <CommandEmpty>未找到数据集</CommandEmpty>
-                  <CommandGroup>
-                    {datasetOptions
-                      .filter((name) => !datasetFilterQuery || name.toLowerCase().includes(datasetFilterQuery.toLowerCase()))
-                      .map((name) => (
-                        <CommandItem
-                          key={name}
-                          onSelect={() => {
-                            const cur = filters.datasetNames || [];
-                            const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
-                            handleFilterChange('datasetNames', next);
-                          }}
-                        >
-                          <Checkbox
-                            checked={filters.datasetNames.includes(name)}
-                            onCheckedChange={() => {
-                              const cur = filters.datasetNames || [];
-                              const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
-                              handleFilterChange('datasetNames', next);
-                            }}
-                            className="mr-2"
-                          />
-                          <span>{name}</span>
-                        </CommandItem>
-                      ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          {/* 任务类型（移至顶栏） */}
+          <Select value={filters.taskType} onValueChange={(value: string) => handleFilterChange('taskType', value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="任务类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部类型</SelectItem>
+              {Array.from(ALLOWED_TASK_TYPES).map((tt) => (
+                <SelectItem key={tt} value={tt}>{getTaskTypeLabel(tt as TaskType)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* 日期范围 */}
           <Popover>
@@ -4563,43 +4528,8 @@ interface FormData {
                       </div>
                     </TableHead>
                     <TableHead>任务ID</TableHead>
-                    {/* 列头筛选：任务类型 */}
-                    <TableHead>
-                      <div className="flex items-center gap-1">
-                        <span>任务类型</span>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className={`p-1 h-6 w-6 ${filters.taskType !== 'all' ? 'text-blue-600' : 'text-gray-400'}`}
-                              aria-label="任务类型筛选"
-                            >
-                              <Filter className="h-3 w-3" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent align="start" className="w-44">
-                            <div className="space-y-2">
-                              <Label className="text-xs">任务类型</Label>
-                              <Select value={filters.taskType} onValueChange={(value: string) => handleFilterChange('taskType', value)}>
-                                <SelectTrigger className="h-8">
-                                  <SelectValue placeholder="全部类型" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="all">全部类型</SelectItem>
-                                  {Array.from(ALLOWED_TASK_TYPES).map((tt) => (
-                                    <SelectItem key={tt} value={tt}>{getTaskTypeLabel(tt as TaskType)}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <div className="flex justify-end">
-                                <Button variant="outline" size="sm" className="h-8" onClick={() => handleFilterChange('taskType', 'all')}>清空</Button>
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </TableHead>
+                    {/* 列头：任务类型（筛选已移至顶栏）*/}
+                    <TableHead>任务类型</TableHead>
 
                     {/* 列头筛选：所属项目 */}
                     <TableHead>
@@ -4638,7 +4568,62 @@ interface FormData {
                         </Popover>
                       </div>
                     </TableHead>
-                    <TableHead>数据集</TableHead>
+                    {/* 列头筛选：数据集（多选）*/}
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        <span>数据集</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`p-1 h-6 w-6 ${filters.datasetNames && filters.datasetNames.length > 0 ? 'text-blue-600' : 'text-gray-400'}`}
+                              aria-label="数据集筛选"
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => e.stopPropagation()}
+                            >
+                              <Filter className="h-3 w-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-[300px] p-0">
+                            <Command>
+                              <CommandInput
+                                placeholder="搜索数据集..."
+                                value={datasetFilterQuery}
+                                onValueChange={setDatasetFilterQuery}
+                              />
+                              <CommandList>
+                                <CommandEmpty>未找到数据集</CommandEmpty>
+                                <CommandGroup>
+                                  {datasetOptions
+                                    .filter((name) => !datasetFilterQuery || name.toLowerCase().includes(datasetFilterQuery.toLowerCase()))
+                                    .map((name) => (
+                                      <CommandItem
+                                        key={name}
+                                        onSelect={() => {
+                                          const cur = filters.datasetNames || [];
+                                          const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
+                                          handleFilterChange('datasetNames', next);
+                                        }}
+                                      >
+                                        <Checkbox
+                                          checked={filters.datasetNames.includes(name)}
+                                          onCheckedChange={() => {
+                                            const cur = filters.datasetNames || [];
+                                            const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
+                                            handleFilterChange('datasetNames', next);
+                                          }}
+                                          className="mr-2"
+                                        />
+                                        <span>{name}</span>
+                                      </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </TableHead>
                     {/* 列头筛选：模型（多选，复用原筛选面板的 Command 列表）*/}
                     <TableHead>
                       <div className="flex items-center gap-1">

@@ -22,6 +22,11 @@
 
 ## 变更历史
 
+### 2025-11-21
+- [Tweak/TaskManagement/Filters] 任务管理筛选入口调整：将“任务类型”筛选迁移到顶部工具栏，将“数据集”筛选迁移到任务列表表格的列头 Popover（支持多选与搜索）。
+  - 涉及文件：`src/components/TaskManagement.tsx`
+  - 说明/验证：运行 `npm run dev`，在任务管理页顶部可直接选择任务类型；在“数据集”列表列头点击过滤图标弹出多选筛选，应用后列表即时过滤；与搜索、模型、优先级、状态、日期范围联动正常。
+
 ### 2025-11-20
 - [Chore/Branding] 系统名称与英文统一为“LimiX通用数据分析平台 / LimiX General Data Analytics Platform”，更新浏览器标题与页眉品牌展示。
   - 涉及文件：`src/i18n/LanguageContext.tsx`、`src/components/Header.tsx`、`src/components/Dashboard.tsx`、`index.html`

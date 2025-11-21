@@ -425,20 +425,25 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
     return def?.id;
   };
 
-  // 计算当前已选择的数据源（数据集-版本对），用于多源/多版本判断
+  // 计算当前已选择的来源（数据集-版本/文件），用于多源判断
   const selectedSourcesForView = useMemo(() => {
-    const arr: Array<{ id: string; verId: string }> = [];
+    const arr: Array<{ id: string; verId: string; fileId?: string }> = [];
     selectedDatasetIds.forEach(id => {
       const vers = selectedDatasetVersions[id];
       const def = getDefaultVersionId(id);
-      if (vers && vers.length > 0) {
-        vers.forEach(v => arr.push({ id, verId: v }));
-      } else if (def) {
-        arr.push({ id, verId: def });
-      }
+      const versions = (vers && vers.length > 0) ? vers : (def ? [def] : []);
+      versions.forEach(verId => {
+        const key = `${id}::${verId}`;
+        const files = selectedFilesByVersion[key] || [];
+        if (files.length > 0) {
+          files.forEach(fid => arr.push({ id, verId, fileId: fid }));
+        } else {
+          arr.push({ id, verId });
+        }
+      });
     });
     return arr;
-  }, [selectedDatasetIds, selectedDatasetVersions]);
+  }, [selectedDatasetIds, selectedDatasetVersions, selectedFilesByVersion]);
 
   const getSelectedFieldNamesForStep1 = (): string[] => {
     if (selectedSourcesForView.length > 1) {
@@ -921,16 +926,21 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
   // 多数据源：公共字段聚合 / 全部字段视图（缺失率、重复率、唯一性、示例值、类型冲突）
   useEffect(() => {
     if (currentStep !== 1) return;
-    // 构造“数据源”列表（数据集-版本对），支持同一数据集选择多个版本
-    const selectedSources: Array<{ id: string; verId: string }> = [];
+    // 构造“数据源”列表（数据集-版本/文件对），支持同一数据集选择多个版本或文件
+    const selectedSources: Array<{ id: string; verId: string; fileId?: string }> = [];
     selectedDatasetIds.forEach(id => {
       const vers = selectedDatasetVersions[id];
       const def = getDefaultVersionId(id);
-      if (vers && vers.length > 0) {
-        vers.forEach(v => selectedSources.push({ id, verId: v }));
-      } else if (def) {
-        selectedSources.push({ id, verId: def });
-      }
+      const versions = (vers && vers.length > 0) ? vers : (def ? [def] : []);
+      versions.forEach(verId => {
+        const key = `${id}::${verId}`;
+        const files = selectedFilesByVersion[key] || [];
+        if (files.length > 0) {
+          files.forEach(fid => selectedSources.push({ id, verId, fileId: fid }));
+        } else {
+          selectedSources.push({ id, verId });
+        }
+      });
     });
 
     if (selectedSources.length <= 1) {
@@ -1206,68 +1216,35 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
 
   // 数据集多选切换
   const toggleDatasetSelection = (id: string, checked: boolean) => {
-    setSelectedDatasetIds(prev => {
-      let next = checked ? Array.from(new Set([...prev, id])) : prev.filter(d => d !== id);
-      // 勾选时直接切换预览到当前数据集；取消勾选且当前预览为该数据集时，回退到剩余列表的第一个
-      if (checked) {
-        setActiveDatasetId(id);
-      } else if (!checked && activeDatasetId === id) {
-        setActiveDatasetId(next[0]);
-      }
-      return next;
-    });
+    if (checked) {
+      setSelectedDatasetIds([id]);
+      setActiveDatasetId(id);
+    } else {
+      setSelectedDatasetIds([]);
+      if (activeDatasetId === id) setActiveDatasetId(undefined);
+    }
     // 版本映射维护
     const ds = datasetOptions.find(d => d.id === id);
-    setSelectedDatasetVersions(prev => {
-      const next = { ...prev };
-      if (checked) {
-        const allVers = ds?.versions?.map(v => v.id) || [];
-        if (allVers.length) next[id] = allVers;
-      } else {
-        delete next[id];
-      }
-      return next;
-    });
     if (checked) {
+      const allVers = ds?.versions?.map(v => v.id) || [];
+      setSelectedDatasetVersions({ [id]: allVers });
       const defVerId = (ds?.versions?.find(v => v.isDefault) || ds?.versions?.[0])?.id;
-      if (defVerId) setActiveVersionByDataset(prev => ({ ...prev, [id]: defVerId }));
-      setSelectedFilesByVersion(prev => {
-        const next = { ...prev };
-        (ds?.versions || []).forEach(v => {
-          const files = (v as any).files?.map((f: any) => f.id) || [];
-          next[`${id}::${v.id}`] = files;
-        });
-        return next;
+      setActiveVersionByDataset(defVerId ? { [id]: defVerId } : {});
+      const nextFiles: Record<string, string[]> = {};
+      const nextActiveFiles: Record<string, string | undefined> = {};
+      (ds?.versions || []).forEach(v => {
+        const files = (v as any).files?.map((f: any) => f.id) || [];
+        nextFiles[`${id}::${v.id}`] = files;
+        const f0 = (v as any).files?.[0]?.id;
+        if (f0) nextActiveFiles[`${id}::${v.id}`] = f0;
       });
-      setActiveFileByVersion(prev => {
-        const next = { ...prev };
-        (ds?.versions || []).forEach(v => {
-          const f0 = (v as any).files?.[0]?.id;
-          if (f0) next[`${id}::${v.id}`] = f0;
-        });
-        return next;
-      });
+      setSelectedFilesByVersion(nextFiles);
+      setActiveFileByVersion(nextActiveFiles);
     } else {
-      setActiveVersionByDataset(prev => {
-        const { [id]: _removed, ...rest } = prev;
-        return rest;
-      });
-      setSelectedFilesByVersion(prev => {
-        const next = { ...prev };
-        (ds?.versions || []).forEach(v => {
-          const key = `${id}::${v.id}`;
-          if (key in next) delete next[key];
-        });
-        return next;
-      });
-      setActiveFileByVersion(prev => {
-        const next = { ...prev };
-        (ds?.versions || []).forEach(v => {
-          const key = `${id}::${v.id}`;
-          if (key in next) delete next[key];
-        });
-        return next;
-      });
+      setSelectedDatasetVersions({});
+      setActiveVersionByDataset({});
+      setSelectedFilesByVersion({});
+      setActiveFileByVersion({});
     }
   };
 
@@ -1320,6 +1297,10 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
   const clearSelectedDatasets = () => {
     setSelectedDatasetIds([]);
     setActiveDatasetId(undefined);
+    setSelectedDatasetVersions({});
+    setActiveVersionByDataset({});
+    setSelectedFilesByVersion({});
+    setActiveFileByVersion({});
   };
 
   const toggleFileSelection = (datasetId: string, versionId: string, fileId: string, checked: boolean) => {
@@ -1960,7 +1941,7 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                       {/* 顶部：数据集多选列表（支持模糊搜索 + 大量数据滚动显示） */}
                       <div className="rounded-md border bg-muted/40 p-3">
                         <div className="flex items-center justify-between">
-                          <Label className="text-sm">数据集列表（支持多选）</Label>
+                            <Label className="text-sm">数据集列表（单选，支持多版本/文件）</Label>
                           <div className="flex items-center gap-2">
                             <div className="relative w-56 sm:w-72">
                               <Search className="pointer-events-none h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -1981,14 +1962,10 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                               />
                             </div>
                             <Button size="sm" variant="outline" onClick={() => {
-                              // 全选当前筛选结果（与已选合并去重）
-                              const ids = filteredDatasets.map(ds => ds.id);
-                              setSelectedDatasetIds(prev => {
-                                const all = Array.from(new Set([...prev, ...ids]));
-                                if (!activeDatasetId && all.length > 0) setActiveDatasetId(all[0]);
-                                return all;
-                              });
-                            }}>全选当前结果</Button>
+                              const first = filteredDatasets[0];
+                              if (!first) return;
+                              toggleDatasetSelection(first.id, true);
+                            }}>选择首个结果</Button>
                             <Button size="sm" variant="ghost" onClick={clearSelectedDatasets}>清空</Button>
                           </div>
                         </div>
@@ -2006,7 +1983,7 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                                       <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setExpandedDatasets(prev => ({ ...prev, [ds.id]: !dsExpanded }))}>
                                         {dsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                       </Button>
-                                      <Checkbox checked={dsChecked} onCheckedChange={(checked: boolean) => toggleDatasetSelection(ds.id, !!checked)} />
+                                      <Checkbox checked={dsChecked} disabled={selectedDatasetIds.length > 0 && !dsChecked} onCheckedChange={(checked: boolean) => toggleDatasetSelection(ds.id, !!checked)} />
                                       <div className="text-sm font-medium truncate max-w-[22rem]" title={ds.name}>{ds.name}</div>
                                     </div>
                                     {dsExpanded && (
@@ -2256,11 +2233,11 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                       <CardTitle className="flex items-center space-x-2">
                         <Layers className="h-5 w-5" />
                         <span>字段信息</span>
-                        <Badge variant="secondary">{(selectedDatasetIds.length > 1 ? aggregatedFields.length : fields.length)} 个字段</Badge>
+                        <Badge variant="secondary">{(selectedSourcesForView.length > 1 ? aggregatedFields.length : fields.length)} 个字段</Badge>
                       </CardTitle>
-                      {selectedDatasetIds.length > 1 && (
+                      {selectedSourcesForView.length > 1 && (
                         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600 overflow-x-auto">
-                          <span className="whitespace-nowrap">已选择多个数据集，以下展示公共字段聚合视图。</span>
+                          <span className="whitespace-nowrap">已选择多个来源（数据集/版本/文件），以下展示公共字段聚合视图。</span>
                           <div className="flex items-center gap-2">
                             <span>主表：</span>
                             <Select value={primaryDatasetId || activeDatasetId || selectedDatasetIds[0]} onValueChange={(v: string) => setPrimaryDatasetId(v)}>
@@ -2295,6 +2272,34 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                                 </Select>
                               );
                             })()}
+                            {(() => {
+                              const baseId = primaryDatasetId || activeDatasetId || selectedDatasetIds[0];
+                              const ds = datasetOptions.find(d => d.id === baseId);
+                              const verId = primaryVersionId || activeVersionByDataset[baseId!];
+                              const versionObj = ds?.versions?.find(v => v.id === verId) || ds?.versions?.find(v => v.id === (selectedDatasetVersions[baseId!] || [])[0]);
+                              const files = (versionObj as any)?.files?.filter((f: any) => ['csv','xlsx'].includes(f.format)) || [];
+                              const key = `${baseId}::${verId || versionObj?.id || ''}`;
+                              const currFile = (selectedFilesByVersion[key] || [])[0] || files[0]?.id || '';
+                              return (
+                                <>
+                                  <span>文件：</span>
+                                  <Select value={currFile} onValueChange={(fid: string) => setSelectedFilesByVersion(prev => ({ ...prev, [key]: fid ? [fid] : [] }))}>
+                                    <SelectTrigger className="h-8 min-w-[10rem] sm:w-52">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {files.length === 0 ? (
+                                        <SelectItem value="">无文件</SelectItem>
+                                      ) : (
+                                        files.map((f: any) => (
+                                          <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                                        ))
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </>
+                              );
+                            })()}
                           </div>
                           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto order-last sm:order-none">
                             <span>显示：</span>
@@ -2302,6 +2307,65 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                             <Button size="sm" variant={!showCommonOnly ? 'default' : 'outline'} onClick={() => setShowCommonOnly(false)}>显示全部字段</Button>
                           </div>
                           <Badge variant="outline" className="shrink-0">{showCommonOnly ? '公共字段' : '全部字段'}</Badge>
+                        </div>
+                      )}
+                      {selectedSourcesForView.length <= 1 && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600 overflow-x-auto">
+                          {(() => {
+                            const baseId = activeDatasetId || selectedDatasetIds[0];
+                            const ds = datasetOptions.find(d => d.id === baseId);
+                            return (
+                              <div className="flex items-center gap-2">
+                                <span>主表：</span>
+                                <span className="px-3 py-1 rounded bg-gray-100">{ds?.name || baseId}</span>
+                                <span>版本：</span>
+                                {(() => {
+                                  const selectedVers = (baseId ? (selectedDatasetVersions[baseId] || []) : []);
+                                  const optionIds = selectedVers.length > 0 ? selectedVers : (ds?.versions?.map(v => v.id) || []);
+                                  const curr = activeVersionByDataset[baseId!] || optionIds[0];
+                                  return (
+                                    <Select value={curr} onValueChange={(v: string) => setActiveVersionByDataset(prev => ({ ...prev, [baseId!]: v }))}>
+                                      <SelectTrigger className="h-8 min-w-[8rem] sm:w-44">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {optionIds.map(vid => {
+                                          const vobj = ds?.versions?.find(v => v.id === vid);
+                                          return <SelectItem key={vid} value={vid}>{vobj?.label || vid}</SelectItem>;
+                                        })}
+                                      </SelectContent>
+                                    </Select>
+                                  );
+                                })()}
+                                {(() => {
+                                  const verId = activeVersionByDataset[baseId!] || (selectedDatasetVersions[baseId!] || [])[0];
+                                  const versionObj = ds?.versions?.find(v => v.id === verId) || ds?.versions?.[0];
+                                  const files = (versionObj as any)?.files?.filter((f: any) => ['csv','xlsx'].includes(f.format)) || [];
+                                  const key = `${baseId}::${verId || versionObj?.id || ''}`;
+                                  const currFile = (selectedFilesByVersion[key] || [])[0] || files[0]?.id || '';
+                                  return (
+                                    <>
+                                      <span>文件：</span>
+                                      <Select value={currFile} onValueChange={(fid: string) => setSelectedFilesByVersion(prev => ({ ...prev, [key]: fid ? [fid] : [] }))}>
+                                        <SelectTrigger className="h-8 min-w-[10rem] sm:w-52">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {files.length === 0 ? (
+                                            <SelectItem value="">无文件</SelectItem>
+                                          ) : (
+                                            files.map((f: any) => (
+                                              <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                                            ))
+                                          )}
+                                        </SelectContent>
+                                      </Select>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </CardHeader>
