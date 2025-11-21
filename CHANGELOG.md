@@ -27,6 +27,10 @@
   - 涉及文件：`src/components/TaskManagement.tsx`
   - 说明/验证：运行 `npm run dev`，在任务管理页顶部可直接选择任务类型；在“数据集”列表列头点击过滤图标弹出多选筛选，应用后列表即时过滤；与搜索、模型、优先级、状态、日期范围联动正常。
 
+- [Feat/DataPreprocessing/UniqueCount] 字段选择（第二步）将“唯一性”改为展示“唯一数”，如“唯一数：2/1000”。
+  - 涉及文件：`src/components/DataPreprocessing.tsx`
+  - 说明/验证：进入“数据预处理 → 字段选择（第二步）”，在表格的对应列看到唯一值个数；多数据源聚合时从示例值集合去重后计算，联动版本/文件与筛选。
+
 ### 2025-11-20
 - [Chore/Branding] 系统名称与英文统一为“LimiX通用数据分析平台 / LimiX General Data Analytics Platform”，更新浏览器标题与页眉品牌展示。
   - 涉及文件：`src/i18n/LanguageContext.tsx`、`src/components/Header.tsx`、`src/components/Dashboard.tsx`、`index.html`

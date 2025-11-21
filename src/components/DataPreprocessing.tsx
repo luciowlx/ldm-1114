@@ -2382,7 +2382,7 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                               <TableHead>类型</TableHead>
                               <TableHead>空值率</TableHead>
                               <TableHead>重复率</TableHead>
-                              <TableHead>唯一性</TableHead>
+                              <TableHead>唯一数</TableHead>
                               <TableHead>示例值</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -2471,11 +2471,17 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  {af.isUnique ? (
-                                    <Badge variant="default">唯一</Badge>
-                                  ) : (
-                                    <Badge variant="secondary">非唯一</Badge>
-                                  )}
+                                  {(() => {
+                                    const computed = getUniqueValueCount(af.name);
+                                    const count = typeof computed === 'number'
+                                      ? computed
+                                      : (() => {
+                                          const raw = af.sampleValues || [];
+                                          const set = new Set<any>(raw.filter(v => v !== null && v !== undefined && v !== ''));
+                                          return set.size;
+                                        })();
+                                    return <span className="text-gray-800">唯一数：{count}</span>;
+                                  })()}
                                 </TableCell>
                                 <TableCell>
                                   <div className="text-sm text-gray-600 max-w-48 truncate">
@@ -2496,7 +2502,7 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                               <TableHead>类型</TableHead>
                               <TableHead>空值率</TableHead>
                               <TableHead>重复率</TableHead>
-                              <TableHead>唯一性</TableHead>
+                              <TableHead>唯一数</TableHead>
                               <TableHead>示例值</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -2586,11 +2592,11 @@ export function DataPreprocessing({ isOpen, onClose, datasetId, mode = 'traditio
                                   })()}
                                 </TableCell>
                                 <TableCell>
-                                  {field.unique ? (
-                                    <Badge variant="default">唯一</Badge>
-                                  ) : (
-                                    <Badge variant="secondary">非唯一</Badge>
-                                  )}
+                                  {(() => {
+                                    const raw = field.sampleValues || [];
+                                    const set = new Set<any>(raw.filter(v => v !== null && v !== undefined && v !== ''));
+                                    return <span className="text-gray-800">唯一数：{set.size}</span>;
+                                  })()}
                                 </TableCell>
                                 <TableCell>
                                   <div className="text-sm text-gray-600 max-w-48 truncate">
