@@ -22,6 +22,31 @@
 
 ## 变更历史
 
+### 2025-11-25
+- [Feat/SystemManagement/LogManagement] 在“系统管理”增加“日志管理”子菜单并接入渲染。
+  - 涉及文件：`src/components/SystemManagement.tsx`、`src/components/LogManagement.tsx`
+  - 说明/验证：`npm run build` 构建通过；本地预览“系统管理 → 日志管理”加载正常。
+
+- [Feat/LogManagement/Filters] 日志检索与过滤：支持时间范围、用户、模块、操作类型、关键字、日志级别；AND/OR 组合；分页与排序。
+  - 涉及文件：`src/components/LogManagement.tsx`
+  - 说明/验证：筛选与分页联动正常；切换 AND/OR 逻辑过滤结果正确；无控制台报错。
+
+- [Feat/LogManagement/Detail] 日志详情查看：对话框展示基础字段与原始 JSON 上下文。
+  - 涉及文件：`src/components/LogManagement.tsx`
+  - 说明/验证：点击“查看”弹出详情对话框，JSON 上下文可滚动查看。
+
+- [Feat/LogManagement/Export] 导出 CSV/Excel：按权限控制（仅“超级管理员/项目Owner”），加入最大行数限制与越界提示。
+  - 涉及文件：`src/components/LogManagement.tsx`、`src/components/PersonalCenter.tsx`
+  - 说明/验证：将个人中心角色写入 `localStorage` 用于导出权限；超限时提示分页导出。
+
+- [Fix/LogManagement/Select] 修复 Radix Select 空值报错：统一“全部”选项使用 `ALL` 占位并在回调中映射为空值。
+  - 涉及文件：`src/components/LogManagement.tsx`
+  - 说明/验证：控制台不再报错；选择“全部”可正确清空筛选条件。
+
+- [Feat/LogManagement/QuickFilters] 新增快捷筛选：不限时间、最近 1 小时 / 24 小时 / 7 天 / 30 天；级别一键筛选（全部/仅 ERROR/WARN/INFO）。
+  - 涉及文件：`src/components/LogManagement.tsx`
+  - 说明/验证：点击快捷筛选立即应用并重置到第 1 页；与下方筛选面板联动。
+
 ### 2025-11-21
 - [Tweak/TaskManagement/Filters] 任务管理筛选入口调整：将“任务类型”筛选迁移到顶部工具栏，将“数据集”筛选迁移到任务列表表格的列头 Popover（支持多选与搜索）。
   - 涉及文件：`src/components/TaskManagement.tsx`

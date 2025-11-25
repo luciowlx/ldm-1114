@@ -34,6 +34,7 @@ import {
   ChevronDown,
   ChevronRight
 } from "lucide-react";
+import { setDepartmentTree } from "../services/departments";
 
 // 用户接口定义
 interface User {
@@ -85,16 +86,6 @@ export function DepartmentManagement() {
       createdAt: "2024-01-15",
       children: [
         {
-          id: "1-1",
-          name: "董事会",
-          description: "公司董事会",
-          parentId: "1",
-          manager: "李四",
-          memberCount: 8,
-          status: "active",
-          createdAt: "2024-01-16"
-        },
-        {
           id: "1-2",
           name: "技术部",
           description: "负责技术开发",
@@ -130,6 +121,10 @@ export function DepartmentManagement() {
     }
   ]);
 
+  useEffect(() => {
+    setDepartmentTree(departments as any);
+  }, [departments]);
+
   // 用户数据
   const [users, setUsers] = useState<User[]>([
     {
@@ -141,16 +136,6 @@ export function DepartmentManagement() {
       departmentId: "1",
       status: "active",
       joinDate: "2024-01-01"
-    },
-    {
-      id: "2",
-      name: "李四",
-      email: "lisi@company.com",
-      phone: "13800138002",
-      position: "董事长",
-      departmentId: "1-1",
-      status: "active",
-      joinDate: "2024-01-02"
     },
     {
       id: "3",
@@ -172,7 +157,7 @@ export function DepartmentManagement() {
   const [isDeptChangeDialogOpen, setIsDeptChangeDialogOpen] = useState(false);
   const [isAddSubDeptDialogOpen, setIsAddSubDeptDialogOpen] = useState(false);
   const [isMoveDeptDialogOpen, setIsMoveDeptDialogOpen] = useState(false);
-  // 移动部门目标父级（空字符串表示设为顶级）
+  // 移动部门目标父级
   const [moveTargetParentId, setMoveTargetParentId] = useState<string>("");
   // 删除部门二次确认
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
@@ -209,9 +194,12 @@ export function DepartmentManagement() {
     name: "",
     email: "",
     phone: "",
+    password: "",
+    confirmPassword: "",
     position: "",
     departmentId: ""
   });
+  const [showEditPassword, setShowEditPassword] = useState<boolean>(false);
 
   // 部门操作函数
   /**
@@ -429,7 +417,7 @@ export function DepartmentManagement() {
   const handleMoveDepartment = () => {
     if (!selectedDepartment) return;
     const deptId = selectedDepartment.id;
-    const targetParentId = moveTargetParentId === "__root__" ? "" : moveTargetParentId;
+    const targetParentId = moveTargetParentId;
     // 禁止将部门移动到自身或其子孙
     const invalidTargets = [deptId, ...getDescendantIds(departments, deptId)];
     if (invalidTargets.includes(targetParentId)) {
@@ -456,6 +444,14 @@ export function DepartmentManagement() {
 
   // 用户操作函数
   const handleCreateUser = () => {
+    if (!userFormData.password || userFormData.password.length < 8) {
+      alert("请输入至少8位的密码");
+      return;
+    }
+    if (userFormData.password !== userFormData.confirmPassword) {
+      alert("两次输入的密码不一致");
+      return;
+    }
     const newUser: User = {
       id: Date.now().toString(),
       name: userFormData.name,
@@ -468,12 +464,20 @@ export function DepartmentManagement() {
     };
     
     setUsers([...users, newUser]);
-    setUserFormData({ name: "", email: "", phone: "", position: "", departmentId: "" });
+    setUserFormData({ name: "", email: "", phone: "", password: "", confirmPassword: "", position: "", departmentId: "" });
     setIsAddUserDialogOpen(false);
   };
 
   const handleEditUser = () => {
     if (!selectedUser) return;
+    if (!userFormData.password || userFormData.password.length < 8) {
+      alert("请输入至少8位的密码");
+      return;
+    }
+    if (userFormData.password !== userFormData.confirmPassword) {
+      alert("两次输入的密码不一致");
+      return;
+    }
     
     setUsers(users.map(user => 
       user.id === selectedUser.id 
@@ -481,7 +485,7 @@ export function DepartmentManagement() {
         : user
     ));
     
-    setUserFormData({ name: "", email: "", phone: "", position: "", departmentId: "" });
+    setUserFormData({ name: "", email: "", phone: "", password: "", confirmPassword: "", position: "", departmentId: "" });
     setIsUserDetailDialogOpen(false);
     setSelectedUser(null);
   };
@@ -519,6 +523,8 @@ export function DepartmentManagement() {
       name: user.name,
       email: user.email,
       phone: user.phone,
+      password: user.password || "********",
+      confirmPassword: user.password || "********",
       position: user.position,
       departmentId: user.departmentId
     });
@@ -652,8 +658,9 @@ export function DepartmentManagement() {
               <Button
                 variant="ghost"
                 size="sm"
+                disabled={!dept.parentId}
                 onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setSelectedDepartment(dept); setMoveTargetParentId(dept.parentId || ""); setIsMoveDeptDialogOpen(true); }}
-                title="移动部门"
+                title={!dept.parentId ? "一级部门不可移动" : "移动部门"}
               >
                 <Move className="h-4 w-4" />
               </Button>
@@ -731,7 +738,7 @@ export function DepartmentManagement() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      placeholder="搜索用户姓名/工号"
+                      placeholder="搜索用户姓名"
                       value={userSearch}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setUserSearch(e.target.value); setUserPage(1); }}
                       className="pl-10"
@@ -810,7 +817,7 @@ export function DepartmentManagement() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      placeholder="搜索员工姓名/工号"
+                      placeholder="搜索员工姓名"
                       value={userSearch}
                       onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }}
                       className="pl-10"
@@ -854,7 +861,7 @@ export function DepartmentManagement() {
                             <TableHead>员工信息</TableHead>
                             <TableHead>联系方式</TableHead>
                             <TableHead>状态</TableHead>
-                            <TableHead>入职时间</TableHead>
+                            <TableHead>创建时间</TableHead>
                             <TableHead>操作</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -902,7 +909,7 @@ export function DepartmentManagement() {
                               <TableCell>
                                 <div className="flex items-center text-sm">
                                   <Calendar className="h-3 w-3 mr-1 text-gray-400" />
-                                  {user.joinDate}
+                                  {user.createdAt}
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -967,7 +974,7 @@ export function DepartmentManagement() {
                 <TableHead>联系方式</TableHead>
                 <TableHead>所属部门</TableHead>
                 <TableHead>状态</TableHead>
-                <TableHead>入职时间</TableHead>
+                <TableHead>创建时间</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -1032,7 +1039,7 @@ export function DepartmentManagement() {
                   <TableCell>
                     <div className="flex items-center text-sm">
                       <Calendar className="h-3 w-3 mr-1 text-gray-400" />
-                      {user.joinDate}
+                      {user.createdAt}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -1065,7 +1072,7 @@ export function DepartmentManagement() {
             </p>
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)}>取消</Button>
-              <Button className="bg-red-600 hover:bg-red-700" onClick={confirmDeleteDepartment}>确认删除</Button>
+              <Button variant="destructive" onClick={confirmDeleteDepartment}>确认删除</Button>
             </div>
           </div>
         </DialogContent>
@@ -1093,7 +1100,6 @@ export function DepartmentManagement() {
                       <SelectValue placeholder="选择目标父级" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__root__">设为顶级部门</SelectItem>
                       {candidates.map(d => (
                         <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                       ))}
@@ -1235,6 +1241,26 @@ export function DepartmentManagement() {
               />
             </div>
             <div>
+              <Label htmlFor="user-password">密码</Label>
+              <Input
+                id="user-password"
+                type="password"
+                value={userFormData.password}
+                onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                placeholder="设置登录密码（至少8位）"
+              />
+            </div>
+            <div>
+              <Label htmlFor="user-password-confirm">确认密码</Label>
+              <Input
+                id="user-password-confirm"
+                type="password"
+                value={userFormData.confirmPassword}
+                onChange={(e) => setUserFormData({ ...userFormData, confirmPassword: e.target.value })}
+                placeholder="再次输入密码"
+              />
+            </div>
+            <div>
               <Label htmlFor="user-position">职位</Label>
               <Input
                 id="user-position"
@@ -1301,6 +1327,31 @@ export function DepartmentManagement() {
                 value={userFormData.phone}
                 onChange={(e) => setUserFormData({ ...userFormData, phone: e.target.value })}
                 placeholder="请输入手机号码"
+              />
+            </div>
+            <div>
+              <Label htmlFor="detail-user-password">密码</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="detail-user-password"
+                  type={showEditPassword ? "text" : "password"}
+                  value={userFormData.password}
+                  onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                  placeholder="设置登录密码（至少8位）"
+                />
+                <Button variant="outline" size="sm" onClick={() => setShowEditPassword(!showEditPassword)}>
+                  {showEditPassword ? "隐藏密码" : "显示密码"}
+                </Button>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="detail-user-password-confirm">确认密码</Label>
+              <Input
+                id="detail-user-password-confirm"
+                type={showEditPassword ? "text" : "password"}
+                value={userFormData.confirmPassword}
+                onChange={(e) => setUserFormData({ ...userFormData, confirmPassword: e.target.value })}
+                placeholder="再次输入密码"
               />
             </div>
             <div>

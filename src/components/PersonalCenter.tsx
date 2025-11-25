@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "../i18n/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -135,6 +135,10 @@ export function PersonalCenter() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(userProfile);
+
+  useEffect(() => {
+    localStorage.setItem("currentUserRole", userProfile.role);
+  }, [userProfile.role]);
 
   /**
    * 更新个人资料表单内容到主档。

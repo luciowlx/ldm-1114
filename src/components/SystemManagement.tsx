@@ -20,8 +20,10 @@ import {
   Plus,
   UserPlus,
   Settings2,
-  Cpu
+  Cpu,
+  FileText
 } from "lucide-react";
+import { LogManagement } from "./LogManagement";
 
 interface SystemManagementProps {
   defaultSubTab?: string;
@@ -67,6 +69,13 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
       icon: User,
       description: "个人信息设置"
     }
+    ,
+    {
+      id: "log",
+      name: "日志管理",
+      icon: FileText,
+      description: "系统日志采集与管理"
+    }
   ];
 
   const renderDepartmentManagement = () => (
@@ -101,6 +110,8 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
         return renderTaskEngine();
       case "personal":
         return renderPersonalCenter();
+      case "log":
+        return <LogManagement />;
       case "overview":
       default:
         return (
@@ -122,14 +133,6 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">总部门数</span>
                       <span className="text-2xl font-bold text-blue-600">12</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">活跃部门</span>
-                      <span className="text-lg font-semibold text-green-600">11</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">停用部门</span>
-                      <span className="text-lg font-semibold text-red-600">1</span>
                     </div>
                   </div>
                 </CardContent>
@@ -174,11 +177,11 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
                       <span className="text-2xl font-bold text-orange-600">156</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">活跃用户</span>
+                      <span className="text-sm text-gray-600">启用用户</span>
                       <span className="text-lg font-semibold text-green-600">142</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">停用用户</span>
+                      <span className="text-sm text-gray-600">禁用用户</span>
                       <span className="text-lg font-semibold text-red-600">14</span>
                     </div>
                   </div>
