@@ -8,12 +8,12 @@ import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Lock, 
-  Camera, 
+import {
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Camera,
   Save,
   Eye,
   EyeOff,
@@ -234,13 +234,7 @@ export function PersonalCenter() {
                     <AvatarImage src={userProfile.avatar} />
                     <AvatarFallback className="text-lg">{userProfile.realName.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0"
-                  >
-                    <Camera className="h-4 w-4" />
-                  </Button>
+
                 </div>
                 <div>
                   <h3 className="text-lg font-medium">{userProfile.realName}</h3>
@@ -254,15 +248,7 @@ export function PersonalCenter() {
 
               {/* 信息表单 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="realName">{t("personal.center.form.realName")}</Label>
-                  <Input
-                    id="realName"
-                    value={isEditing ? editForm.realName : userProfile.realName}
-                    onChange={(e) => setEditForm({ ...editForm, realName: e.target.value })}
-                    disabled={!isEditing}
-                  />
-                </div>
+
                 <div>
                   <Label htmlFor="username">{t("personal.center.form.username")}</Label>
                   <Input
@@ -323,23 +309,7 @@ export function PersonalCenter() {
 
               {/* 个人简介块按需求移除 */}
 
-              <div className="flex justify-end space-x-2">
-                {isEditing ? (
-                  <>
-                    <Button variant="outline" onClick={() => setIsEditing(false)}>
-                      {t("personal.center.actions.cancel")}
-                    </Button>
-                    <Button onClick={handleProfileUpdate}>
-                      <Save className="h-4 w-4 mr-2" />
-                      {t("personal.center.actions.save")}
-                    </Button>
-                  </>
-                ) : (
-                  <Button onClick={() => setIsEditing(true)}>
-                    {t("personal.center.actions.edit")}
-                  </Button>
-                )}
-              </div>
+
             </CardContent>
           </Card>
 

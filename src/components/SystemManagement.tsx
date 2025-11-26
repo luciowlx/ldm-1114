@@ -8,10 +8,10 @@ import { RoleManagement } from "./RoleManagement";
 import { PersonalCenter } from "./PersonalCenter";
 import { ConfigurationManagement } from "./ConfigurationManagement";
 import HtmlConfigManagement from "./HtmlConfigManagement";
-import { 
-  Users, 
-  Shield, 
-  UserCheck, 
+import {
+  Users,
+  Shield,
+  UserCheck,
   Settings,
   Building2,
   Key,
@@ -33,27 +33,27 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
   const [activeSubTab, setActiveSubTab] = useState(defaultSubTab);
 
   const subTabs = [
-    { 
-      id: "overview", 
-      name: "概览", 
+    {
+      id: "overview",
+      name: "概览",
       icon: Settings,
       description: "系统管理功能概览"
     },
-    { 
-      id: "department", 
-      name: "部门与用户管理", 
+    {
+      id: "department",
+      name: "部门与用户管理",
       icon: Building2,
       description: "组织架构管理"
     },
-    { 
-      id: "role", 
-      name: "角色管理", 
+    {
+      id: "role",
+      name: "角色管理",
       icon: Shield,
       description: "权限角色配置"
     },
-    { 
-      id: "config", 
-      name: "数据字典", 
+    {
+      id: "config",
+      name: "数据字典",
       icon: Settings2,
       description: "统一维护系统数据字典"
     },
@@ -63,9 +63,9 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
       icon: Cpu,
       description: "迁移自顶部配置管理的任务引擎功能"
     },
-    { 
-      id: "personal", 
-      name: "个人中心", 
+    {
+      id: "personal",
+      name: "个人中心",
       icon: User,
       description: "个人信息设置"
     }
@@ -150,14 +150,6 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">总角色数</span>
                       <span className="text-2xl font-bold text-green-600">8</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">系统角色</span>
-                      <span className="text-lg font-semibold text-blue-600">3</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">自定义角色</span>
-                      <span className="text-lg font-semibold text-purple-600">5</span>
                     </div>
                   </div>
                 </CardContent>
@@ -253,9 +245,8 @@ export function SystemManagement({ defaultSubTab = "overview" }: SystemManagemen
                   <button
                     key={tab.id}
                     onClick={() => setActiveSubTab(tab.id)}
-                    className={`w-full flex items-center space-x-2 px-3 py-2 rounded-md text-sm ${
-                      active ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100 text-gray-700"
-                    }`}
+                    className={`w-full flex items-center space-x-2 px-3 py-2 rounded-md text-sm ${active ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100 text-gray-700"
+                      }`}
                   >
                     <IconComponent className="h-4 w-4" />
                     <span>{tab.name}</span>

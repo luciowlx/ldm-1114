@@ -9,7 +9,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Switch } from "./ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Plus, Edit, Trash2, Shield, Users, Settings, Search, Eye } from "lucide-react";
+import { Plus, Edit, Trash2, Shield, Users, Settings, Search, Eye, UserPlus } from "lucide-react";
 import type { User } from "../types/user";
 import { registeredUsers } from "../mock/users";
 import { ScrollArea } from "./ui/scroll-area";
@@ -204,7 +204,7 @@ export function RoleManagement() {
       createdAt: "2024-01-01"
     },
     {
-      id: "2", 
+      id: "2",
       name: "项目经理",
       description: "负责项目管理相关工作",
       permissions: ["project_view", "project_create", "project_edit", "task_view", "task_create", "task_edit"],
@@ -214,7 +214,7 @@ export function RoleManagement() {
     },
     {
       id: "3",
-      name: "数据分析师", 
+      name: "数据分析师",
       description: "负责数据分析和模型训练",
       permissions: ["data_view", "data_upload", "data_edit", "model_view", "model_train"],
       userCount: 0,
@@ -233,6 +233,12 @@ export function RoleManagement() {
   const [isUserListDialogOpen, setIsUserListDialogOpen] = useState(false);
   const [userListRole, setUserListRole] = useState<Role | null>(null);
   const [userSearch, setUserSearch] = useState("");
+  const [users, setUsers] = useState<User[]>(registeredUsers);
+  const [isAssignUserDialogOpen, setIsAssignUserDialogOpen] = useState(false);
+  const [assignUserRole, setAssignUserRole] = useState<Role | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [assignUserSearch, setAssignUserSearch] = useState("");
+
   const [newRole, setNewRole] = useState({
     name: "",
     description: "",
@@ -249,7 +255,7 @@ export function RoleManagement() {
       details: "创建了数据分析师角色，分配了数据管理和模型训练权限"
     },
     {
-      id: "2", 
+      id: "2",
       action: "编辑角色",
       target: "项目经理",
       operator: "admin",
@@ -269,7 +275,7 @@ export function RoleManagement() {
    * @returns 该角色下的用户数组
    */
   const getUsersByRole = (roleName: string): User[] => {
-    return registeredUsers.filter(u => u.role === roleName);
+    return users.filter(u => u.role === roleName);
   };
 
   /**
@@ -300,8 +306,8 @@ export function RoleManagement() {
 
   const handleEditRole = () => {
     if (currentRole && newRole.name.trim()) {
-      setRoles(roles.map(role => 
-        role.id === currentRole.id 
+      setRoles(roles.map(role =>
+        role.id === currentRole.id
           ? { ...role, name: newRole.name, description: newRole.description, permissions: newRole.permissions }
           : role
       ));
@@ -359,6 +365,34 @@ export function RoleManagement() {
     setIsUserListDialogOpen(true);
   };
 
+  const openAssignUserDialog = (role: Role) => {
+    setAssignUserRole(role);
+    setAssignUserSearch("");
+    // Initialize selected users based on current role
+    const currentUsers = users.filter(u => u.role === role.name).map(u => u.id);
+    setSelectedUserIds(currentUsers);
+    setIsAssignUserDialogOpen(true);
+  };
+
+  const handleAssignUsers = () => {
+    if (assignUserRole) {
+      setUsers(users.map(user => {
+        // If user is selected, assign the role
+        if (selectedUserIds.includes(user.id)) {
+          return { ...user, role: assignUserRole.name };
+        }
+        // If user was previously in this role but now deselected, revert to "普通用户" (or handle as needed)
+        // Note: This logic assumes a user can only have one role.
+        if (user.role === assignUserRole.name && !selectedUserIds.includes(user.id)) {
+          return { ...user, role: "普通用户" };
+        }
+        return user;
+      }));
+      setIsAssignUserDialogOpen(false);
+      setAssignUserRole(null);
+    }
+  };
+
   const handlePermissionChange = (permissionId: string, checked: boolean) => {
     if (checked) {
       setNewRole(prev => ({
@@ -375,8 +409,8 @@ export function RoleManagement() {
 
   const savePermissions = () => {
     if (currentRole) {
-      setRoles(roles.map(role => 
-        role.id === currentRole.id 
+      setRoles(roles.map(role =>
+        role.id === currentRole.id
           ? { ...role, permissions: newRole.permissions }
           : role
       ));
@@ -546,10 +580,10 @@ export function RoleManagement() {
                 <TableHead>角色名称</TableHead>
                 <TableHead>描述</TableHead>
                 <TableHead>权限数量</TableHead>
-              <TableHead>用户数量</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>创建时间</TableHead>
-              <TableHead>操作</TableHead>
+                <TableHead>用户数量</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>创建时间</TableHead>
+                <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -613,6 +647,14 @@ export function RoleManagement() {
                         onClick={() => handleDeleteRole(role.id)}
                       >
                         <Trash2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openAssignUserDialog(role)}
+                        title="分配用户"
+                      >
+                        <UserPlus className="w-4 h-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -840,6 +882,80 @@ export function RoleManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 分配用户对话框 */}
+      <Dialog open={isAssignUserDialogOpen} onOpenChange={setIsAssignUserDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {assignUserRole ? `分配用户 - ${assignUserRole.name}` : "分配用户"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="搜索姓名、用户名、邮箱..."
+                value={assignUserSearch}
+                onChange={(e) => setAssignUserSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">选择</TableHead>
+                    <TableHead>用户名</TableHead>
+                    <TableHead>手机号</TableHead>
+                    <TableHead>当前角色</TableHead>
+                    <TableHead>部门</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users
+                    .filter(u =>
+                      u.realName.toLowerCase().includes(assignUserSearch.toLowerCase()) ||
+                      u.username.toLowerCase().includes(assignUserSearch.toLowerCase()) ||
+                      u.email.toLowerCase().includes(assignUserSearch.toLowerCase())
+                    )
+                    .map((u) => (
+                      <TableRow key={u.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedUserIds.includes(u.id)}
+                            onCheckedChange={(checked: boolean) => {
+                              if (checked) {
+                                setSelectedUserIds([...selectedUserIds, u.id]);
+                              } else {
+                                setSelectedUserIds(selectedUserIds.filter(id => id !== u.id));
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{u.username}</TableCell>
+                        <TableCell className="text-gray-600">{u.phone}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{u.role}</Badge>
+                        </TableCell>
+                        <TableCell>{u.department}</TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsAssignUserDialogOpen(false)}>
+                取消
+              </Button>
+              <Button onClick={handleAssignUsers}>
+                保存
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

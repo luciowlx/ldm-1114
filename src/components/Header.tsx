@@ -147,7 +147,7 @@ export function Header({ activeTab, onTabChange, onOpenPersonalCenter, onOpenPer
               className="flex items-center space-x-2 cursor-default"
             >
               <Info className="h-4 w-4" />
-              <span>v1.1-任务引擎</span>
+              <span>v1.0</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 

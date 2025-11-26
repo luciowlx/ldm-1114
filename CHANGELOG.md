@@ -123,7 +123,7 @@
   - 涉及文件：`src/components/Header.tsx`、`src/App.tsx`、`src/i18n/LanguageContext.tsx`
   - 说明/验证：运行 `npm run build` 构建通过；本地预览 `http://localhost:3000/` 顶部导航显示“配置管理”，点击后正常渲染配置管理页面；英文环境显示为 “Configuration”。
 
-- [Chore/Header/Version] 头像菜单中的版本标识更新为 `v1.1-任务引擎`，与本次任务引擎能力对齐。
+- [Chore/Header/Version] 头像菜单中的版本标识更新为 `v1.0`。
   - 涉及文件：`src/components/Header.tsx`
   - 说明/验证：打开右上角头像菜单可见版本号，页面与控制台无报错。
 

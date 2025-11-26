@@ -15,12 +15,12 @@ import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 import { Switch } from "./ui/switch";
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from "./ui/pagination";
 import { Skeleton } from "./ui/skeleton";
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Users, 
-  Building2, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Users,
+  Building2,
   MoreHorizontal,
   Search,
   Filter,
@@ -43,7 +43,7 @@ interface User {
   email: string;
   phone: string;
   avatar?: string;
-  position: string;
+  role: string;
   departmentId: string;
   status: "active" | "inactive";
   joinDate: string;
@@ -132,7 +132,7 @@ export function DepartmentManagement() {
       name: "张三",
       email: "zhangsan@company.com",
       phone: "13800138001",
-      position: "总经理",
+      role: "总经理",
       departmentId: "1",
       status: "active",
       joinDate: "2024-01-01"
@@ -142,7 +142,7 @@ export function DepartmentManagement() {
       name: "王五",
       email: "wangwu@company.com",
       phone: "13800138003",
-      position: "技术总监",
+      role: "技术总监",
       departmentId: "1-2",
       status: "active",
       joinDate: "2024-01-03"
@@ -196,7 +196,7 @@ export function DepartmentManagement() {
     phone: "",
     password: "",
     confirmPassword: "",
-    position: "",
+    role: "",
     departmentId: ""
   });
   const [showEditPassword, setShowEditPassword] = useState<boolean>(false);
@@ -225,7 +225,7 @@ export function DepartmentManagement() {
       status: "active",
       createdAt: new Date().toISOString().split('T')[0]
     };
-    
+
     if (deptFormData.parentId) {
       // 添加到父部门的children中
       const updateDepartments = (depts: Department[]): Department[] => {
@@ -249,7 +249,7 @@ export function DepartmentManagement() {
     } else {
       setDepartments([...departments, newDepartment]);
     }
-    
+
     setDeptFormData({ name: "", description: "", parentId: "", manager: "" });
     setIsCreateDeptDialogOpen(false);
   };
@@ -267,7 +267,7 @@ export function DepartmentManagement() {
       alert("请输入部门名称");
       return;
     }
-    
+
     const updateDepartments = (depts: Department[]): Department[] => {
       return depts.map(dept => {
         if (dept.id === selectedDepartment.id) {
@@ -282,7 +282,7 @@ export function DepartmentManagement() {
         return dept;
       });
     };
-    
+
     setDepartments(updateDepartments(departments));
     setDeptFormData({ name: "", description: "", parentId: "", manager: "" });
     setIsEditDeptDialogOpen(false);
@@ -457,14 +457,14 @@ export function DepartmentManagement() {
       name: userFormData.name,
       email: userFormData.email,
       phone: userFormData.phone,
-      position: userFormData.position,
+      role: userFormData.role,
       departmentId: userFormData.departmentId,
       status: "active",
       joinDate: new Date().toISOString().split('T')[0]
     };
-    
+
     setUsers([...users, newUser]);
-    setUserFormData({ name: "", email: "", phone: "", password: "", confirmPassword: "", position: "", departmentId: "" });
+    setUserFormData({ name: "", email: "", phone: "", password: "", confirmPassword: "", role: "", departmentId: "" });
     setIsAddUserDialogOpen(false);
   };
 
@@ -478,29 +478,29 @@ export function DepartmentManagement() {
       alert("两次输入的密码不一致");
       return;
     }
-    
-    setUsers(users.map(user => 
-      user.id === selectedUser.id 
+
+    setUsers(users.map(user =>
+      user.id === selectedUser.id
         ? { ...user, ...userFormData }
         : user
     ));
-    
-    setUserFormData({ name: "", email: "", phone: "", password: "", confirmPassword: "", position: "", departmentId: "" });
+
+    setUserFormData({ name: "", email: "", phone: "", password: "", confirmPassword: "", role: "", departmentId: "" });
     setIsUserDetailDialogOpen(false);
     setSelectedUser(null);
   };
 
   const handleDepartmentChange = () => {
     if (selectedUsers.length === 0 || !userFormData.departmentId) return;
-    
-    setUsers(users.map(user => 
+
+    setUsers(users.map(user =>
       selectedUsers.includes(user.id)
         ? { ...user, departmentId: userFormData.departmentId }
         : user
     ));
-    
+
     setSelectedUsers([]);
-    setUserFormData({ name: "", email: "", phone: "", position: "", departmentId: "" });
+    setUserFormData({ name: "", email: "", phone: "", password: "", confirmPassword: "", role: "", departmentId: "" });
     setIsDeptChangeDialogOpen(false);
   };
 
@@ -523,9 +523,9 @@ export function DepartmentManagement() {
       name: user.name,
       email: user.email,
       phone: user.phone,
-      password: user.password || "********",
-      confirmPassword: user.password || "********",
-      position: user.position,
+      password: "********",
+      confirmPassword: "********",
+      role: user.role,
       departmentId: user.departmentId
     });
     setIsUserDetailDialogOpen(true);
@@ -621,8 +621,8 @@ export function DepartmentManagement() {
                 onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); toggleDeptExpansion(dept.id); }}
                 className="p-1"
               >
-                {expandedDepts.includes(dept.id) ? 
-                  <ChevronDown className="h-4 w-4" /> : 
+                {expandedDepts.includes(dept.id) ?
+                  <ChevronDown className="h-4 w-4" /> :
                   <ChevronRight className="h-4 w-4" />
                 }
               </Button>
@@ -717,7 +717,7 @@ export function DepartmentManagement() {
               </Button>
             </DialogTrigger>
           </Dialog>
-          
+
           <Dialog open={isCreateDeptDialogOpen} onOpenChange={setIsCreateDeptDialogOpen}>
             <DialogTrigger asChild>
               <Button className="flex items-center space-x-2">
@@ -733,18 +733,18 @@ export function DepartmentManagement() {
       {activeTab === 'user' && (
         <Card>
           <CardContent className="pt-6">
-              <div className="flex space-x-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      placeholder="搜索用户姓名"
-                      value={userSearch}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setUserSearch(e.target.value); setUserPage(1); }}
-                      className="pl-10"
-                    />
-                  </div>
+            <div className="flex space-x-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="搜索用户姓名"
+                    value={userSearch}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setUserSearch(e.target.value); setUserPage(1); }}
+                    className="pl-10"
+                  />
                 </div>
+              </div>
               <ToggleGroup type="single" value={userStatusFilter} onValueChange={(v: 'all' | 'active' | 'inactive' | undefined) => setUserStatusFilter(v || 'all')}>
                 <ToggleGroupItem value="all">全部</ToggleGroupItem>
                 <ToggleGroupItem value="active">启用</ToggleGroupItem>
@@ -768,296 +768,296 @@ export function DepartmentManagement() {
 
       {/* 部门视图（左右分栏：左树 + 右员工列表） */}
       {activeTab === 'department' && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Building2 className="h-5 w-5 mr-2" />
-            部门列表
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-row space-x-6">
-            {/* 左侧：部门树 + 搜索 */}
-            <div
-              className="md:w-1/3 border-r pr-4"
-              ref={leftPaneRef}
-              onScroll={() => {
-                if (!leftPaneRef.current || !rightPaneRef.current) return;
-                const l = leftPaneRef.current;
-                const r = rightPaneRef.current;
-                const ratio = l.scrollTop / Math.max(1, (l.scrollHeight - l.clientHeight));
-                r.scrollTop = ratio * Math.max(1, (r.scrollHeight - r.clientHeight));
-              }}
-              style={{ maxHeight: '60vh', overflowY: 'auto' }}
-            >
-              <div className="mb-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="搜索部门名称（支持模糊）"
-                    value={deptSearch}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeptSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <div>
-                {renderDepartmentTree(filterDepartmentsTree(departments, deptSearch))}
-              </div>
-            </div>
-
-            {/* 右侧：选中部门的员工列表 */}
-            <div className="md:w-2/3 pl-4" ref={rightPaneRef} style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="text-lg font-medium">{getDepartmentName(selectedDeptId)} 的员工</h3>
-                  <p className="text-xs text-gray-500">路径：{getDepartmentPath(selectedDeptId)}</p>
-                </div>
-                <div className="w-64">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Building2 className="h-5 w-5 mr-2" />
+              部门列表
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-row space-x-6">
+              {/* 左侧：部门树 + 搜索 */}
+              <div
+                className="md:w-1/3 border-r pr-4"
+                ref={leftPaneRef}
+                onScroll={() => {
+                  if (!leftPaneRef.current || !rightPaneRef.current) return;
+                  const l = leftPaneRef.current;
+                  const r = rightPaneRef.current;
+                  const ratio = l.scrollTop / Math.max(1, (l.scrollHeight - l.clientHeight));
+                  r.scrollTop = ratio * Math.max(1, (r.scrollHeight - r.clientHeight));
+                }}
+                style={{ maxHeight: '60vh', overflowY: 'auto' }}
+              >
+                <div className="mb-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      placeholder="搜索员工姓名"
-                      value={userSearch}
-                      onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }}
+                      placeholder="搜索部门名称（支持模糊）"
+                      value={deptSearch}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeptSearch(e.target.value)}
                       className="pl-10"
                     />
                   </div>
                 </div>
+                <div>
+                  {renderDepartmentTree(filterDepartmentsTree(departments, deptSearch))}
+                </div>
               </div>
 
-              <div className="mb-2">
-                <ToggleGroup type="single" value={userStatusFilter} onValueChange={(v: 'all' | 'active' | 'inactive' | undefined) => setUserStatusFilter(v || 'all')}>
-                  <ToggleGroupItem value="all">全部</ToggleGroupItem>
-                  <ToggleGroupItem value="active">启用</ToggleGroupItem>
-                  <ToggleGroupItem value="inactive">禁用</ToggleGroupItem>
-                </ToggleGroup>
-              </div>
-
-              {(() => {
-                // 模拟加载效果
-                const allUsers = users.filter(u => u.departmentId === selectedDeptId);
-                const q = (userSearch || '').toLowerCase();
-                const filtered = allUsers.filter(u =>
-                  (u.name.toLowerCase().includes(q) || u.id.toLowerCase().includes(q)) &&
-                  (userStatusFilter === 'all' || u.status === userStatusFilter)
-                );
-                const totalPages = Math.max(1, Math.ceil(filtered.length / userPageSize));
-                const currentPage = Math.min(userPage, totalPages);
-                const pageItems = filtered.slice((currentPage - 1) * userPageSize, currentPage * userPageSize);
-
-                return (
+              {/* 右侧：选中部门的员工列表 */}
+              <div className="md:w-2/3 pl-4" ref={rightPaneRef} style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                <div className="flex items-center justify-between mb-3">
                   <div>
-                    {isUserLoading ? (
-                      <div className="space-y-2">
-                        <Skeleton className="h-8 w-full" />
-                        <Skeleton className="h-8 w-full" />
-                        <Skeleton className="h-8 w-full" />
-                      </div>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>员工信息</TableHead>
-                            <TableHead>联系方式</TableHead>
-                            <TableHead>状态</TableHead>
-                            <TableHead>创建时间</TableHead>
-                            <TableHead>操作</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {pageItems.map((user) => (
-                            <TableRow key={user.id}>
-                              <TableCell>
-                                <div className="flex items-center space-x-3">
-                                  <Avatar className="h-8 w-8">
-                                    <AvatarImage src={user.avatar} />
-                                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                                  </Avatar>
-                                  <div>
-                                    <div className="font-medium">{user.name}</div>
-                                    <div className="text-sm text-gray-500">{user.position}</div>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="space-y-1">
-                                  <div className="flex items-center text-sm">
-                                    <Mail className="h-3 w-3 mr-1 text-gray-400" />
-                                    {user.email}
-                                  </div>
-                                  <div className="flex items-center text-sm">
-                                    <Phone className="h-3 w-3 mr-1 text-gray-400" />
-                                    {user.phone}
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={user.status === "active" ? "default" : "secondary"}>
-                                    {user.status === "active" ? "启用" : "禁用"}
-                                  </Badge>
-                                  <Switch
-                                    checked={user.status === "active"}
-                                    onCheckedChange={(checked: boolean) => {
-                                      setUsers(users.map(u => u.id === user.id ? { ...u, status: checked ? "active" : "inactive" } : u));
-                                    }}
-                                    aria-label="切换用户启用/禁用状态"
-                                  />
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center text-sm">
-                                  <Calendar className="h-3 w-3 mr-1 text-gray-400" />
-                                  {user.createdAt}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Button variant="ghost" size="sm" onClick={() => openUserDetailDialog(user)}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    )}
-
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="text-sm text-gray-600">第 {currentPage} / {totalPages} 页，共 {filtered.length} 条</div>
-                      <Pagination>
-                        <PaginationContent>
-                          <PaginationItem>
-                            <PaginationPrevious size="default" href="#" onClick={(e: React.MouseEvent<HTMLAnchorElement>) => { e.preventDefault(); setUserPage(Math.max(1, currentPage - 1)); }} />
-                          </PaginationItem>
-                          <PaginationItem>
-                            <PaginationNext size="default" href="#" onClick={(e: React.MouseEvent<HTMLAnchorElement>) => { e.preventDefault(); setUserPage(Math.min(totalPages, currentPage + 1)); }} />
-                          </PaginationItem>
-                        </PaginationContent>
-                      </Pagination>
+                    <h3 className="text-lg font-medium">{getDepartmentName(selectedDeptId)} 的员工</h3>
+                    <p className="text-xs text-gray-500">路径：{getDepartmentPath(selectedDeptId)}</p>
+                  </div>
+                  <div className="w-64">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        placeholder="搜索员工姓名"
+                        value={userSearch}
+                        onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }}
+                        className="pl-10"
+                      />
                     </div>
                   </div>
-                );
-              })()}
+                </div>
+
+                <div className="mb-2">
+                  <ToggleGroup type="single" value={userStatusFilter} onValueChange={(v: 'all' | 'active' | 'inactive' | undefined) => setUserStatusFilter(v || 'all')}>
+                    <ToggleGroupItem value="all">全部</ToggleGroupItem>
+                    <ToggleGroupItem value="active">启用</ToggleGroupItem>
+                    <ToggleGroupItem value="inactive">禁用</ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+
+                {(() => {
+                  // 模拟加载效果
+                  const allUsers = users.filter(u => u.departmentId === selectedDeptId);
+                  const q = (userSearch || '').toLowerCase();
+                  const filtered = allUsers.filter(u =>
+                    (u.name.toLowerCase().includes(q) || u.id.toLowerCase().includes(q)) &&
+                    (userStatusFilter === 'all' || u.status === userStatusFilter)
+                  );
+                  const totalPages = Math.max(1, Math.ceil(filtered.length / userPageSize));
+                  const currentPage = Math.min(userPage, totalPages);
+                  const pageItems = filtered.slice((currentPage - 1) * userPageSize, currentPage * userPageSize);
+
+                  return (
+                    <div>
+                      {isUserLoading ? (
+                        <div className="space-y-2">
+                          <Skeleton className="h-8 w-full" />
+                          <Skeleton className="h-8 w-full" />
+                          <Skeleton className="h-8 w-full" />
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>员工信息</TableHead>
+                              <TableHead>联系方式</TableHead>
+                              <TableHead>状态</TableHead>
+                              <TableHead>创建时间</TableHead>
+                              <TableHead>操作</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {pageItems.map((user) => (
+                              <TableRow key={user.id}>
+                                <TableCell>
+                                  <div className="flex items-center space-x-3">
+                                    <Avatar className="h-8 w-8">
+                                      <AvatarImage src={user.avatar} />
+                                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="font-medium">{user.name}</div>
+                                      <div className="text-sm text-gray-500">{user.role}</div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center text-sm">
+                                      <Mail className="h-3 w-3 mr-1 text-gray-400" />
+                                      {user.email}
+                                    </div>
+                                    <div className="flex items-center text-sm">
+                                      <Phone className="h-3 w-3 mr-1 text-gray-400" />
+                                      {user.phone}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={user.status === "active" ? "default" : "secondary"}>
+                                      {user.status === "active" ? "启用" : "禁用"}
+                                    </Badge>
+                                    <Switch
+                                      checked={user.status === "active"}
+                                      onCheckedChange={(checked: boolean) => {
+                                        setUsers(users.map(u => u.id === user.id ? { ...u, status: checked ? "active" : "inactive" } : u));
+                                      }}
+                                      aria-label="切换用户启用/禁用状态"
+                                    />
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center text-sm">
+                                    <Calendar className="h-3 w-3 mr-1 text-gray-400" />
+                                    {user.joinDate}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Button variant="ghost" size="sm" onClick={() => openUserDetailDialog(user)}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="text-sm text-gray-600">第 {currentPage} / {totalPages} 页，共 {filtered.length} 条</div>
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious size="default" href="#" onClick={(e: React.MouseEvent<HTMLAnchorElement>) => { e.preventDefault(); setUserPage(Math.max(1, currentPage - 1)); }} />
+                            </PaginationItem>
+                            <PaginationItem>
+                              <PaginationNext size="default" href="#" onClick={(e: React.MouseEvent<HTMLAnchorElement>) => { e.preventDefault(); setUserPage(Math.min(totalPages, currentPage + 1)); }} />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       )}
 
       {/* 用户列表（切换） */}
       {activeTab === 'user' && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            员工列表
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
-                    onCheckedChange={(checked: boolean) => {
-                      if (checked) {
-                        setSelectedUsers(filteredUsers.map(user => user.id));
-                      } else {
-                        setSelectedUsers([]);
-                      }
-                    }}
-                  />
-                </TableHead>
-                <TableHead>员工信息</TableHead>
-                <TableHead>联系方式</TableHead>
-                <TableHead>所属部门</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>创建时间</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(() => {
-                const totalPages = Math.max(1, Math.ceil(filteredUsers.length / userPageSize));
-                const currentPage = Math.min(userPage, totalPages);
-                const pageItems = filteredUsers.slice((currentPage - 1) * userPageSize, currentPage * userPageSize);
-                return pageItems.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Users className="h-5 w-5 mr-2" />
+              员工列表
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedUsers.includes(user.id)}
+                      checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
                       onCheckedChange={(checked: boolean) => {
                         if (checked) {
-                          setSelectedUsers([...selectedUsers, user.id]);
+                          setSelectedUsers(filteredUsers.map(user => user.id));
                         } else {
-                          setSelectedUsers(selectedUsers.filter(id => id !== user.id));
+                          setSelectedUsers([]);
                         }
                       }}
                     />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={user.avatar} />
-                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{user.name}</div>
-                        <div className="text-sm text-gray-500">{user.position}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center text-sm">
-                        <Mail className="h-3 w-3 mr-1 text-gray-400" />
-                        {user.email}
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <Phone className="h-3 w-3 mr-1 text-gray-400" />
-                        {user.phone}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{getDepartmentName(user.departmentId)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={user.status === "active" ? "default" : "secondary"}>
-                        {user.status === "active" ? "启用" : "禁用"}
-                      </Badge>
-                      <Switch
-                        checked={user.status === "active"}
-                        onCheckedChange={(checked: boolean) => {
-                          setUsers(users.map(u => u.id === user.id ? { ...u, status: checked ? "active" : "inactive" } : u));
-                        }}
-                        aria-label="切换用户启用/禁用状态"
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center text-sm">
-                      <Calendar className="h-3 w-3 mr-1 text-gray-400" />
-                      {user.createdAt}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openUserDetailDialog(user)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+                  </TableHead>
+                  <TableHead>员工信息</TableHead>
+                  <TableHead>联系方式</TableHead>
+                  <TableHead>所属部门</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>创建时间</TableHead>
+                  <TableHead>操作</TableHead>
                 </TableRow>
-                ));
-              })()}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {(() => {
+                  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / userPageSize));
+                  const currentPage = Math.min(userPage, totalPages);
+                  const pageItems = filteredUsers.slice((currentPage - 1) * userPageSize, currentPage * userPageSize);
+                  return pageItems.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedUsers.includes(user.id)}
+                          onCheckedChange={(checked: boolean) => {
+                            if (checked) {
+                              setSelectedUsers([...selectedUsers, user.id]);
+                            } else {
+                              setSelectedUsers(selectedUsers.filter(id => id !== user.id));
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={user.avatar} />
+                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{user.name}</div>
+                            <div className="text-sm text-gray-500">{user.role}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center text-sm">
+                            <Mail className="h-3 w-3 mr-1 text-gray-400" />
+                            {user.email}
+                          </div>
+                          <div className="flex items-center text-sm">
+                            <Phone className="h-3 w-3 mr-1 text-gray-400" />
+                            {user.phone}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{getDepartmentName(user.departmentId)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={user.status === "active" ? "default" : "secondary"}>
+                            {user.status === "active" ? "启用" : "禁用"}
+                          </Badge>
+                          <Switch
+                            checked={user.status === "active"}
+                            onCheckedChange={(checked: boolean) => {
+                              setUsers(users.map(u => u.id === user.id ? { ...u, status: checked ? "active" : "inactive" } : u));
+                            }}
+                            aria-label="切换用户启用/禁用状态"
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center text-sm">
+                          <Calendar className="h-3 w-3 mr-1 text-gray-400" />
+                          {user.joinDate}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openUserDetailDialog(user)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ));
+                })()}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       {/* 删除部门二次确认对话框 */}
@@ -1260,15 +1260,7 @@ export function DepartmentManagement() {
                 placeholder="再次输入密码"
               />
             </div>
-            <div>
-              <Label htmlFor="user-position">职位</Label>
-              <Input
-                id="user-position"
-                value={userFormData.position}
-                onChange={(e) => setUserFormData({ ...userFormData, position: e.target.value })}
-                placeholder="请输入职位名称"
-              />
-            </div>
+
             <div>
               <Label htmlFor="user-department">所属部门</Label>
               <Select value={userFormData.departmentId} onValueChange={(value: string) => setUserFormData({ ...userFormData, departmentId: value })}>
@@ -1355,14 +1347,27 @@ export function DepartmentManagement() {
               />
             </div>
             <div>
-              <Label htmlFor="detail-user-position">职位</Label>
-              <Input
-                id="detail-user-position"
-                value={userFormData.position}
-                onChange={(e) => setUserFormData({ ...userFormData, position: e.target.value })}
-                placeholder="请输入职位名称"
-              />
+              <Label htmlFor="edit-role">角色</Label>
+              <Select
+                value={userFormData.role}
+                onValueChange={(value) => setUserFormData({ ...userFormData, role: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择角色" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="超级管理员">超级管理员</SelectItem>
+                  <SelectItem value="项目经理">项目经理</SelectItem>
+                  <SelectItem value="数据分析师">数据分析师</SelectItem>
+                  <SelectItem value="普通用户">普通用户</SelectItem>
+                  <SelectItem value="后端工程师">后端工程师</SelectItem>
+                  <SelectItem value="产品经理">产品经理</SelectItem>
+                  <SelectItem value="总经理">总经理</SelectItem>
+                  <SelectItem value="技术总监">技术总监</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
             <div>
               <Label htmlFor="detail-user-department">所属部门</Label>
               <Select value={userFormData.departmentId} onValueChange={(value: string) => setUserFormData({ ...userFormData, departmentId: value })}>
@@ -1406,7 +1411,7 @@ export function DepartmentManagement() {
                         <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <span>{user.name}</span>
-                      <span className="text-gray-500">({user.position})</span>
+                      <span className="text-xs text-gray-400">加入时间: {user.joinDate}</span>
                     </div>
                   ) : null;
                 })}

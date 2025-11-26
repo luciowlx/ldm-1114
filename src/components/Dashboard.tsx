@@ -23,6 +23,13 @@ import {
   Lightbulb
 } from "lucide-react";
 import { useLanguage } from "../i18n/LanguageContext";
+import { DashboardHeader } from "./dashboard/DashboardHeader";
+import { OverviewCardsSection } from "./dashboard/OverviewCardsSection";
+import { QuickActionsSection } from "./dashboard/QuickActionsSection";
+import { RecentActivitiesSection } from "./dashboard/RecentActivitiesSection";
+import { SystemResourceSection } from "./dashboard/SystemResourceSection";
+import { RecentProjectsSection } from "./dashboard/RecentProjectsSection";
+import { AssistantTipsSection } from "./dashboard/AssistantTipsSection";
 
 /**
  * DashboardProps
@@ -266,7 +273,7 @@ export function Dashboard({
       title: "数据统计",
       items: [
         { label: "数据集", value: 87 },
-        { label: "字段数", value: 156 },
+        { label: "文件数", value: 156 },
         { label: "总大小", value: "456GB" },
         { label: "来源", value: "多源融合" },
       ],
@@ -318,218 +325,44 @@ export function Dashboard({
   return (
     <div className="space-y-6">
       {/* 顶部标题栏（高保真） */}
-      <Card className="bg-white">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-start">
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-semibold">LimiX通用数据分析平台</span>
-              <Badge variant="secondary" className="bg-gray-100 text-gray-700">{t("common.welcomeBack")}</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <DashboardHeader welcomeText={t("common.welcomeBack")} />
       {/* 全局统计看板（高保真） — 置于页面上方 */}
-      <Card className="bg-white">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />{t("dashboard.globalStats")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {overviewCards.map((card, idx) => {
-              const IconComp = card.icon as any;
-              return (
-                <div key={idx} className="p-4 rounded border bg-white">
-                  <div className="flex items-center gap-2 mb-3">
-                    <IconComp className={`h-5 w-5 ${card.color}`} />
-                    <div className="text-sm font-medium">{card.title}</div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {card.items.map((it, i) => (
-                      <div key={i} className="flex items-center justify-between">
-                        <span className="text-gray-600">{it.label}</span>
-                        <span className="font-medium">{it.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {/* 底部指标已移除：项目健康度、数据质量分、近7天完成率、近30天表现 */}
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <OverviewCardsSection title={t("dashboard.globalStats")} cards={overviewCards} />
       {/* 顶部统计卡片（已移除） */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 左侧内容 */}
         <div className="lg:col-span-2 space-y-6">
           {/* 快速操作 */}
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle>快速操作</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {quickActions.map((action, index) => {
-                  const IconComponent = action.icon;
-                  return (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className="h-auto p-4 flex flex-col items-center space-y-2 hover:shadow-md transition-shadow"
-                      onClick={action.onClick}
-                    >
-                      <div className={`p-3 rounded-full ${action.color}`}>
-                        <IconComponent className="h-5 w-5" />
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm font-medium">{action.label}</div>
-                        <div className="text-xs text-gray-500 mt-1">{action.description}</div>
-                      </div>
-                    </Button>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          <QuickActionsSection actions={quickActions} />
 
         {/* 最近活动（置于左列，大卡） */}
-          <Card className="bg-white">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>{t("dashboard.recentActivity")}</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => onOpenActivityCenter && onOpenActivityCenter()}>{t("common.viewAll")}</Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {recentActivities.map((activity, index) => {
-                const style = activityTypeStyle[activity.type] || { icon: Activity, color: "text-gray-600" };
-                const IconComp = style.icon as any;
-                return (
-                  <div key={index} className="flex items-start justify-between border-b border-gray-100 pb-3 last:border-b-0 last:pb-0">
-                    <div className="flex items-start gap-3">
-                      <IconComp className={`h-5 w-5 ${style.color} mt-1`} />
-                      <div className="min-w-0">
-                        <p className="text-sm text-gray-900">{activity.description}</p>
-                        <div className="mt-1 text-xs">
-                          <button className="text-blue-600 hover:underline">{activity.related}</button>
-                          <Badge variant="secondary" className={`ml-2 ${activityStatusClass[activity.status]}`}>{displayStatus(activity.status)}</Badge>
-                        </div>
-                        {activity.status === '失败' && activity.statusMsg && (
-                          <p className="text-xs text-red-600 mt-1">{activity.statusMsg}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500" title={activity.timeAbs}>{activity.timeRel}</span>
-                      <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">{t("common.viewDetail")}</Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
+          <RecentActivitiesSection
+            title={t("dashboard.recentActivity")}
+            activities={recentActivities}
+            typeStyle={activityTypeStyle}
+            statusClass={activityStatusClass}
+            onOpenAll={() => onOpenActivityCenter && onOpenActivityCenter()}
+            displayStatus={displayStatus}
+          />
           {/* 系统资源状态看板（移动到左侧红框区域，横向样式） */}
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Cpu className="h-5 w-5" />{t("dashboard.systemResource")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {resourceCards.map((rc, i) => {
-                  const IconComp = rc.icon as any;
-                  return (
-                    <div key={i} className="p-4 rounded border bg-white flex items-center gap-4">
-                      <IconComp className={`h-6 w-6 ${rc.color}`} />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-gray-700">{rc.label}</span>
-                          <span className="font-medium">{rc.value}%</span>
-                        </div>
-                        <Progress value={rc.value} className="h-2" />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          <SystemResourceSection title={t("dashboard.systemResource")} resources={resourceCards} />
         </div>
 
         {/* 右侧内容 */}
         <div className="space-y-6">
           {/* 最近项目（移至右列，小卡） */}
-          <Card className="bg-white">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>{t("dashboard.recentProjects")}</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => onNavigateToProjectOverview && onNavigateToProjectOverview()}>{t("common.viewAll")}</Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {recentProjects.map((project, index) => (
-                <div key={index} className="border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 truncate">{project.name}</h4>
-                      <p className="text-xs text-gray-500 mt-1 truncate">{project.description}</p>
-                    </div>
-                    <Badge 
-                      variant={project.status === "进行中" ? "default" : "secondary"}
-                      className="ml-2"
-                    >
-                      {displayStatus(project.status)}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 mr-4">
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span>{t("dashboard.remainingTime")}</span>
-                        <span>{formatRemainingTime(project.deadline, project.status)}</span>
-                      </div>
-                      <Progress value={calcTimeUsedPercent(project.startDate, project.deadline, project.status)} className="h-2" />
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      {project.members.slice(0, 3).map((member, memberIndex) => (
-                        <Avatar key={memberIndex} className="h-6 w-6">
-                          <AvatarFallback className="text-xs bg-gray-200">
-                            {member}
-                          </AvatarFallback>
-                        </Avatar>
-                      ))}
-                      {project.members.length > 3 && (
-                        <div className="text-xs text-gray-500 ml-1">+{project.members.length - 3}</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-2 text-right">
-                    <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
-                      查看详情 <ChevronRight className="h-3 w-3 ml-1" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          <RecentProjectsSection
+            title={t("dashboard.recentProjects")}
+            projects={recentProjects}
+            onOpenOverview={() => onNavigateToProjectOverview && onNavigateToProjectOverview()}
+            displayStatus={displayStatus}
+            formatRemainingTime={formatRemainingTime}
+            calcTimeUsedPercent={calcTimeUsedPercent}
+          />
 
           {/* 智能助手推荐（内容更有条理 + 按钮按原型优化） */}
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Lightbulb className="h-5 w-5" />智能助手推荐</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-gray-700">基于最近项目的用量，建议如下操作：</p>
-              <ol className="list-decimal pl-6 space-y-3 text-sm text-gray-800">
-                {assistantTips.map((tip, i) => (
-                  <li key={i} className="leading-6">
-                    {tip}
-                  </li>
-                ))}
-              </ol>
-              {/* 原型按钮：居中大按钮“忽略建议” */}
-              <div className="pt-2">
-                <Button className="mx-auto block px-6 py-3 rounded-full bg-black text-red-500 hover:bg-gray-900 text-sm">
-                  忽略建议
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <AssistantTipsSection title="智能助手推荐" tips={assistantTips} />
         </div>
       </div>
     </div>

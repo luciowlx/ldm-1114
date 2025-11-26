@@ -17,6 +17,14 @@ import { useLanguage } from "../i18n/LanguageContext";
 import { buildDataDetailUrl } from "../utils/deeplink";
 import { mockDatasets } from "../mock/datasets";
 import type { DateRange } from "react-day-picker";
+import { GrayLabels } from "./data/GrayLabels";
+import { DatasetGrid } from "./data/DatasetGrid";
+import { DatasetTable } from "./data/DatasetTable";
+import { DataHeaderFilters } from "./data/DataHeaderFilters";
+import { DataToolbar } from "./data/DataToolbar";
+import { ColumnSettingsDialog } from "./data/ColumnSettingsDialog";
+import { DeleteConfirmDialog } from "./data/DeleteConfirmDialog";
+import { CancelUploadDialog } from "./data/CancelUploadDialog";
 import { formatYYYYMMDD, parseDateFlexible, toDateOnly, toEndOfDay, isDateWithinRange } from "../utils/date";
 
 import { Input } from "./ui/input";
@@ -123,32 +131,7 @@ export function DataManagement({
    * 参数 items 为包含 name 字段的对象数组，返回用于展示的 JSX 元素。
    * 返回值：React.ReactNode — 包含灰色徽标和可选的悬停提示。
    */
-  const renderGrayLabels = (items: Array<{ name: string }>): React.ReactNode => {
-    const max = 3;
-    const visible = items.slice(0, max);
-    const extra = items.slice(max);
-    return (
-      <div className="flex flex-wrap gap-1">
-        {visible.map((it, idx) => (
-          <Badge key={idx} variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200">
-            {it.name}
-          </Badge>
-        ))}
-        {extra.length > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200 cursor-help">+{extra.length}</Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="text-sm text-gray-800 max-w-xs">
-                {extra.map(e => e.name).join('、')}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </div>
-    );
-  };
+  
   const { lang, t } = useLanguage();
   // 视图模式：默认优先列表
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
@@ -961,76 +944,18 @@ export function DataManagement({
         ))}
       </div>
 
-      {/* 筛选和搜索工具栏 */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <input
-            type="text"
-            placeholder={t('data.search.placeholder')}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        
-        <div className="flex gap-2">
-          {/* 状态筛选器已移除，仅保留标签检索与日期范围筛选 */}
-          
-          {/* 将“来源”筛选替换为“标签检索”（与高级筛选的标签搜索共享状态） */}
-          <input
-            type="text"
-            placeholder={t('data.filter.tags.placeholder')}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={advancedFilters.tagQuery}
-            onChange={(e) => setAdvancedFilters(prev => ({ ...prev, tagQuery: e.target.value }))}
-          />
-
-          {/* 日期范围选择：更新时间 */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="px-3 py-2 border border-gray-300 rounded-lg justify-start min-w-[260px]"
-              >
-                <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
-                {advancedFilters.dateRange?.from && advancedFilters.dateRange?.to
-                  ? `${formatYYYYMMDD(advancedFilters.dateRange.from)} - ${formatYYYYMMDD(advancedFilters.dateRange.to)}`
-                  : t('data.dateRange.placeholder')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                numberOfMonths={2}
-                selected={advancedFilters.dateRange ?? undefined}
-                onSelect={(range: DateRange | undefined) => {
-                  setAdvancedFilters((prev) => ({ ...prev, dateRange: range ?? null }));
-                }}
-              />
-            </PopoverContent>
-          </Popover>
-          
-          {/* 已移除排序字段下拉框（名称/大小/行数），列表统一按更新时间倒序显示 */}
-          
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleApplyQuery}
-        >
-          <Filter className="h-4 w-4 mr-2" />
-          {t('data.filter.query')}
-        </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleResetFilters}
-          >
-            {t('common.reset')}
-          </Button>
-        </div>
-      </div>
+      <DataHeaderFilters
+        searchTerm={searchTerm}
+        onSearchTermChange={(v) => setSearchTerm(v)}
+        tagQuery={advancedFilters.tagQuery}
+        onTagQueryChange={(v) => setAdvancedFilters(prev => ({ ...prev, tagQuery: v }))}
+        dateRange={advancedFilters.dateRange}
+        onDateRangeChange={(range) => setAdvancedFilters(prev => ({ ...prev, dateRange: range }))}
+        onApplyQuery={handleApplyQuery}
+        onResetFilters={handleResetFilters}
+        t={t}
+        formatYYYYMMDD={formatYYYYMMDD}
+      />
       <Dialog open={isQueryDialogOpen} onOpenChange={setIsQueryDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -1079,425 +1004,77 @@ export function DataManagement({
         </DialogContent>
       </Dialog>
 
-      {/* 操作工具栏 */}
-      <div className="flex justify-between items-center">
-        <div className="flex gap-2">
-          <Button onClick={() => setIsLocalUploadDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            {t('data.toolbar.uploadDataset')}
-          </Button>
-          <Button variant="outline" onClick={() => setIsDataSubscriptionOpen(true)}>
-            <Database className="h-4 w-4 mr-2" />
-            {t('data.toolbar.newDatasource')}
-          </Button>
-          <Button variant="outline" onClick={() => setIsSubscriptionListOpen(true)}>
-            <List className="h-4 w-4 mr-2" />
-            {t('data.toolbar.subscriptionMgmt')}
-          </Button>
-          {selectedDatasets.length > 0 && (
-            <>
-              <Button variant="outline" onClick={handleBatchDownload}>
-                <Download className="h-4 w-4 mr-2" />
-                {t('data.toolbar.batchDownload')}
-              </Button>
-              <Button variant="outline" onClick={handleBatchArchive}>
-                <Archive className="h-4 w-4 mr-2" />
-                {t('data.toolbar.batchArchive')}
-              </Button>
-              <Button variant="outline" onClick={handleBatchDelete}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                {t('data.toolbar.batchDelete')}
-              </Button>
-            </>
-          )}
-        </div>
-        
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setIsColumnSettingsOpen(true)}>
-            <Columns className="h-4 w-4" />
-          </Button>
-          <div className="flex border rounded-lg">
-            {/* 视图切换顺序调整：列表在前、网格在后 */}
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
+      <DataToolbar
+        selectedIds={selectedDatasets.map(String)}
+        onOpenUpload={() => setIsLocalUploadDialogOpen(true)}
+        onOpenSubscription={() => setIsDataSubscriptionOpen(true)}
+        onOpenSubscriptionList={() => setIsSubscriptionListOpen(true)}
+        onBatchDownload={handleBatchDownload}
+        onBatchArchive={handleBatchArchive}
+        onBatchDelete={handleBatchDelete}
+        onOpenColumnSettings={() => setIsColumnSettingsOpen(true)}
+        viewMode={viewMode as 'list' | 'grid'}
+        onSwitchViewMode={(mode) => setViewMode(mode)}
+        t={t}
+      />
 
       {/* 数据展示区域 */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {paginatedDatasets.map((dataset) => (
-            <Card key={dataset.id} className={`hover:shadow-lg transition-shadow border-l-4 ${dataset.color}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedDatasets.includes(dataset.id)}
-                      onChange={() => handleSelectDataset(dataset.id)}
-                      className="rounded"
-                    />
-                    <CardTitle className="text-lg">{dataset.title}</CardTitle>
-                  </div>
-                  <div className="flex space-x-1">
-                    {dataset.status === 'success' && (
-                      <>
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(dataset.id)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleCopy(dataset.id)}>
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleSingleDelete(dataset.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                    {dataset.status === 'failed' && (
-                      <Button variant="ghost" size="sm" onClick={() => handleSingleDelete(dataset.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-600 line-clamp-2">{dataset.description}</p>
-                
-                {/* 类别与标签统一改为灰色，默认最多展示三个，更多悬停显示 */}
-                {renderGrayLabels(dataset.categories)}
-                {renderGrayLabels(dataset.tags)}
-                
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">{t('data.grid.versionCount')}</span>
-                    <span className="ml-1 font-medium">{dataset.versionCount ?? 0}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">{t('data.grid.fileCount')}</span>
-                    <span className="ml-1 font-medium">{dataset.fileCount ?? 0}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">{t('data.grid.size')}</span>
-                    <span className="ml-1 font-medium">{dataset.size}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">{t('data.grid.rows')}</span>
-                    <span className="ml-1 font-medium">{dataset.rows}</span>
-                  </div>
-                </div>
-                
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-500">{t('data.upload.progress')}</span>
-                    <span className="font-medium">{dataset.status === 'success' ? 100 : dataset.status === 'failed' ? 0 : 88}%</span>
-                  </div>
-                  <Progress value={dataset.status === 'success' ? 100 : dataset.status === 'failed' ? 0 : 88} className="h-2" />
-                </div>
-                
-                <div className="flex justify-between items-center pt-2">
-                  <div className="flex space-x-2">
-                    {dataset.status === 'success' && (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => handleViewDataDetail(dataset.id)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleQuickPreprocess(dataset.id)}>
-                          <Zap className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDownload(dataset.id)}>
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                    {dataset.status === 'processing' && (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => handleViewDataDetail(dataset.id)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleCancelUpload(dataset.id)}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                    {dataset.status === 'failed' && (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => handleViewDataDetail(dataset.id)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleReupload(dataset.id)}>
-                          <Upload className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                  <Badge variant={dataset.status === 'success' ? 'default' : dataset.status === 'processing' ? 'secondary' : 'destructive'}>
-  {dataset.status === 'success' 
-    ? t('data.statusBadge.success') 
-    : dataset.status === 'processing' 
-      ? t('data.statusBadge.processing') 
-      : t('data.statusBadge.failed')}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <DatasetGrid
+          datasets={paginatedDatasets as any[]}
+          selectedIds={selectedDatasets}
+          onToggleSelect={handleSelectDataset}
+          onEdit={handleEdit}
+          onCopy={handleCopy}
+          onDelete={handleSingleDelete}
+          onViewDetail={handleViewDataDetail}
+          onQuickPreprocess={handleQuickPreprocess}
+          onDownload={handleDownload}
+          onCancelUpload={handleCancelUpload}
+          t={t}
+        />
       ) : (
-        <Card>
-          <div className="p-2">
-            <VirtualTable
-              data={filteredAndSortedDatasets as any}
-              height={480}
-              density={'normal'}
-              enableColumnResize
-              enableColumnDrag
-              // 固定右侧操作栏
-              freezeRightCount={1}
-              sortState={{ column: sortBy, order: sortOrder }}
-              onSortChange={(column, order) => {
-                const col = String(column);
-                const ord = String(order);
-                if (isSortField(col)) {
-                  setSortBy(col);
-                }
-                if (isSortOrder(ord)) {
-                  setSortOrder(ord);
-                }
-              }}
-              style={{ border: 'none' }}
-              headerRight={
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectAll}
-                    onChange={handleSelectAll}
-                    className="rounded"
-                  />
-                  {t('data.table.selectAllCurrent')}
-                </label>
-              }
-              columns={[
-                {
-                  key: 'select',
-                  label: '',
-                  width: 48,
-                  render: (_v: any, row: any) => (
-                    <input
-                      type="checkbox"
-                      checked={selectedDatasets.includes(row.id)}
-                      onChange={() => handleSelectDataset(row.id)}
-                      className="rounded"
-                    />
-                  )
-                },
-                columnSettings.name ? {
-                  key: 'name',
-                  label: t('data.columns.name'),
-                  sortable: true,
-                  render: (_v: any, row: any) => (
-                    <span className="font-medium">{row.title}</span>
-                  )
-                } : undefined,
-                columnSettings.description ? {
-                  key: 'description',
-                  label: t('data.columns.description'),
-                  render: (v: any) => (
-                    <span className="max-w-xs truncate inline-block align-middle">{v}</span>
-                  )
-                } : undefined,
-                columnSettings.categories ? {
-                  key: 'categories',
-                  label: (
-                    <div className="flex items-center gap-1">
-                      <span>{t('data.columns.tags')}</span>
-                      <Popover open={isTagsColFilterOpen} onOpenChange={setIsTagsColFilterOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="p-0 h-auto">
-                            <Filter className="h-3.5 w-3.5 text-gray-500" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-48 p-2">
-                          <div className="space-y-1 max-h-48 overflow-auto">
-                            {availableTags.map((tag) => (
-                              <label key={tag} className="flex items-center gap-2 text-sm">
-                                <input
-                                  type="checkbox"
-                                  checked={columnFilterTags.includes(tag)}
-                                  onChange={(e) => {
-                                    setColumnFilterTags((prev) => e.target.checked
-                                      ? [...prev, tag]
-                                      : prev.filter(tg => tg !== tag)
-                                    );
-                                  }}
-                                />
-                                <span>{tag}</span>
-                              </label>
-                            ))}
-                          </div>
-                          <div className="flex justify-end gap-2 mt-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setColumnFilterTags([])}
-                              className="text-gray-500"
-                            >
-                              {t('common.reset')}
-                            </Button>
-                            <Button variant="default" size="sm" onClick={() => setIsTagsColFilterOpen(false)}>
-                              {t('common.confirm')}
-                            </Button>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  ),
-                  render: (_v: any, row: any) => renderGrayLabels(row.tags)
-                } : undefined,
-                columnSettings.format ? { 
-                  key: 'format', 
-                  label: (
-                    <div className="flex items-center gap-1">
-                      <span>{t('data.columns.format')}</span>
-                      <Popover open={isFormatColFilterOpen} onOpenChange={setIsFormatColFilterOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="p-0 h-auto">
-                            <Filter className="h-3.5 w-3.5 text-gray-500" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-40 p-2">
-                          <div className="space-y-1">
-                            {availableFormats.map((fmt) => (
-                              <label key={fmt} className="flex items-center gap-2 text-sm">
-                                <input
-                                  type="checkbox"
-                                  checked={columnFilterFormat.includes(fmt)}
-                                  onChange={(e) => {
-                                    setColumnFilterFormat((prev) => e.target.checked
-                                      ? [...prev, fmt]
-                                      : prev.filter(f => f !== fmt)
-                                    );
-                                  }}
-                                />
-                                <span>{fmt}</span>
-                              </label>
-                            ))}
-                          </div>
-                          <div className="flex justify-end gap-2 mt-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setColumnFilterFormat([])}
-                              className="text-gray-500"
-                            >
-                              {t('common.reset')}
-                            </Button>
-                            <Button variant="default" size="sm" onClick={() => setIsFormatColFilterOpen(false)}>
-                              {t('common.confirm')}
-                            </Button>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  ),
-                  render: (_v: any, row: any) => (
-  <span
-    className="text-black"
-    title={`全部格式：${(row.formats || []).join(' · ')}`}
-  >
-    {(row.formats || []).join(' · ')}（{row.formats?.length ?? 0}）
-  </span>
-                  )
-                } : undefined,
-                // 将“大小”列改为“文件数量”，并展示 fileCount
-                columnSettings.size ? { key: 'size', label: '文件数量', sortable: true, render: (_v: any, row: any) => (<span>{row.fileCount ?? 0}</span>) } : undefined,
-                columnSettings.rows ? { key: 'rows', label: t('data.columns.rows'), sortable: true } : undefined,
-                columnSettings.columns ? { key: 'columns', label: t('data.columns.columns'), sortable: true } : undefined,
-                columnSettings.source ? { key: 'source', label: t('data.columns.source') } : undefined,
-                // 将“版本”列改为“数据版本数量”，并展示 versionCount
-                columnSettings.version ? { key: 'version', label: '数据版本数量', render: (_v: any, row: any) => (<span>{row.versionCount ?? 0}</span>) } : undefined,
-                columnSettings.updateTime ? { key: 'updateTime', label: t('data.columns.updateTime'), sortable: true, render: (v: any) => formatYYYYMMDD(v) } : undefined,
-                columnSettings.status ? {
-                  key: 'status',
-                  label: t('data.columns.status'),
-                  render: (v: any) => (
-                    <Badge variant={v === 'success' ? 'default' : v === 'processing' ? 'secondary' : 'destructive'}>
-                      {v === 'success' ? t('data.statusBadge.success') : v === 'processing' ? t('data.statusBadge.processing') : t('data.statusBadge.failed')}
-                    </Badge>
-                  )
-                } : undefined,
-                columnSettings.actions ? {
-                  key: 'actions',
-                  label: t('data.columns.actions'),
-                  width: 220,
-                  align: 'right',
-                  render: (_v: any, row: any) => (
-                    <div className="flex space-x-1">
-                      {row.status === 'success' && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDataDetail(row.id)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleQuickPreprocess(row.id)}>
-                            <Zap className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDownload(row.id)}>
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(row.id)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleCopy(row.id)}>
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleSingleDelete(row.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                      {row.status === 'processing' && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDataDetail(row.id)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleCancelUpload(row.id)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                      {row.status === 'failed' && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDataDetail(row.id)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleReupload(row.id)}>
-                            <Upload className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleSingleDelete(row.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  )
-                } : undefined,
-              ].filter(Boolean) as any}
-            />
-          </div>
-        </Card>
+        <DatasetTable
+          data={filteredAndSortedDatasets as any}
+          selectAll={selectAll}
+          onSelectAll={handleSelectAll}
+          selectedIds={selectedDatasets}
+          onToggleSelect={(id) => handleSelectDataset(Number(id))}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortChange={(column, order) => {
+            const col = String(column);
+            const ord = String(order);
+            if (isSortField(col)) {
+              setSortBy(col);
+            }
+            if (isSortOrder(ord)) {
+              setSortOrder(ord);
+            }
+          }}
+          columnSettings={columnSettings}
+          t={t}
+          formatYYYYMMDD={formatYYYYMMDD}
+          isTagsColFilterOpen={isTagsColFilterOpen}
+          onTagsFilterOpenChange={setIsTagsColFilterOpen}
+          availableTags={availableTags}
+          columnFilterTags={columnFilterTags}
+          onToggleTagFilter={(tag, checked) => setColumnFilterTags(prev => checked ? [...prev, tag] : prev.filter(tg => tg !== tag))}
+          onResetTagFilter={() => setColumnFilterTags([])}
+          isFormatColFilterOpen={isFormatColFilterOpen}
+          onFormatFilterOpenChange={setIsFormatColFilterOpen}
+          availableFormats={availableFormats}
+          columnFilterFormat={columnFilterFormat}
+          onToggleFormatFilter={(fmt, checked) => setColumnFilterFormat(prev => checked ? [...prev, fmt] : prev.filter(f => f !== fmt))}
+          onResetFormatFilter={() => setColumnFilterFormat([])}
+          onViewDataDetail={(id) => handleViewDataDetail(Number(id))}
+          onQuickPreprocess={(id) => handleQuickPreprocess(Number(id))}
+          onDownload={(id) => handleDownload(Number(id))}
+          onEdit={(id) => handleEdit(Number(id))}
+          onCopy={(id) => handleCopy(Number(id))}
+          onDelete={(id) => handleSingleDelete(Number(id))}
+          onCancelUpload={(id) => handleCancelUpload(Number(id))}
+        />
       )}
 
       {/* 分页控件：仅在网格视图显示 */}
@@ -1549,147 +1126,47 @@ export function DataManagement({
 
       {/* 已移除：高级筛选弹窗，改为顶栏“查询”按钮直接使用当前筛选条件 */}
 
-      {/* 列设置弹窗 */}
-      {isColumnSettingsOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">{t('data.columnsSettings.title')}</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsColumnSettingsOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="space-y-3">
-              {Object.entries(columnSettings).map(([key, value]) => (
-                <label key={key} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={value}
-                    onChange={(e) => setColumnSettings(prev => ({
-                      ...prev,
-                      [key]: e.target.checked
-                    }))}
-                  />
-                  <span className="text-sm">
-                    {key === 'id' ? 'ID' :
-                     key === 'name' ? t('data.columns.name') :
-                     key === 'description' ? t('data.columns.description') :
-                     key === 'categories' ? t('data.columns.tags') :
-                     key === 'format' ? t('data.columns.format') :
-                     key === 'size' ? t('data.columns.size') :
-                     key === 'rows' ? t('data.columns.rows') :
-                     key === 'columns' ? t('data.columns.columns') :
-                     key === 'completeness' ? t('data.columns.completeness') :
-                     key === 'source' ? t('data.columns.source') :
-                     key === 'version' ? t('data.columns.version') :
-                     key === 'updateTime' ? t('data.columns.updateTime') :
-                     key === 'status' ? t('data.columns.status') :
-                     key === 'actions' ? t('data.columns.actions') : key}
-                  </span>
-                </label>
-              ))}
-            </div>
+      <ColumnSettingsDialog
+        open={isColumnSettingsOpen}
+        title={t('data.columnsSettings.title')}
+        settings={columnSettings}
+        onChange={(key, value) => setColumnSettings(prev => ({ ...prev, [key]: value }))}
+        onSelectAll={() => setColumnSettings({
+          id: true,
+          name: true,
+          description: true,
+          categories: true,
+          format: true,
+          size: true,
+          rows: true,
+          columns: true,
+          source: true,
+          version: true,
+          updateTime: true,
+          status: true,
+          actions: true
+        })}
+        onClose={() => setIsColumnSettingsOpen(false)}
+        t={t}
+      />
 
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button
-                 variant="outline"
-                 onClick={() => {
-                   setColumnSettings({
-                     id: true,
-                     name: true,
-                     description: true,
-                     categories: true,
-                     format: true,
-                     size: true,
-                     rows: true,
-                     columns: true,
-                     source: true,
-                     version: true,
-                     updateTime: true,
-                     status: true,
-                     actions: true
-                   });
-                 }}
-               >
-                 {t('data.columnsSettings.selectAll')}
-               </Button>
-              <Button onClick={() => setIsColumnSettingsOpen(false)}>
-                {t('common.confirm')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmDialog
+        open={isDeleteConfirmOpen}
+        title={t('data.confirm.delete.title')}
+        message={deleteTarget.type === 'single' ? t('data.confirm.delete.message') : t('data.confirm.delete.message')}
+        onCancel={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        t={t}
+      />
 
-      {/* 删除确认弹窗 */}
-      {isDeleteConfirmOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex items-center space-x-3 mb-4">
-              <AlertTriangle className="h-6 w-6 text-red-500" />
-              <h3 className="text-lg font-semibold">{t('data.confirm.delete.title')}</h3>
-            </div>
-            
-            <p className="text-gray-600 mb-6">
-              {deleteTarget.type === 'single' 
-  ? t('data.confirm.delete.message')
-  : t('data.confirm.delete.message')
-              }
-            </p>
-
-            <div className="flex justify-end space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsDeleteConfirmOpen(false)}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleConfirmDelete}
-              >
-                {t('data.confirm.delete.confirmButton') ?? t('common.confirm')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 取消上传确认弹窗 */}
-      {isCancelUploadConfirmOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex items-center space-x-3 mb-4">
-              <AlertTriangle className="h-6 w-6 text-amber-500" />
-              <h3 className="text-lg font-semibold">{t('data.confirm.cancelUpload.title')}</h3>
-            </div>
-            
-            <p className="text-gray-600 mb-6">
-              {t('data.confirm.cancelUpload.message')}
-            </p>
-
-            <div className="flex justify-end space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => { setIsCancelUploadConfirmOpen(false); setCancelUploadTargetId(null); }}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleConfirmCancelUpload}
-              >
-                {t('common.confirm')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CancelUploadDialog
+        open={isCancelUploadConfirmOpen}
+        title={t('data.confirm.cancelUpload.title')}
+        message={t('data.confirm.cancelUpload.message')}
+        onCancel={() => { setIsCancelUploadConfirmOpen(false); setCancelUploadTargetId(null); }}
+        onConfirm={handleConfirmCancelUpload}
+        t={t}
+      />
 
       {/* 数据上传对话框 */}
       <DataUpload
@@ -1798,26 +1275,6 @@ export function DataManagement({
                       title: e.target.value
                     })}
                   />
-                </div>
-                <div>
-                  <Label htmlFor="edit-source">{t('data.form.source')}</Label>
-                  <Select
-                    value={editingDataset.source}
-                    onValueChange={(value: string) => setEditingDataset({
-                      ...editingDataset,
-                      source: value
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="上传">{t('data.source.upload')}</SelectItem>
-                      <SelectItem value="订阅">{t('data.source.subscription')}</SelectItem>
-                      <SelectItem value="API">{t('data.source.api')}</SelectItem>
-                      <SelectItem value="数据库">{t('data.source.database')}</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
               
