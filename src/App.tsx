@@ -22,10 +22,10 @@ import { Textarea } from "./components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { RadioGroup, RadioGroupItem } from "./components/ui/radio-group";
 import { Button } from "./components/ui/button";
- import { Badge } from "./components/ui/badge";
- // 统计卡片复用
- import { Card, CardContent } from "./components/ui/card";
- import { X, Search, Grid3X3, List, ChevronDown, Calendar, Users, Database, TrendingUp, Clock, CheckCircle, Settings, UserPlus, Mail, Trash2, Eye, Archive, Copy, ToggleLeft, ToggleRight, Filter, ArrowUpDown, Plus, AlertTriangle } from "lucide-react";
+import { Badge } from "./components/ui/badge";
+// 统计卡片复用
+import { Card, CardContent } from "./components/ui/card";
+import { X, Search, Grid3X3, List, ChevronDown, Calendar, Users, Database, TrendingUp, Clock, CheckCircle, Settings, UserPlus, Mail, Trash2, Eye, Archive, Copy, ToggleLeft, ToggleRight, Filter, ArrowUpDown, Plus, AlertTriangle } from "lucide-react";
 import { Toaster } from "./components/ui/sonner";
 import { Checkbox } from "./components/ui/checkbox";
 import FloatingAssistantEntry from "./components/FloatingAssistantEntry";
@@ -35,6 +35,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "./components/ui/popover
 import { Calendar as DateRangeCalendar } from "./components/ui/calendar";
 import { useLanguage } from "./i18n/LanguageContext";
 import { parseHashParams, clearHash } from "./utils/deeplink";
+import { Login } from "./components/Login";
 import { getDatasetById } from "./mock/datasets";
 
 /**
@@ -48,6 +49,8 @@ import { getDatasetById } from "./mock/datasets";
  */
 export default function App() {
   const { t, lang } = useLanguage();
+  // Login state - default to false to show login page first
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState("看板");
   const [showModelTuning, setShowModelTuning] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -60,7 +63,7 @@ export default function App() {
     teamLeader: "", // 团队负责人
     teamMembers: [] as string[] // 团队成员列表
   });
-  
+
   // 项目管理页面状态
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -158,7 +161,7 @@ export default function App() {
     },
     {
       id: "PRJ002",
-      title: "能源预测", 
+      title: "能源预测",
       mode: "独立模式",
       description: "基于企业管理数据统计中的服务分支以外的智能推荐功能进而特制",
       status: "进行中",
@@ -187,7 +190,7 @@ export default function App() {
       id: "PRJ003",
       title: "工艺优化分析",
       mode: "协作模式",
-      description: "基于目标数据智能推荐中的分析化。量实最终优化产品分析", 
+      description: "基于目标数据智能推荐中的分析化。量实最终优化产品分析",
       status: "已归档",
       stats: { datasets: 4, models: 6, tasks: 10 },
       dataset: "生产工艺数据",
@@ -215,7 +218,7 @@ export default function App() {
       title: "供应链优化分析",
       mode: "协作模式",
       description: "基于供应链数据进行库存优化、需求预测和成本分析",
-      status: "进行中", 
+      status: "进行中",
       stats: { datasets: 2, models: 4, tasks: 8 },
       dataset: "供应链数据",
       model: "库存优化模型",
@@ -243,7 +246,7 @@ export default function App() {
   useEffect(() => {
     try {
       document.title = t("app.title") || "Limix";
-    } catch {}
+    } catch { }
   }, [lang, t]);
 
   /**
@@ -259,7 +262,7 @@ export default function App() {
    */
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         project.description.toLowerCase().includes(searchQuery.toLowerCase());
+      project.description.toLowerCase().includes(searchQuery.toLowerCase());
     // 当选择“全部状态”时，默认隐藏已归档项目；否则按选择的状态过滤
     const matchesStatus =
       statusFilter === "all"
@@ -271,7 +274,7 @@ export default function App() {
     const start = projectDateRange.start ? new Date(projectDateRange.start) : null;
     const end = projectDateRange.end ? new Date(projectDateRange.end) : null;
     const matchesDate = (!start || projectCreated >= start) && (!end || projectCreated <= end);
-    
+
     return matchesSearch && matchesStatus && matchesOwner && matchesDate;
   });
 
@@ -400,16 +403,16 @@ export default function App() {
       alert("请选择团队负责人");
       return;
     }
-    
+
     // 处理创建项目逻辑
     console.log("创建项目:", projectFormData);
-    
+
     // 设置当前项目
     setCurrentProject({
       name: projectFormData.projectName,
       mode: 'traditional'
     });
-    
+
     setIsCreateProjectOpen(false);
     // 重置表单
     setProjectFormData({
@@ -675,17 +678,17 @@ export default function App() {
 
   const renderContent = () => {
     console.log("当前活动标签:", activeTab); // 添加调试日志
-    
+
     // 如果当前有项目且为自动模式，显示智能界面
     if (currentProject && currentProject.mode === 'auto') {
       return <SoloMode projectName={currentProject.name} />;
     }
-    
+
     switch (activeTab) {
       case "看板":
         return (
           <div>
-            <Dashboard 
+            <Dashboard
               onNavigateToProjectManagement={() => {
                 setActiveTab("项目管理");
                 setIsCreateProjectOpen(true);
@@ -753,17 +756,17 @@ export default function App() {
                     />
                   </div>
 
-                  {/* Owner Filter */}
-                  <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+                  {/* Status Filter: 状态筛选 (Moved from Table Header) */}
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-32 md:w-36 shrink-0">
-                      <SelectValue placeholder="负责人" />
+                      <SelectValue placeholder="状态" />
                       <ChevronDown className="w-4 h-4" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">全部负责人</SelectItem>
-                      <SelectItem value="张三">张三</SelectItem>
-                      <SelectItem value="李四">李四</SelectItem>
-                      <SelectItem value="王五">王五</SelectItem>
+                      <SelectItem value="all">全部状态</SelectItem>
+                      <SelectItem value="进行中">进行中</SelectItem>
+                      <SelectItem value="已归档">已归档</SelectItem>
+                      <SelectItem value="已延期">已延期</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -882,11 +885,11 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* 已移除：网格视图中的“创建新项目”卡片，统一由顶栏按钮触发创建 */}
                 {/* 保留项目卡片列表 */}
-                
+
                 {/* 项目卡片 */}
                 {sortedProjects.map((project) => (
-                  <ProjectCard 
-                    key={project.id} 
+                  <ProjectCard
+                    key={project.id}
                     title={project.title}
                     description={project.description}
                     status={project.status}
@@ -903,40 +906,40 @@ export default function App() {
             ) : (
               /* 列表视图 */
               <div className="bg-white rounded-lg border overflow-x-auto">
-                <div className="grid gap-2 px-6 py-4 border-b border-gray-200 text-sm font-medium text-gray-500 min-w-max" style={{gridTemplateColumns: "80px 200px 100px 80px 150px 150px 150px 100px 120px 120px 120px 100px"}}>
+                <div className="grid gap-2 px-6 py-4 border-b border-gray-200 text-sm font-medium text-gray-500 min-w-max" style={{ gridTemplateColumns: "80px 200px 100px 80px 150px 150px 150px 100px 120px 120px 120px 100px" }}>
                   <div>项目ID</div>
                   <div>项目名称</div>
                   <div>项目模式</div>
+                  <div>状态</div>
+                  <div>数据集</div>
+                  <div>模型</div>
+                  <div>任务</div>
                   <div className="flex items-center gap-1">
-                    <span>状态</span>
+                    <span>负责人</span>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" aria-label="状态列筛选">
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" aria-label="负责人筛选">
                           <Filter className="h-3 w-3" />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-44 p-2" align="start">
                         <div className="space-y-2">
-                          <div className="text-xs text-gray-500">状态筛选</div>
-                          <Select value={statusFilter} onValueChange={(v: string) => setStatusFilter(v)}>
+                          <div className="text-xs text-gray-500">负责人筛选</div>
+                          <Select value={ownerFilter} onValueChange={(v: string) => setOwnerFilter(v)}>
                             <SelectTrigger className="h-8">
-                              <SelectValue placeholder="选择状态" />
+                              <SelectValue placeholder="选择负责人" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="all">全部状态</SelectItem>
-                              <SelectItem value="进行中">进行中</SelectItem>
-                              <SelectItem value="已归档">已归档</SelectItem>
-                              <SelectItem value="已延期">已延期</SelectItem>
+                              <SelectItem value="all">全部负责人</SelectItem>
+                              <SelectItem value="张三">张三</SelectItem>
+                              <SelectItem value="李四">李四</SelectItem>
+                              <SelectItem value="王五">王五</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <div>数据集</div>
-                  <div>模型</div>
-                  <div>任务</div>
-                  <div>负责人</div>
                   <div>项目周期</div>
                   <div className="flex items-center gap-1 cursor-pointer select-none" onClick={() => handleToggleProjectSort("createdTime")}>
                     <span>创建时间</span>
@@ -948,11 +951,11 @@ export default function App() {
                   </div>
                   <div>操作</div>
                 </div>
-                
+
                 {/* 已移除：列表内的“创建新项目”占位行，改为顶栏右侧按钮触发 */}
 
                 {sortedProjects.map((project, index) => (
-                  <div key={index} className="grid gap-2 px-6 py-4 border-b border-gray-200 hover:bg-gray-50 transition-colors min-w-max" style={{gridTemplateColumns: "80px 200px 100px 80px 150px 150px 150px 100px 120px 120px 120px 100px"}}>
+                  <div key={index} className="grid gap-2 px-6 py-4 border-b border-gray-200 hover:bg-gray-50 transition-colors min-w-max" style={{ gridTemplateColumns: "80px 200px 100px 80px 150px 150px 150px 100px 120px 120px 120px 100px" }}>
                     <div className="flex items-center text-sm text-gray-700">{project.id}</div>
                     <div>
                       <div className="font-medium text-gray-900 text-sm">{project.title}</div>
@@ -960,11 +963,10 @@ export default function App() {
                     </div>
                     <div className="flex items-center text-xs text-gray-700">{project.mode}</div>
                     <div className="flex items-center">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        project.status === "进行中" ? "bg-green-100 text-green-700" :
+                      <span className={`px-2 py-1 rounded-full text-xs ${project.status === "进行中" ? "bg-green-100 text-green-700" :
                         project.status === "已归档" ? "bg-gray-100 text-gray-700" :
-                        "bg-gray-100 text-gray-700"
-                      }`}>
+                          "bg-gray-100 text-gray-700"
+                        }`}>
                         {project.status}
                       </span>
                     </div>
@@ -996,7 +998,8 @@ export default function App() {
                   </div>
                 ))}
               </div>
-            )}
+            )
+            }
 
             {/* 创建项目抽屉 */}
             <Sheet open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen}>
@@ -1004,9 +1007,9 @@ export default function App() {
                 <SheetHeader className="px-6 py-4 border-b">
                   <div className="flex items-center justify-between">
                     <SheetTitle>创建新项目</SheetTitle>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={handleCancelProject}
                       className="h-6 w-6 p-0"
                     >
@@ -1017,7 +1020,7 @@ export default function App() {
                     填写项目信息以创建新的AI模型项目
                   </SheetDescription>
                 </SheetHeader>
-                
+
                 <div className="px-6 py-6 space-y-6">
                   {/* 项目模式选择（已移除） */}
 
@@ -1031,7 +1034,7 @@ export default function App() {
                         id="projectName"
                         placeholder="请输入项目名称"
                         value={projectFormData.projectName}
-                        onChange={(e) => setProjectFormData({...projectFormData, projectName: e.target.value})}
+                        onChange={(e) => setProjectFormData({ ...projectFormData, projectName: e.target.value })}
                         className="h-10"
                       />
                     </div>
@@ -1039,9 +1042,9 @@ export default function App() {
                       <Label className="text-sm font-medium">
                         团队负责人 <span className="text-red-500">*</span>
                       </Label>
-                      <Select 
-                        value={projectFormData.teamLeader} 
-                        onValueChange={(value: string) => setProjectFormData({...projectFormData, teamLeader: value})}
+                      <Select
+                        value={projectFormData.teamLeader}
+                        onValueChange={(value: string) => setProjectFormData({ ...projectFormData, teamLeader: value })}
                       >
                         <SelectTrigger className="h-10">
                           <SelectValue placeholder="选择团队负责人" />
@@ -1066,7 +1069,7 @@ export default function App() {
                       id="projectDescription"
                       placeholder="请输入项目描述（可选）"
                       value={projectFormData.projectDescription}
-                      onChange={(e) => setProjectFormData({...projectFormData, projectDescription: e.target.value})}
+                      onChange={(e) => setProjectFormData({ ...projectFormData, projectDescription: e.target.value })}
                       className="min-h-[80px] resize-none"
                     />
                   </div>
@@ -1083,7 +1086,7 @@ export default function App() {
                           id="startDate"
                           type="date"
                           value={projectFormData.projectStartDate}
-                          onChange={(e) => setProjectFormData({...projectFormData, projectStartDate: e.target.value})}
+                          onChange={(e) => setProjectFormData({ ...projectFormData, projectStartDate: e.target.value })}
                           className="h-10"
                         />
                       </div>
@@ -1093,7 +1096,7 @@ export default function App() {
                           id="endDate"
                           type="date"
                           value={projectFormData.projectEndDate}
-                          onChange={(e) => setProjectFormData({...projectFormData, projectEndDate: e.target.value})}
+                          onChange={(e) => setProjectFormData({ ...projectFormData, projectEndDate: e.target.value })}
                           className="h-10"
                         />
                       </div>
@@ -1106,9 +1109,9 @@ export default function App() {
                       <Label className="text-sm font-medium">
                         项目权限 <span className="text-red-500">*</span>
                       </Label>
-                      <RadioGroup 
-                        value={projectFormData.projectVisibility} 
-                        onValueChange={(value: string) => setProjectFormData({...projectFormData, projectVisibility: value})}
+                      <RadioGroup
+                        value={projectFormData.projectVisibility}
+                        onValueChange={(value: string) => setProjectFormData({ ...projectFormData, projectVisibility: value })}
                         className="space-y-2"
                       >
                         <div className="flex items-center space-x-2">
@@ -1130,21 +1133,21 @@ export default function App() {
                       selectedIds={projectFormData.teamMembers}
                       onChange={(ids) => setProjectFormData({ ...projectFormData, teamMembers: ids })}
                       currentUserRole="项目经理"
-                     />
+                    />
+                  </div>
                 </div>
-              </div>
 
                 {/* 底部按钮 */}
                 <div className="px-6 py-4 border-t flex justify-end space-x-3">
                   <Button variant="outline" onClick={handleCancelProject}>
                     取消
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleCreateProject}
                     className="bg-blue-500 hover:bg-blue-600"
                     disabled={
-                      !projectFormData.projectName || 
-                      !projectFormData.projectStartDate || 
+                      !projectFormData.projectName ||
+                      !projectFormData.projectStartDate ||
                       !projectFormData.projectEndDate ||
                       !projectFormData.projectVisibility ||
                       !projectFormData.teamLeader
@@ -1168,9 +1171,9 @@ export default function App() {
                       </Badge>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setIsProjectDetailOpen(false)}
                         className="h-6 w-6 p-0"
                       >
@@ -1180,9 +1183,9 @@ export default function App() {
                   </div>
                   <p className="text-sm text-gray-600 mt-2">{selectedProject?.description}</p>
                 </DialogHeader>
-                
+
                 <div className="px-6 py-4">
-                  <ProjectDetailCards 
+                  <ProjectDetailCards
                     project={selectedProject}
                     mode={projectDetailMode}
                     onNavigateToData={() => {
@@ -1223,9 +1226,9 @@ export default function App() {
                       <Settings className="h-5 w-5 text-blue-600" />
                       <SheetTitle>项目设置</SheetTitle>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={handleCancelManage}
                       className="h-6 w-6 p-0"
                     >
@@ -1236,7 +1239,7 @@ export default function App() {
                     管理项目设置，包括基本信息、团队成员和权限配置
                   </SheetDescription>
                 </SheetHeader>
-                
+
                 <div className="px-6 py-4 space-y-8">
                   {/* 基本信息 */}
                   <div className="space-y-4">
@@ -1244,31 +1247,31 @@ export default function App() {
                       <div className="text-lg">📋</div>
                       <h3 className="text-lg font-medium">基本信息</h3>
                     </div>
-                    
+
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="manage-project-name" className="text-sm">项目名称</Label>
                         <Input
                           id="manage-project-name"
                           value={manageFormData.projectName}
-                          onChange={(e) => setManageFormData({...manageFormData, projectName: e.target.value})}
+                          onChange={(e) => setManageFormData({ ...manageFormData, projectName: e.target.value })}
                           className="h-10"
                         />
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="manage-project-description" className="text-sm">项目描述</Label>
                         <Textarea
                           id="manage-project-description"
                           value={manageFormData.projectDescription}
-                          onChange={(e) => setManageFormData({...manageFormData, projectDescription: e.target.value})}
+                          onChange={(e) => setManageFormData({ ...manageFormData, projectDescription: e.target.value })}
                           className="min-h-[80px] resize-none"
                         />
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="manage-team-leader" className="text-sm">团队负责人 <span className="text-red-500">*</span></Label>
-                        <Select value={manageFormData.teamLeader} onValueChange={(value: string) => setManageFormData({...manageFormData, teamLeader: value})}>
+                        <Select value={manageFormData.teamLeader} onValueChange={(value: string) => setManageFormData({ ...manageFormData, teamLeader: value })}>
                           <SelectTrigger className="h-10">
                             <SelectValue placeholder="选择团队负责人" />
                           </SelectTrigger>
@@ -1281,7 +1284,7 @@ export default function App() {
                           </SelectContent>
                         </Select>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <Label className="text-sm">项目周期 <span className="text-red-500">*</span></Label>
                         <div className="grid grid-cols-2 gap-4">
@@ -1291,7 +1294,7 @@ export default function App() {
                               id="manage-start-date"
                               type="date"
                               value={manageFormData.projectStartDate}
-                              onChange={(e) => setManageFormData({...manageFormData, projectStartDate: e.target.value})}
+                              onChange={(e) => setManageFormData({ ...manageFormData, projectStartDate: e.target.value })}
                               className="h-10"
                             />
                           </div>
@@ -1301,7 +1304,7 @@ export default function App() {
                               id="manage-end-date"
                               type="date"
                               value={manageFormData.projectEndDate}
-                              onChange={(e) => setManageFormData({...manageFormData, projectEndDate: e.target.value})}
+                              onChange={(e) => setManageFormData({ ...manageFormData, projectEndDate: e.target.value })}
                               className="h-10"
                             />
                           </div>
@@ -1331,10 +1334,10 @@ export default function App() {
                       <div className="text-lg">🔒</div>
                       <h3 className="text-lg font-medium">项目权限</h3>
                     </div>
-                    
-                    <RadioGroup 
-                      value={manageFormData.projectVisibility} 
-                      onValueChange={(value: string) => setManageFormData({...manageFormData, projectVisibility: value})}
+
+                    <RadioGroup
+                      value={manageFormData.projectVisibility}
+                      onValueChange={(value: string) => setManageFormData({ ...manageFormData, projectVisibility: value })}
                       className="space-y-3"
                     >
                       <div className="flex items-start space-x-3">
@@ -1348,7 +1351,7 @@ export default function App() {
                           </p>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-start space-x-3">
                         <RadioGroupItem value="public" id="public" className="mt-1" />
                         <div className="space-y-1">
@@ -1367,16 +1370,16 @@ export default function App() {
                 {/* 底部按钮 */}
                 <div className="px-6 py-4 border-t flex justify-between">
                   <div className="flex gap-3">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={handleArchiveProject}
                       className="flex items-center gap-2 text-orange-600 border-orange-200 hover:bg-orange-50"
                     >
                       <Archive className="h-4 w-4" />
                       归档项目
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={handleDuplicateProject}
                       className="flex items-center gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
                     >
@@ -1384,12 +1387,12 @@ export default function App() {
                       复制项目
                     </Button>
                   </div>
-                  
+
                   <div className="flex gap-3">
                     <Button variant="outline" onClick={handleCancelManage}>
                       取消
                     </Button>
-                    <Button 
+                    <Button
                       onClick={handleSaveProjectSettings}
                       className="bg-blue-500 hover:bg-blue-600 text-white"
                     >
@@ -1412,7 +1415,7 @@ export default function App() {
                     确认要复制项目 "{selectedProject?.title}" 吗？
                   </DialogDescription>
                 </DialogHeader>
-                
+
                 <div className="space-y-4">
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <div className="text-sm text-blue-800">
@@ -1459,7 +1462,7 @@ export default function App() {
                   <Button variant="outline" onClick={() => setIsDuplicateConfirmOpen(false)}>
                     取消
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleConfirmDuplicate}
                     className="bg-blue-500 hover:bg-blue-600 text-white"
                   >
@@ -1481,7 +1484,7 @@ export default function App() {
                     确认要归档项目 "{selectedProject?.title}" 吗？
                   </DialogDescription>
                 </DialogHeader>
-                
+
                 <div className="space-y-4">
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
                     <div className="text-sm text-orange-800">
@@ -1497,7 +1500,7 @@ export default function App() {
                   <Button variant="outline" onClick={() => setIsArchiveConfirmOpen(false)}>
                     取消
                   </Button>
-                  <Button 
+                  <Button
                     onClick={handleConfirmArchive}
                     className="bg-orange-500 hover:bg-orange-600 text-white"
                   >
@@ -1506,12 +1509,12 @@ export default function App() {
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
+          </div >
         );
       case "数据管理":
         return (
           <div className="relative">
-            <DataManagement 
+            <DataManagement
               onNavigateToPreprocessing={() => {
                 // 这里可以添加额外的跳转逻辑，比如显示通知等
                 console.log("已跳转到数据预处理页面");
@@ -1537,7 +1540,7 @@ export default function App() {
               <h1 className="text-2xl font-semibold text-gray-900 mb-2">任务管理</h1>
               <p className="text-gray-600">创建、监控和管理AI模型训练任务，实时跟踪任务进度和性能指标</p>
             </div>
-            <TaskManagement 
+            <TaskManagement
               isCreateTaskDialogOpen={isCreateTaskDialogOpen}
               onCreateTaskDialogChange={(open: boolean) => setIsCreateTaskDialogOpen(open)}
               onOpenTaskDetailFullPage={handleOpenTaskDetailFullPage}
@@ -1584,8 +1587,8 @@ export default function App() {
     type: TASK_TYPES.classification,
     metrics: {
       accuracy: 0.9144, precision: 0.902, recall: 0.895, f1: 0.898, rocAuc: 0.945,
-      rocCurve: Array.from({ length: 21 }, (_, i) => ({ fpr: i/20, tpr: Math.min(1, Math.pow(i/20, 0.6)) })),
-      confusionMatrix: [[120, 10],[8, 140]],
+      rocCurve: Array.from({ length: 21 }, (_, i) => ({ fpr: i / 20, tpr: Math.min(1, Math.pow(i / 20, 0.6)) })),
+      confusionMatrix: [[120, 10], [8, 140]],
       ci95: { accuracy: [0.90, 0.93] },
     },
     causalGraph: {
@@ -1601,8 +1604,8 @@ export default function App() {
         { source: 'n3', target: 'n4', influenceStrength: 0.9 },
       ],
     },
-    phases: [ { name: '数据加载', durationSec: 35 }, { name: '训练', durationSec: 820 }, { name: '评估', durationSec: 65 } ],
-    usage: Array.from({ length: 30 }, (_, i) => ({ t: i, cpu: 40 + (i%5)*5, gpu: 30 + (i%7)*3 })),
+    phases: [{ name: '数据加载', durationSec: 35 }, { name: '训练', durationSec: 820 }, { name: '评估', durationSec: 65 }],
+    usage: Array.from({ length: 30 }, (_, i) => ({ t: i, cpu: 40 + (i % 5) * 5, gpu: 30 + (i % 7) * 3 })),
     totalTimeSec: 920,
     trainTimeSec: 820,
     inferTimeMs: 45,
@@ -1616,8 +1619,8 @@ export default function App() {
     type: TASK_TYPES.classification,
     metrics: {
       accuracy: 0.904, precision: 0.895, recall: 0.882, f1: 0.888, rocAuc: 0.936,
-      rocCurve: Array.from({ length: 21 }, (_, i) => ({ fpr: i/20, tpr: Math.min(1, Math.pow(i/20, 0.65)) })),
-      confusionMatrix: [[115, 15],[12, 135]],
+      rocCurve: Array.from({ length: 21 }, (_, i) => ({ fpr: i / 20, tpr: Math.min(1, Math.pow(i / 20, 0.65)) })),
+      confusionMatrix: [[115, 15], [12, 135]],
       ci95: { accuracy: [0.88, 0.92] },
     },
     causalGraph: {
@@ -1633,8 +1636,8 @@ export default function App() {
         { source: 'n3', target: 'n4', influenceStrength: 0.8 },
       ],
     },
-    phases: [ { name: '数据加载', durationSec: 40 }, { name: '训练', durationSec: 780 }, { name: '评估', durationSec: 70 } ],
-    usage: Array.from({ length: 30 }, (_, i) => ({ t: i, cpu: 35 + (i%6)*4, gpu: 25 + (i%5)*4 })),
+    phases: [{ name: '数据加载', durationSec: 40 }, { name: '训练', durationSec: 780 }, { name: '评估', durationSec: 70 }],
+    usage: Array.from({ length: 30 }, (_, i) => ({ t: i, cpu: 35 + (i % 6) * 4, gpu: 25 + (i % 5) * 4 })),
     totalTimeSec: 890,
     trainTimeSec: 780,
     inferTimeMs: 38,
@@ -1646,37 +1649,42 @@ export default function App() {
   // 如果个性化设置页面打开，则显示个性化设置页面
   if (isPersonalizationSettingsOpen) {
     return (
-      <PersonalizationSettings 
+      <PersonalizationSettings
         onBack={handleClosePersonalizationSettings}
       />
     );
   }
 
+  // If not logged in, show login page (full screen)
+  if (!isLoggedIn) {
+    return <Login onLogin={() => setIsLoggedIn(true)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header 
-        activeTab={activeTab} 
+      <Header
+        activeTab={activeTab}
         onTabChange={setActiveTab}
         onOpenPersonalCenter={handleOpenPersonalCenter}
         onOpenPersonalizationSettings={handleOpenPersonalizationSettings}
         onOpenNotificationCenter={handleOpenNotificationCenter}
         onLogout={handleLogout}
       />
-      
+
       <main className="p-6 max-w-7xl mx-auto">
         {renderContent()}
       </main>
-      
+
       {/* 全页面视图 */}
       {fullPageViewType === 'data-detail' && selectedDatasetForFullPage && (
-        <DataDetailFullPage 
+        <DataDetailFullPage
           dataset={selectedDatasetForFullPage}
           onClose={handleCloseFullPageView}
           initialTab={dataDetailInitialTab ?? 'overview'}
         />
       )}
       {fullPageViewType === 'task-detail' && selectedTaskForFullPage && (
-        <TaskDetailFullPage 
+        <TaskDetailFullPage
           task={selectedTaskForFullPage}
           onClose={handleCloseFullPageView}
           onOpenDataDetail={handleOpenDataDetailFullPage}
@@ -1684,7 +1692,7 @@ export default function App() {
         />
       )}
       {fullPageViewType && fullPageViewType !== 'data-detail' && fullPageViewType !== 'task-detail' && (
-        <FullPageView 
+        <FullPageView
           type={fullPageViewType}
           onClose={handleCloseFullPageView}
           notificationCenterInitialTab={notificationCenterInitialTab ?? 'notifications'}

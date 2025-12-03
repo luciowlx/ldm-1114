@@ -30,7 +30,7 @@ import { formatYYYYMMDD, parseDateFlexible, toDateOnly, toEndOfDay, isDateWithin
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { 
+import {
   Upload,
   Database,
   Eye,
@@ -119,7 +119,7 @@ interface Dataset {
 // 统一来源类型，覆盖上传/订阅/API/数据库/未知，避免后续筛选 includes 比较的联合类型不兼容
 type SourceType = 'upload' | 'subscription' | 'api' | 'database' | 'unknown';
 
-export function DataManagement({ 
+export function DataManagement({
   onNavigateToPreprocessing,
   isUploadDialogOpen = false,
   onUploadDialogClose,
@@ -131,7 +131,7 @@ export function DataManagement({
    * 参数 items 为包含 name 字段的对象数组，返回用于展示的 JSX 元素。
    * 返回值：React.ReactNode — 包含灰色徽标和可选的悬停提示。
    */
-  
+
   const { lang, t } = useLanguage();
   // 视图模式：默认优先列表
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
@@ -151,7 +151,7 @@ export function DataManagement({
   const [copyingDataset, setCopyingDataset] = useState<Dataset | null>(null);
   const [isDataDetailDialogOpen, setIsDataDetailDialogOpen] = useState(false);
   const [selectedDatasetForDetail, setSelectedDatasetForDetail] = useState<Dataset | null>(null);
-  
+
   // 搜索和筛选状态
   const [searchTerm, setSearchTerm] = useState('');
   // 状态筛选已移除（仅保留展示，不参与过滤）
@@ -162,15 +162,15 @@ export function DataManagement({
   const isSortOrder = (o: string): o is 'asc' | 'desc' => o === 'asc' || o === 'desc';
   const [sortBy, setSortBy] = useState<SortField>('updateTime');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  
+
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+
   // 批量操作状态
   const [selectedDatasets, setSelectedDatasets] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
-  
+
   // 删除确认状态
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'batch', ids: number[] }>({ type: 'single', ids: [] });
   // 取消上传确认状态
@@ -205,7 +205,7 @@ export function DataManagement({
   });
 
   // 已移除高级筛选弹窗开关；保留 advancedFilters 作为顶部控件的即时筛选状态
-  
+
   // 列筛选（表头 Popover 多选）：状态/标签/格式
   // 状态列头筛选已移除
   const [columnFilterTags, setColumnFilterTags] = useState<string[]>([]);
@@ -213,7 +213,7 @@ export function DataManagement({
   const [isQueryDialogOpen, setIsQueryDialogOpen] = useState(false);
   const [querySelectedTags, setQuerySelectedTags] = useState<string[]>([]);
   const [querySelectedFormats, setQuerySelectedFormats] = useState<string[]>([]);
-  
+
   const [isTagsColFilterOpen, setIsTagsColFilterOpen] = useState(false);
   const [isFormatColFilterOpen, setIsFormatColFilterOpen] = useState(false);
   // 预处理任务：状态列头筛选 Popover 开关（将原顶部“全部状态”下拉迁移到列头）
@@ -266,7 +266,7 @@ export function DataManagement({
     {
       id: 1,
       name: '传感器数据预处理',
-      dataset: '生产线传感器数据集',
+      dataset: '销售数据集',
       type: '数据清洗',
       creator: '张三',
       status: 'success',
@@ -278,7 +278,7 @@ export function DataManagement({
     {
       id: 2,
       name: '缺陷记录清洗正则',
-      dataset: '生产线缺陷记录集',
+      dataset: '用户行为数据',
       type: '特征工程',
       creator: '李四',
       status: 'running',
@@ -290,7 +290,7 @@ export function DataManagement({
     {
       id: 3,
       name: 'ERP数据质量评估',
-      dataset: 'ERP系统数据集',
+      dataset: '产品库存数据',
       type: '质量评估',
       creator: '王五',
       status: 'pending',
@@ -301,7 +301,7 @@ export function DataManagement({
     {
       id: 4,
       name: '设备日志预处理',
-      dataset: '生产设备日志集',
+      dataset: '销售数据集',
       type: '数据清洗',
       creator: '赵六',
       status: 'failed',
@@ -348,11 +348,15 @@ export function DataManagement({
   const handleViewTask = (id: number) => {
     const task = preprocessingTasks.find(t => t.id === id);
     if (task) {
-      // 展示任务ID而非任务名称
-      toast.info(t('task.actions.viewDetail'), {
-        description: `${t('task.toast.viewDetailIdPrefix')} ${task.id}`
-      });
-      // 这里可扩展：打开全屏详情页或任务详情弹窗
+      // 根据任务关联的数据集名称查找数据集ID
+      const dataset = datasets.find(d => d.title === task.dataset);
+      if (dataset) {
+        handleViewDataDetail(dataset.id);
+      } else {
+        toast.info(t('data.toast.datasetNotFound'), {
+          description: `${t('data.toast.datasetNotFound.prefix')} ${task.dataset}`
+        });
+      }
     }
   };
 
@@ -423,7 +427,7 @@ export function DataManagement({
 
   const handleDeleteTask = (id: number) => {
     setPreprocessingTasks(prev => prev.filter(t => t.id !== id));
-  toast.success(t('data.toast.taskDeleteSuccess'));
+    toast.success(t('data.toast.taskDeleteSuccess'));
   };
 
   const handleDatasetClick = (datasetName: string) => {
@@ -557,9 +561,9 @@ export function DataManagement({
   const filteredAndSortedDatasets = datasets
     .filter(dataset => {
       const matchesSearch = dataset.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           dataset.description.toLowerCase().includes(searchTerm.toLowerCase());
+        dataset.description.toLowerCase().includes(searchTerm.toLowerCase());
       // 已移除状态筛选逻辑：不再根据状态过滤，仅展示
-      
+
       // 高级筛选
       const rowsCount = parseInt(dataset.rows.replace(/,/g, ''));
       const columnsCount = parseInt(dataset.columns.replace(/,/g, ''));
@@ -581,16 +585,16 @@ export function DataManagement({
         }
       }
 
-  const matchesFormatColumn = columnFilterFormat.length === 0 || (dataset.formats || []).some(f => columnFilterFormat.map(s => s.toLowerCase()).includes((f || '').toLowerCase()));
+      const matchesFormatColumn = columnFilterFormat.length === 0 || (dataset.formats || []).some(f => columnFilterFormat.map(s => s.toLowerCase()).includes((f || '').toLowerCase()));
       // 列头标签筛选：与高级筛选的 tagQuery 可组合
       const matchesTagsColumn = columnFilterTags.length === 0 || dataset.tags.some(t => columnFilterTags.includes(t.name));
-      const matchesAdvanced = 
+      const matchesAdvanced =
         columnsCount >= advancedFilters.columnsRange[0] && columnsCount <= advancedFilters.columnsRange[1] &&
         rowsCount >= advancedFilters.rowsRange[0] && rowsCount <= advancedFilters.rowsRange[1] &&
         (!advancedFilters.tagQuery || dataset.tags.some(t => t.name.toLowerCase().includes(advancedFilters.tagQuery.toLowerCase()))) &&
-    (advancedFilters.formats.length === 0 || (dataset.formats || []).some(f => advancedFilters.formats.map(s => s.toLowerCase()).includes((f || '').toLowerCase()))) &&
+        (advancedFilters.formats.length === 0 || (dataset.formats || []).some(f => advancedFilters.formats.map(s => s.toLowerCase()).includes((f || '').toLowerCase()))) &&
         (advancedFilters.tags.length === 0 || dataset.tags.some(t => advancedFilters.tags.includes(t.name))) &&
-    matchesFormatColumn &&
+        matchesFormatColumn &&
         matchesDateRange;
 
       return matchesSearch && matchesAdvanced && matchesTagsColumn;
@@ -668,11 +672,11 @@ export function DataManagement({
   };
 
   const handleConfirmDelete = () => {
-  toast.success(t('data.toast.batchDeleteSuccess'), {
-    description: lang === 'zh' 
-      ? `已删除 ${deleteTarget.ids.length} 个数据集`
-      : `Deleted ${deleteTarget.ids.length} datasets`
-  });
+    toast.success(t('data.toast.batchDeleteSuccess'), {
+      description: lang === 'zh'
+        ? `已删除 ${deleteTarget.ids.length} 个数据集`
+        : `Deleted ${deleteTarget.ids.length} datasets`
+    });
     setSelectedDatasets([]);
     setIsDeleteConfirmOpen(false);
   };
@@ -690,9 +694,9 @@ export function DataManagement({
     if (!editingDataset) return;
 
     // 更新数据集列表
-    setDatasets(prevDatasets => 
-      prevDatasets.map(dataset => 
-        dataset.id === editingDataset.id 
+    setDatasets(prevDatasets =>
+      prevDatasets.map(dataset =>
+        dataset.id === editingDataset.id
           ? { ...editingDataset, updateTime: new Date().toISOString() }
           : dataset
       )
@@ -730,28 +734,28 @@ export function DataManagement({
     // 添加到数据集列表
     setDatasets(prevDatasets => [...prevDatasets, newDataset]);
 
-  toast.success(t('data.toast.copyDatasetSuccess'), {
-    description: lang === 'zh' 
-      ? `已复制数据集：${newDataset.title}`
-      : `Copied dataset: ${newDataset.title}`
-  });
+    toast.success(t('data.toast.copyDatasetSuccess'), {
+      description: lang === 'zh'
+        ? `已复制数据集：${newDataset.title}`
+        : `Copied dataset: ${newDataset.title}`
+    });
     setIsCopyDialogOpen(false);
     setCopyingDataset(null);
   };
 
   // 编辑弹窗的标签管理
   const [editNewTagName, setEditNewTagName] = useState('');
-  
+
   // 预定义的标签颜色
   const editTagColors = [
-    '#3b82f6', '#ef4444', '#10b981', '#f59e0b', 
+    '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
     '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'
   ];
 
   // 编辑弹窗添加标签
   const addEditTag = () => {
     if (!editNewTagName.trim() || !editingDataset) return;
-    
+
     // 检查是否已存在相同名称的标签
     if (editingDataset.tags.some(tag => tag.name === editNewTagName.trim())) {
       toast.error('标签已存在');
@@ -767,14 +771,14 @@ export function DataManagement({
       ...editingDataset,
       tags: [...editingDataset.tags, newTag]
     });
-    
+
     setEditNewTagName('');
   };
 
   // 编辑弹窗删除标签
   const removeEditTag = (tagName: string) => {
     if (!editingDataset) return;
-    
+
     setEditingDataset({
       ...editingDataset,
       tags: editingDataset.tags.filter(tag => tag.name !== tagName)
@@ -794,7 +798,7 @@ export function DataManagement({
 
   const handleDownload = (id: number) => {
     toast.success(t('data.toast.downloadStart'), {
-      description: lang === 'zh' 
+      description: lang === 'zh'
         ? `数据集 ${id}`
         : `Dataset ${id}`
     });
@@ -830,9 +834,10 @@ export function DataManagement({
       rowsRange: [0, 1000000],
       dateRange: null,
       tagQuery: '',
-      formats: []
+      formats: [],
+      tags: []
     });
-  toast.success(t('data.toast.filtersReset'));
+    toast.success(t('data.toast.filtersReset'));
   };
 
   /**
@@ -857,13 +862,13 @@ export function DataManagement({
     if (cancelUploadTargetId === null) return;
     const dataset = datasets.find(d => d.id === cancelUploadTargetId);
     setDatasets(prev => prev.map(d => d.id === cancelUploadTargetId ? { ...d, status: 'failed', updateTime: new Date().toISOString() } : d));
-  toast.success(t('data.toast.cancelUploadSuccess'), {
-    description: dataset 
-      ? (lang === 'zh' 
-        ? `已取消 ${dataset.title} 的上传（覆盖当前版本，不保留旧版本）`
-        : `Cancelled upload for ${dataset.title} (overwrite current version, do not keep old version)`)
-      : ''
-  });
+    toast.success(t('data.toast.cancelUploadSuccess'), {
+      description: dataset
+        ? (lang === 'zh'
+          ? `已取消 ${dataset.title} 的上传（覆盖当前版本，不保留旧版本）`
+          : `Cancelled upload for ${dataset.title} (overwrite current version, do not keep old version)`)
+        : ''
+    });
     setIsCancelUploadConfirmOpen(false);
     setCancelUploadTargetId(null);
   };
@@ -871,11 +876,11 @@ export function DataManagement({
   const handleReupload = (id: number) => {
     setReuploadTargetId(id);
     setIsLocalUploadDialogOpen(true);
-  toast.info(t('data.toast.prepareReupload'), {
-    description: lang === 'zh'
-      ? `请选择文件以重新上传数据集 ${id}`
-      : `Please select a file to re-upload dataset ${id}`
-  });
+    toast.info(t('data.toast.prepareReupload'), {
+      description: lang === 'zh'
+        ? `请选择文件以重新上传数据集 ${id}`
+        : `Please select a file to re-upload dataset ${id}`
+    });
   };
 
   const handleQuickPreprocess = (id: number) => {
@@ -894,27 +899,25 @@ export function DataManagement({
           <h1 className="text-3xl font-bold text-gray-900">{t('data.title')}</h1>
           <p className="text-gray-600 mt-2">{t('data.description')}</p>
         </div>
-        
+
         {/* 二级菜单 */}
         <div className="flex space-x-2 p-1 bg-gray-100 rounded-lg w-fit">
           <button
             onClick={() => setActiveSubmenu('datasets')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeSubmenu === 'datasets'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeSubmenu === 'datasets'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+              }`}
           >
             <Database className="w-4 h-4" />
             <span>{t('data.submenu.datasets')}</span>
           </button>
           <button
             onClick={() => setActiveSubmenu('preprocessing')}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeSubmenu === 'preprocessing'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeSubmenu === 'preprocessing'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+              }`}
           >
             <Settings className="w-4 h-4" />
             <span>{t('data.submenu.preprocessing')}</span>
@@ -926,201 +929,201 @@ export function DataManagement({
       {activeSubmenu === 'datasets' && (
         <>
           {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <Card key={index} className="w-[200px]">
-            <CardContent className="flex items-center p-6">
-              <div className="flex items-center space-x-4">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <stat.icon className="h-6 w-6 text-blue-600" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {stats.map((stat, index) => (
+              <Card key={index} className="w-[200px]">
+                <CardContent className="flex items-center p-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <stat.icon className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                      <p className="text-2xl font-bold">{stat.value}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <DataHeaderFilters
+            searchTerm={searchTerm}
+            onSearchTermChange={(v) => setSearchTerm(v)}
+            tagQuery={advancedFilters.tagQuery}
+            onTagQueryChange={(v) => setAdvancedFilters(prev => ({ ...prev, tagQuery: v }))}
+            dateRange={advancedFilters.dateRange}
+            onDateRangeChange={(range) => setAdvancedFilters(prev => ({ ...prev, dateRange: range }))}
+            onApplyQuery={handleApplyQuery}
+            onResetFilters={handleResetFilters}
+            t={t}
+            formatYYYYMMDD={formatYYYYMMDD}
+          />
+          <Dialog open={isQueryDialogOpen} onOpenChange={setIsQueryDialogOpen}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>查询</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">标签</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableTags.map((tag) => (
+                      <label key={tag} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={querySelectedTags.includes(tag)}
+                          onChange={(e) => {
+                            setQuerySelectedTags((prev) => e.target.checked ? [...prev, tag] : prev.filter(tg => tg !== tag));
+                          }}
+                        />
+                        <span>{tag}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                  <p className="text-2xl font-bold">{stat.value}</p>
+                  <p className="text-sm text-gray-600 mb-2">格式</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableFormats.map((fmt) => (
+                      <label key={fmt} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={querySelectedFormats.includes(fmt)}
+                          onChange={(e) => {
+                            setQuerySelectedFormats((prev) => e.target.checked ? [...prev, fmt] : prev.filter(f => f !== fmt));
+                          }}
+                        />
+                        <span>{fmt}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => { setQuerySelectedTags([]); setQuerySelectedFormats([]); }}>重置</Button>
+                  <Button onClick={() => { setAdvancedFilters(prev => ({ ...prev, tags: querySelectedTags, formats: querySelectedFormats })); setIsQueryDialogOpen(false); }}>应用</Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </DialogContent>
+          </Dialog>
 
-      <DataHeaderFilters
-        searchTerm={searchTerm}
-        onSearchTermChange={(v) => setSearchTerm(v)}
-        tagQuery={advancedFilters.tagQuery}
-        onTagQueryChange={(v) => setAdvancedFilters(prev => ({ ...prev, tagQuery: v }))}
-        dateRange={advancedFilters.dateRange}
-        onDateRangeChange={(range) => setAdvancedFilters(prev => ({ ...prev, dateRange: range }))}
-        onApplyQuery={handleApplyQuery}
-        onResetFilters={handleResetFilters}
-        t={t}
-        formatYYYYMMDD={formatYYYYMMDD}
-      />
-      <Dialog open={isQueryDialogOpen} onOpenChange={setIsQueryDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>查询</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            <div>
-              <p className="text-sm text-gray-600 mb-2">标签</p>
-              <div className="grid grid-cols-2 gap-2">
-                {availableTags.map((tag) => (
-                  <label key={tag} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={querySelectedTags.includes(tag)}
-                      onChange={(e) => {
-                        setQuerySelectedTags((prev) => e.target.checked ? [...prev, tag] : prev.filter(tg => tg !== tag));
-                      }}
-                    />
-                    <span>{tag}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 mb-2">格式</p>
-              <div className="grid grid-cols-2 gap-2">
-                {availableFormats.map((fmt) => (
-                  <label key={fmt} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={querySelectedFormats.includes(fmt)}
-                      onChange={(e) => {
-                        setQuerySelectedFormats((prev) => e.target.checked ? [...prev, fmt] : prev.filter(f => f !== fmt));
-                      }}
-                    />
-                    <span>{fmt}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setQuerySelectedTags([]); setQuerySelectedFormats([]); }}>重置</Button>
-              <Button onClick={() => { setAdvancedFilters(prev => ({ ...prev, tags: querySelectedTags, formats: querySelectedFormats })); setIsQueryDialogOpen(false); }}>应用</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          <DataToolbar
+            selectedIds={selectedDatasets.map(String)}
+            onOpenUpload={() => setIsLocalUploadDialogOpen(true)}
+            onOpenSubscription={() => setIsDataSubscriptionOpen(true)}
+            onOpenSubscriptionList={() => setIsSubscriptionListOpen(true)}
+            onBatchDownload={handleBatchDownload}
+            onBatchArchive={handleBatchArchive}
+            onBatchDelete={handleBatchDelete}
+            onOpenColumnSettings={() => setIsColumnSettingsOpen(true)}
+            viewMode={viewMode as 'list' | 'grid'}
+            onSwitchViewMode={(mode) => setViewMode(mode)}
+            t={t}
+          />
 
-      <DataToolbar
-        selectedIds={selectedDatasets.map(String)}
-        onOpenUpload={() => setIsLocalUploadDialogOpen(true)}
-        onOpenSubscription={() => setIsDataSubscriptionOpen(true)}
-        onOpenSubscriptionList={() => setIsSubscriptionListOpen(true)}
-        onBatchDownload={handleBatchDownload}
-        onBatchArchive={handleBatchArchive}
-        onBatchDelete={handleBatchDelete}
-        onOpenColumnSettings={() => setIsColumnSettingsOpen(true)}
-        viewMode={viewMode as 'list' | 'grid'}
-        onSwitchViewMode={(mode) => setViewMode(mode)}
-        t={t}
-      />
-
-      {/* 数据展示区域 */}
-      {viewMode === 'grid' ? (
-        <DatasetGrid
-          datasets={paginatedDatasets as any[]}
-          selectedIds={selectedDatasets}
-          onToggleSelect={handleSelectDataset}
-          onEdit={handleEdit}
-          onCopy={handleCopy}
-          onDelete={handleSingleDelete}
-          onViewDetail={handleViewDataDetail}
-          onQuickPreprocess={handleQuickPreprocess}
-          onDownload={handleDownload}
-          onCancelUpload={handleCancelUpload}
-          t={t}
-        />
-      ) : (
-        <DatasetTable
-          data={filteredAndSortedDatasets as any}
-          selectAll={selectAll}
-          onSelectAll={handleSelectAll}
-          selectedIds={selectedDatasets}
-          onToggleSelect={(id) => handleSelectDataset(Number(id))}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          onSortChange={(column, order) => {
-            const col = String(column);
-            const ord = String(order);
-            if (isSortField(col)) {
-              setSortBy(col);
-            }
-            if (isSortOrder(ord)) {
-              setSortOrder(ord);
-            }
-          }}
-          columnSettings={columnSettings}
-          t={t}
-          formatYYYYMMDD={formatYYYYMMDD}
-          isTagsColFilterOpen={isTagsColFilterOpen}
-          onTagsFilterOpenChange={setIsTagsColFilterOpen}
-          availableTags={availableTags}
-          columnFilterTags={columnFilterTags}
-          onToggleTagFilter={(tag, checked) => setColumnFilterTags(prev => checked ? [...prev, tag] : prev.filter(tg => tg !== tag))}
-          onResetTagFilter={() => setColumnFilterTags([])}
-          isFormatColFilterOpen={isFormatColFilterOpen}
-          onFormatFilterOpenChange={setIsFormatColFilterOpen}
-          availableFormats={availableFormats}
-          columnFilterFormat={columnFilterFormat}
-          onToggleFormatFilter={(fmt, checked) => setColumnFilterFormat(prev => checked ? [...prev, fmt] : prev.filter(f => f !== fmt))}
-          onResetFormatFilter={() => setColumnFilterFormat([])}
-          onViewDataDetail={(id) => handleViewDataDetail(Number(id))}
-          onQuickPreprocess={(id) => handleQuickPreprocess(Number(id))}
-          onDownload={(id) => handleDownload(Number(id))}
-          onEdit={(id) => handleEdit(Number(id))}
-          onCopy={(id) => handleCopy(Number(id))}
-          onDelete={(id) => handleSingleDelete(Number(id))}
-          onCancelUpload={(id) => handleCancelUpload(Number(id))}
-        />
-      )}
-
-      {/* 分页控件：仅在网格视图显示 */}
-      {viewMode === 'grid' && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-700">
-              显示 {(currentPage - 1) * itemsPerPage + 1} 到 {Math.min(currentPage * itemsPerPage, filteredAndSortedDatasets.length)} 条，共 {filteredAndSortedDatasets.length} 条
-            </span>
-            <select
-              className="px-2 py-1 border border-gray-300 rounded text-sm"
-              value={itemsPerPage}
-              onChange={(e) => {
-                setItemsPerPage(Number(e.target.value));
-                setCurrentPage(1);
+          {/* 数据展示区域 */}
+          {viewMode === 'grid' ? (
+            <DatasetGrid
+              datasets={paginatedDatasets as any[]}
+              selectedIds={selectedDatasets.map(String)}
+              onToggleSelect={(id) => handleSelectDataset(Number(id))}
+              onEdit={(id) => handleEdit(Number(id))}
+              onCopy={(id) => handleCopy(Number(id))}
+              onDelete={(id) => handleSingleDelete(Number(id))}
+              onViewDetail={(id) => handleViewDataDetail(Number(id))}
+              onQuickPreprocess={(id) => handleQuickPreprocess(Number(id))}
+              onDownload={(id) => handleDownload(Number(id))}
+              onCancelUpload={(id) => handleCancelUpload(Number(id))}
+              t={t}
+            />
+          ) : (
+            <DatasetTable
+              data={filteredAndSortedDatasets as any}
+              selectAll={selectAll}
+              onSelectAll={handleSelectAll}
+              selectedIds={selectedDatasets}
+              onToggleSelect={(id) => handleSelectDataset(Number(id))}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSortChange={(column, order) => {
+                const col = String(column);
+                const ord = String(order);
+                if (isSortField(col)) {
+                  setSortBy(col);
+                }
+                if (isSortOrder(ord)) {
+                  setSortOrder(ord);
+                }
               }}
-            >
-              <option value={10}>10条/页</option>
-              <option value={20}>20条/页</option>
-              <option value={50}>50条/页</option>
-            </select>
-          </div>
-          
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
-              {t('common.prev')}
-            </Button>
-            <span className="flex items-center px-3 py-1 text-sm">
-              {t('data.pagination.page')} {currentPage} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-            >
-              {t('common.next')}
-            </Button>
-          </div>
-        </div>
-      )}
+              columnSettings={columnSettings}
+              t={t}
+              formatYYYYMMDD={formatYYYYMMDD}
+              isTagsColFilterOpen={isTagsColFilterOpen}
+              onTagsFilterOpenChange={setIsTagsColFilterOpen}
+              availableTags={availableTags}
+              columnFilterTags={columnFilterTags}
+              onToggleTagFilter={(tag, checked) => setColumnFilterTags(prev => checked ? [...prev, tag] : prev.filter(tg => tg !== tag))}
+              onResetTagFilter={() => setColumnFilterTags([])}
+              isFormatColFilterOpen={isFormatColFilterOpen}
+              onFormatFilterOpenChange={setIsFormatColFilterOpen}
+              availableFormats={availableFormats}
+              columnFilterFormat={columnFilterFormat}
+              onToggleFormatFilter={(fmt, checked) => setColumnFilterFormat(prev => checked ? [...prev, fmt] : prev.filter(f => f !== fmt))}
+              onResetFormatFilter={() => setColumnFilterFormat([])}
+              onViewDataDetail={(id) => handleViewDataDetail(Number(id))}
+              onQuickPreprocess={(id) => handleQuickPreprocess(Number(id))}
+              onDownload={(id) => handleDownload(Number(id))}
+              onEdit={(id) => handleEdit(Number(id))}
+              onCopy={(id) => handleCopy(Number(id))}
+              onDelete={(id) => handleSingleDelete(Number(id))}
+              onCancelUpload={(id) => handleCancelUpload(Number(id))}
+            />
+          )}
+
+          {/* 分页控件：仅在网格视图显示 */}
+          {viewMode === 'grid' && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700">
+                  显示 {(currentPage - 1) * itemsPerPage + 1} 到 {Math.min(currentPage * itemsPerPage, filteredAndSortedDatasets.length)} 条，共 {filteredAndSortedDatasets.length} 条
+                </span>
+                <select
+                  className="px-2 py-1 border border-gray-300 rounded text-sm"
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value={10}>10条/页</option>
+                  <option value={20}>20条/页</option>
+                  <option value={50}>50条/页</option>
+                </select>
+              </div>
+
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  {t('common.prev')}
+                </Button>
+                <span className="flex items-center px-3 py-1 text-sm">
+                  {t('data.pagination.page')} {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  {t('common.next')}
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -1277,7 +1280,7 @@ export function DataManagement({
                   />
                 </div>
               </div>
-              
+
               <div>
                 <Label htmlFor="edit-description">{t('data.form.description')}</Label>
                 <Textarea
@@ -1309,8 +1312,8 @@ export function DataManagement({
                       }}
                       className="flex-1"
                     />
-                    <Button 
-                      type="button" 
+                    <Button
+                      type="button"
                       onClick={addEditTag}
                       disabled={!editNewTagName.trim()}
                       size="sm"
@@ -1318,7 +1321,7 @@ export function DataManagement({
                       {t('common.add')}
                     </Button>
                   </div>
-                  
+
                   {/* 已添加的标签 */}
                   {editingDataset.tags && editingDataset.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -1420,7 +1423,7 @@ export function DataManagement({
                   })}
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="copy-description">{t('data.form.description')}</Label>
                 <Textarea
@@ -1464,7 +1467,7 @@ export function DataManagement({
               setIsDataPreprocessingOpen(true);
             }}>
               <Plus className="h-4 w-4 mr-2" />
-  {t('data.preprocessing.createTask')}
+              {t('data.preprocessing.createTask')}
             </Button>
           </div>
 
@@ -1481,11 +1484,11 @@ export function DataManagement({
                 <Calendar
                   mode="range"
                   selected={taskFilters.dateRange ?? undefined}
-                  onSelect={(range: DateRange | undefined) => setTaskFilters(prev => ({...prev, dateRange: range ?? null}))}
+                  onSelect={(range: DateRange | undefined) => setTaskFilters(prev => ({ ...prev, dateRange: range ?? null }))}
                   initialFocus
                 />
                 <div className="p-2 flex justify-end">
-                  <Button variant="ghost" size="sm" onClick={() => setTaskFilters(prev => ({...prev, dateRange: null}))}>{t('common.clear')}</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setTaskFilters(prev => ({ ...prev, dateRange: null }))}>{t('common.clear')}</Button>
                 </div>
               </PopoverContent>
             </Popover>
@@ -1493,7 +1496,7 @@ export function DataManagement({
               <Input
                 placeholder={t('task.filters.search.placeholder')}
                 value={taskFilters.datasetQuery}
-                onChange={(e) => setTaskFilters(prev => ({...prev, datasetQuery: e.target.value}))}
+                onChange={(e) => setTaskFilters(prev => ({ ...prev, datasetQuery: e.target.value }))}
               />
             </div>
           </div>
@@ -1502,176 +1505,176 @@ export function DataManagement({
           <Card>
             <div className="relative overflow-auto max-h-[480px]" style={{ scrollBehavior: 'smooth' }}>
               <Table className="min-w-[1000px]">
-              <TableHeader className="sticky top-0 bg-white z-10">
-                <TableRow>
-  <TableHead>{t('data.preprocessing.table.taskId')}</TableHead>
-  <TableHead>{t('data.preprocessing.table.dataset')}</TableHead>
-  <TableHead>{t('data.preprocessing.table.type')}</TableHead>
-  {/* 新增：创建人 */}
-  <TableHead>{t('data.preprocessing.table.creator')}</TableHead>
-                  <TableHead>
-                    <div className="flex items-center gap-1">
-                      <span>{t('data.preprocessing.table.status')}</span>
-                      <Popover open={isPreprocessStatusColFilterOpen} onOpenChange={setIsPreprocessStatusColFilterOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="p-0 h-auto">
-                            <Filter className="h-3.5 w-3.5 text-gray-500" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-52 p-3">
-                          {/* 单选：全部/运行中/排队中/已完成/失败 */}
-                          <RadioGroup
-                            value={taskFilters.status}
-                            onValueChange={(v: 'all' | 'success' | 'running' | 'pending' | 'failed') =>
-                              setTaskFilters(prev => ({ ...prev, status: v }))
-                            }
-                          >
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm">
-                                <RadioGroupItem value="all" id="pp-status-all" />
-                                <Label htmlFor="pp-status-all" className="cursor-pointer">
-                                  {t('task.filters.status.all')}
-                                </Label>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm">
-                                <RadioGroupItem value="running" id="pp-status-running" />
-                                <Label htmlFor="pp-status-running" className="cursor-pointer">
-                                  {t('task.filters.status.running')}
-                                </Label>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm">
-                                <RadioGroupItem value="pending" id="pp-status-pending" />
-                                <Label htmlFor="pp-status-pending" className="cursor-pointer">
-                                  {t('task.filters.status.pending')}
-                                </Label>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm">
-                                <RadioGroupItem value="success" id="pp-status-success" />
-                                <Label htmlFor="pp-status-success" className="cursor-pointer">
-                                  {t('task.filters.status.completed')}
-                                </Label>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm">
-                                <RadioGroupItem value="failed" id="pp-status-failed" />
-                                <Label htmlFor="pp-status-failed" className="cursor-pointer">
-                                  {t('task.filters.status.failed')}
-                                </Label>
-                              </div>
-                            </div>
-                          </RadioGroup>
-                          <div className="flex justify-end gap-2 mt-3">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setTaskFilters(prev => ({...prev, status: 'all'}))}
-                              className="text-gray-500"
-                            >
-                              {t('common.reset')}
-                            </Button>
-                            <Button variant="default" size="sm" onClick={() => setIsPreprocessStatusColFilterOpen(false)}>
-                              {t('common.confirm')}
-                            </Button>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </TableHead>
-  <TableHead>{t('data.preprocessing.table.operation')}</TableHead>
-  <TableHead>{t('data.preprocessing.table.startTime')}</TableHead>
-  <TableHead>{t('data.preprocessing.table.endTime')}</TableHead>
-  <TableHead className="sticky right-0 bg-white z-20 border-l w-[220px] text-right">{t('data.preprocessing.table.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPreprocessingTasks.map(task => (
-                  <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.id}</TableCell>
-                    <TableCell>
-                      <Button variant="link" className="p-0 h-auto" onClick={() => handleDatasetClick(task.dataset)}>
-                        {task.dataset}
-                      </Button>
-                    </TableCell>
-                    <TableCell>{task.type}</TableCell>
+                <TableHeader className="sticky top-0 bg-white z-10">
+                  <TableRow>
+                    <TableHead>{t('data.preprocessing.table.taskId')}</TableHead>
+                    <TableHead>{t('data.preprocessing.table.dataset')}</TableHead>
+                    <TableHead>{t('data.preprocessing.table.type')}</TableHead>
                     {/* 新增：创建人 */}
-                    <TableCell>{task.creator}</TableCell>
-                    <TableCell>
-                      {task.status === 'success' && (
-  <Badge variant="default">{t('task.filters.status.completed')}</Badge>
-                      )}
-                      {task.status === 'failed' && (
-  <Badge variant="destructive">{t('task.filters.status.failed')}</Badge>
-                      )}
-                      {task.status === 'running' && (
-                        <div className="flex items-center gap-2">
-  <Badge variant="secondary">{t('task.filters.status.running')}</Badge>
-                          {typeof task.progress === 'number' && (
-                            <div className="flex items-center gap-2 w-32">
-                              <Progress value={task.progress} className="h-2" />
-                              <span className="text-xs text-gray-600">{task.progress}%</span>
+                    <TableHead>{t('data.preprocessing.table.creator')}</TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1">
+                        <span>{t('data.preprocessing.table.status')}</span>
+                        <Popover open={isPreprocessStatusColFilterOpen} onOpenChange={setIsPreprocessStatusColFilterOpen}>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-auto">
+                              <Filter className="h-3.5 w-3.5 text-gray-500" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="w-52 p-3">
+                            {/* 单选：全部/运行中/排队中/已完成/失败 */}
+                            <RadioGroup
+                              value={taskFilters.status}
+                              onValueChange={(v: 'all' | 'success' | 'running' | 'pending' | 'failed') =>
+                                setTaskFilters(prev => ({ ...prev, status: v }))
+                              }
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <RadioGroupItem value="all" id="pp-status-all" />
+                                  <Label htmlFor="pp-status-all" className="cursor-pointer">
+                                    {t('task.filters.status.all')}
+                                  </Label>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <RadioGroupItem value="running" id="pp-status-running" />
+                                  <Label htmlFor="pp-status-running" className="cursor-pointer">
+                                    {t('task.filters.status.running')}
+                                  </Label>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <RadioGroupItem value="pending" id="pp-status-pending" />
+                                  <Label htmlFor="pp-status-pending" className="cursor-pointer">
+                                    {t('task.filters.status.pending')}
+                                  </Label>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <RadioGroupItem value="success" id="pp-status-success" />
+                                  <Label htmlFor="pp-status-success" className="cursor-pointer">
+                                    {t('task.filters.status.completed')}
+                                  </Label>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <RadioGroupItem value="failed" id="pp-status-failed" />
+                                  <Label htmlFor="pp-status-failed" className="cursor-pointer">
+                                    {t('task.filters.status.failed')}
+                                  </Label>
+                                </div>
+                              </div>
+                            </RadioGroup>
+                            <div className="flex justify-end gap-2 mt-3">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setTaskFilters(prev => ({ ...prev, status: 'all' }))}
+                                className="text-gray-500"
+                              >
+                                {t('common.reset')}
+                              </Button>
+                              <Button variant="default" size="sm" onClick={() => setIsPreprocessStatusColFilterOpen(false)}>
+                                {t('common.confirm')}
+                              </Button>
                             </div>
-                          )}
-                        </div>
-                      )}
-                      {task.status === 'pending' && (
-  <Badge variant="outline">{t('task.filters.status.pending')}</Badge>
-                      )}
-                      {task.status === 'not_started' && (
-  <Badge variant="outline">{t('task.filters.status.not_started')}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {task.operations.map((op, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">{op}</Badge>
-                        ))}
+                          </PopoverContent>
+                        </Popover>
                       </div>
-                    </TableCell>
-                    <TableCell>{formatYYYYMMDD(task.startTime)}</TableCell>
-                    <TableCell>{formatYYYYMMDD(task.completedAt)}</TableCell>
-                    <TableCell className="sticky right-0 bg-white z-20 border-l w-[220px]">
-                      <div className="flex justify-end gap-2">
-                        {task.status === 'running' && (
-                          <>
-                            <Button variant="outline" size="sm" onClick={() => handleViewTask(task.id)}>{t('task.actions.viewDetail')}</Button>
-                            <Button variant="destructive" size="sm" onClick={() => openTaskConfirm('stop', task.id)}>{t('task.actions.stop')}</Button>
-                          </>
-                        )}
-                        {task.status === 'pending' && (
-                          <>
-                            {/* 排队中：仅允许“取消排队”，取消后进入未开始状态再提供重试/编辑/删除 */}
-                            <Button size="sm" onClick={() => openCancelQueueConfirm(task.id)}>{t('task.actions.cancelQueue')}</Button>
-                          </>
-                        )}
-                        {task.status === 'not_started' && (
-                          <>
-                            {/* 未开始：按需求仅提供“重试、编辑、删除” */}
-                            <Button size="sm" onClick={() => openTaskConfirm('retry', task.id)}>{t('task.actions.retry')}</Button>
-                            <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
-                            <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
-                          </>
+                    </TableHead>
+                    <TableHead>{t('data.preprocessing.table.operation')}</TableHead>
+                    <TableHead>{t('data.preprocessing.table.startTime')}</TableHead>
+                    <TableHead>{t('data.preprocessing.table.endTime')}</TableHead>
+                    <TableHead className="sticky right-0 bg-white z-20 border-l w-[220px] text-right">{t('data.preprocessing.table.actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPreprocessingTasks.map(task => (
+                    <TableRow key={task.id}>
+                      <TableCell className="font-medium">{task.id}</TableCell>
+                      <TableCell>
+                        <Button variant="link" className="p-0 h-auto" onClick={() => handleDatasetClick(task.dataset)}>
+                          {task.dataset}
+                        </Button>
+                      </TableCell>
+                      <TableCell>{task.type}</TableCell>
+                      {/* 新增：创建人 */}
+                      <TableCell>{task.creator}</TableCell>
+                      <TableCell>
+                        {task.status === 'success' && (
+                          <Badge variant="default">{t('task.filters.status.completed')}</Badge>
                         )}
                         {task.status === 'failed' && (
-                          <>
-                            {/* 失败：提供查看详情、重试、编辑、删除 */}
-                            <Button variant="outline" size="sm" onClick={() => handleViewTask(task.id)}>{t('task.actions.viewDetail')}</Button>
-                            <Button size="sm" onClick={() => openTaskConfirm('retry', task.id)}>{t('task.actions.retry')}</Button>
-                            <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
-                            <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
-                          </>
+                          <Badge variant="destructive">{t('task.filters.status.failed')}</Badge>
                         )}
-                        {task.status === 'success' && (
-                          <>
-                            {/* 已完成：提供查看详情、删除 */}
-                            <Button variant="outline" size="sm" onClick={() => handleViewTask(task.id)}>{t('task.actions.viewDetail')}</Button>
-                            <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
-                          </>
+                        {task.status === 'running' && (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">{t('task.filters.status.running')}</Badge>
+                            {typeof task.progress === 'number' && (
+                              <div className="flex items-center gap-2 w-32">
+                                <Progress value={task.progress} className="h-2" />
+                                <span className="text-xs text-gray-600">{task.progress}%</span>
+                              </div>
+                            )}
+                          </div>
                         )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        {task.status === 'pending' && (
+                          <Badge variant="outline">{t('task.filters.status.pending')}</Badge>
+                        )}
+                        {task.status === 'not_started' && (
+                          <Badge variant="outline">{t('task.filters.status.not_started')}</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {task.operations.map((op, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">{op}</Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatYYYYMMDD(task.startTime)}</TableCell>
+                      <TableCell>{formatYYYYMMDD(task.completedAt)}</TableCell>
+                      <TableCell className="sticky right-0 bg-white z-20 border-l w-[220px]">
+                        <div className="flex justify-end gap-2">
+                          {task.status === 'running' && (
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => handleViewTask(task.id)}>{t('task.actions.viewDetail')}</Button>
+                              <Button variant="destructive" size="sm" onClick={() => openTaskConfirm('stop', task.id)}>{t('task.actions.stop')}</Button>
+                            </>
+                          )}
+                          {task.status === 'pending' && (
+                            <>
+                              {/* 排队中：仅允许“取消排队”，取消后进入未开始状态再提供重试/编辑/删除 */}
+                              <Button size="sm" onClick={() => openCancelQueueConfirm(task.id)}>{t('task.actions.cancelQueue')}</Button>
+                            </>
+                          )}
+                          {task.status === 'not_started' && (
+                            <>
+                              {/* 未开始：按需求仅提供“重试、编辑、删除” */}
+                              <Button size="sm" onClick={() => openTaskConfirm('retry', task.id)}>{t('task.actions.retry')}</Button>
+                              <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
+                              <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
+                            </>
+                          )}
+                          {task.status === 'failed' && (
+                            <>
+                              {/* 失败：提供查看详情、重试、编辑、删除 */}
+                              <Button variant="outline" size="sm" onClick={() => handleViewTask(task.id)}>{t('task.actions.viewDetail')}</Button>
+                              <Button size="sm" onClick={() => openTaskConfirm('retry', task.id)}>{t('task.actions.retry')}</Button>
+                              <Button variant="outline" size="sm" onClick={() => handleEditTask(task.id)}>{t('task.actions.edit')}</Button>
+                              <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
+                            </>
+                          )}
+                          {task.status === 'success' && (
+                            <>
+                              {/* 已完成：提供查看详情、删除 */}
+                              <Button variant="outline" size="sm" onClick={() => handleViewTask(task.id)}>{t('task.actions.viewDetail')}</Button>
+                              <Button variant="ghost" size="sm" onClick={() => openTaskConfirm('delete', task.id)}>{t('task.actions.delete')}</Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           </Card>
         </div>

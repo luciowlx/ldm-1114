@@ -3,13 +3,13 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import { Avatar, AvatarFallback } from "./ui/avatar";
-import { 
-  Plus, 
-  Upload, 
-  Zap, 
-  FileText, 
-  TrendingUp, 
-  Database, 
+import {
+  Plus,
+  Upload,
+  Zap,
+  FileText,
+  TrendingUp,
+  Database,
   Calendar,
   Activity,
   Cpu,
@@ -60,7 +60,7 @@ interface DashboardProps {
  * 参数：props（见 DashboardProps）— 导航与交互回调。
  * 返回：JSX.Element — 仪表盘页面 JSX 结构。
  */
-export function Dashboard({ 
+export function Dashboard({
   onNavigateToProjectManagement,
   onNavigateToDataManagement,
   onNavigateToTaskManagement,
@@ -86,31 +86,31 @@ export function Dashboard({
   // 顶部统计卡片已按原型要求移除
 
   const quickActions = [
-    { 
-      label: "创建新项目", 
-      description: "开始一个新的AI项目", 
-      icon: Plus, 
+    {
+      label: "创建新项目",
+      description: "开始一个新的AI项目",
+      icon: Plus,
       color: "bg-blue-50 text-blue-600",
       onClick: onNavigateToProjectManagement
     },
-    { 
-      label: "上传数据", 
-      description: "导入训练数据集", 
-      icon: Upload, 
+    {
+      label: "上传数据",
+      description: "导入训练数据集",
+      icon: Upload,
       color: "bg-green-50 text-green-600",
       onClick: onNavigateToDataManagement
     },
-    { 
-      label: "创建任务", 
-      description: "创建新的训练任务", 
-      icon: FileText, 
+    {
+      label: "创建任务",
+      description: "创建新的训练任务",
+      icon: FileText,
       color: "bg-purple-50 text-purple-600",
       onClick: onNavigateToTaskManagement
     },
-    { 
-      label: "模型微调", 
-      description: "优化和调整模型参数", 
-      icon: Zap, 
+    {
+      label: "模型微调",
+      description: "优化和调整模型参数",
+      icon: Zap,
       color: "bg-orange-50 text-orange-600",
       onClick: onNavigateToModelManagement
     }
@@ -130,7 +130,7 @@ export function Dashboard({
     {
       name: "电力预测",
       description: "个性化产品推荐系统优化",
-      status: "进行中", 
+      status: "进行中",
       members: ["A", "B"],
       color: "green",
       startDate: "2025-10-10T09:00:00Z",
@@ -275,7 +275,7 @@ export function Dashboard({
         { label: "数据集", value: 87 },
         { label: "文件数", value: 156 },
         { label: "总大小", value: "456GB" },
-        { label: "来源", value: "多源融合" },
+        { label: "今日新增", value: 12 },
       ],
       footer: { label: "数据质量分", value: "+5" },
       icon: Database,
@@ -336,7 +336,7 @@ export function Dashboard({
           {/* 快速操作 */}
           <QuickActionsSection actions={quickActions} />
 
-        {/* 最近活动（置于左列，大卡） */}
+          {/* 最近活动（置于左列，大卡） */}
           <RecentActivitiesSection
             title={t("dashboard.recentActivity")}
             activities={recentActivities}
