@@ -22,6 +22,12 @@
 
 ## 变更历史
 
+### 2025-12-12
+
+- [Feat/Department/UserDelete] 用户列表增加删除功能：操作列新增删除按钮，支持二次确认；仅禁用状态的用户可删除。
+  - 涉及文件：`src/components/DepartmentManagement.tsx`
+  - 说明/验证：点击删除按钮弹出确认框；若用户状态为“启用”则按钮禁用并提示限制。
+
 ### 2025-12-03
 
 - [Feat/ProjectManagement/Filters] 项目管理筛选位置调整：状态筛选移至顶部工具栏，负责人筛选移至列表列头。

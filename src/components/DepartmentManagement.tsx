@@ -162,6 +162,9 @@ export function DepartmentManagement() {
   // 删除部门二次确认
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string>("");
+  // 删除用户二次确认
+  const [isDeleteUserConfirmOpen, setIsDeleteUserConfirmOpen] = useState<boolean>(false);
+  const [deleteUserTargetId, setDeleteUserTargetId] = useState<string>("");
 
   // 选中的数据
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
@@ -502,6 +505,22 @@ export function DepartmentManagement() {
     setSelectedUsers([]);
     setUserFormData({ name: "", email: "", phone: "", password: "", confirmPassword: "", role: "", departmentId: "" });
     setIsDeptChangeDialogOpen(false);
+  };
+
+  const handleDeleteUser = (id: string) => {
+    setDeleteUserTargetId(id);
+    setIsDeleteUserConfirmOpen(true);
+  };
+
+  const confirmDeleteUser = () => {
+    if (!deleteUserTargetId) return;
+    setUsers(users.filter(u => u.id !== deleteUserTargetId));
+    setIsDeleteUserConfirmOpen(false);
+    setDeleteUserTargetId("");
+    // 如果选中的用户被删除，清除选中状态
+    if (selectedUser?.id === deleteUserTargetId) {
+      setSelectedUser(null);
+    }
   };
 
   // 辅助函数
@@ -913,9 +932,21 @@ export function DepartmentManagement() {
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <Button variant="ghost" size="sm" onClick={() => openUserDetailDialog(user)}>
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
+                                  <div className="flex items-center space-x-1">
+                                    <Button variant="ghost" size="sm" onClick={() => openUserDetailDialog(user)} title="编辑员工">
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteUser(user.id)}
+                                      disabled={user.status === "active"}
+                                      className={user.status === "active" ? "opacity-50 cursor-not-allowed" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
+                                      title={user.status === "active" ? "仅禁用状态的用户可删除" : "删除员工"}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -1043,13 +1074,26 @@ export function DepartmentManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openUserDetailDialog(user)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openUserDetailDialog(user)}
+                            title="编辑员工"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={user.status === "active"}
+                            className={user.status === "active" ? "opacity-50 cursor-not-allowed" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
+                            title={user.status === "active" ? "仅禁用状态的用户可删除" : "删除员工"}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ));
@@ -1478,6 +1522,24 @@ export function DepartmentManagement() {
               }}>
                 添加
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除用户二次确认对话框 */}
+      <Dialog open={isDeleteUserConfirmOpen} onOpenChange={setIsDeleteUserConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>确认删除员工</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              确定要删除该员工吗？此操作不可撤回。
+            </p>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsDeleteUserConfirmOpen(false)}>取消</Button>
+              <Button variant="destructive" onClick={confirmDeleteUser}>确认删除</Button>
             </div>
           </div>
         </DialogContent>
